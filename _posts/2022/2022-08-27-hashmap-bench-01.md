@@ -239,7 +239,7 @@ Same as benchmark **Find 1 - 200 uint64_t**, but with 500k lookups every 4 inser
 
 ### Find 1 – 500k uint64_t
 
-Same as benchmark **Find 1 - 200 uint64_t**, but with 1000 lookups every 4 inserts until the map contains 2000 entries. Note that there is a overhead measured with the find benchmark, namely inserting. In my tests this overhead is minimal and negligable to find results. E.g. for `jg::dense_hash_map` which has very fast find and very slow inserts, the overhead is only ~0.49%.
+Same as benchmark **Find 1 - 200 uint64_t**, but with 1000 lookups every 4 inserts until the map contains 500k entries. Note that there is a overhead measured with the find benchmark, namely inserting. In my tests this overhead is minimal and negligable to find results. E.g. for `jg::dense_hash_map` which has very fast find and very slow inserts, the overhead is only ~0.49%.
 
 ## Modifying String Benchmarks
 
