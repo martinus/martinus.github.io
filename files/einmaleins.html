@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Einmaleins-Training</title>
+  <style>
+    :root {
+      --bg-a: #fff4b8;
+      --bg-b: #c9f7ff;
+      --bg-c: #ffd6e7;
+      --ink: #243047;
+      --muted: #667085;
+      --card: rgba(255,255,255,.92);
+      --blue: #2f80ed;
+      --green: #27ae60;
+      --red: #eb5757;
+      --purple: #9b51e0;
+      --yellow: #f2c94c;
+      --shadow: 0 18px 45px rgba(27, 39, 66, .18);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; min-height: 100%; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 15%, var(--bg-a), transparent 32%),
+        radial-gradient(circle at 85% 20%, var(--bg-c), transparent 35%),
+        radial-gradient(circle at 70% 90%, var(--bg-b), transparent 38%),
+        linear-gradient(135deg, #eef7ff, #fff9dd);
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      overflow-x: hidden;
+    }
+
+    .app {
+      width: min(850px, 100%);
+      min-height: min(760px, calc(100vh - 36px));
+      background: var(--card);
+      border-radius: 34px;
+      border: 5px solid rgba(255,255,255,.95);
+      box-shadow: var(--shadow);
+      padding: clamp(18px, 4vw, 36px);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app::before,
+    .app::after {
+      content: "★";
+      position: absolute;
+      font-size: 110px;
+      opacity: .10;
+      pointer-events: none;
+    }
+    .app::before { left: 20px; top: 10px; color: var(--yellow); }
+    .app::after { right: 24px; bottom: 8px; color: var(--purple); }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2.2rem, 7vw, 5rem);
+      line-height: .95;
+      letter-spacing: -.05em;
+    }
+
+    .sub {
+      margin: 0 auto 28px;
+      max-width: 650px;
+      color: var(--muted);
+      font-size: clamp(1.12rem, 3vw, 1.55rem);
+      font-weight: 800;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .choices,
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 26px;
+      padding: 19px 28px;
+      min-width: min(100%, 240px);
+      color: white;
+      font-size: clamp(1.25rem, 3vw, 1.85rem);
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow: 0 9px 0 rgba(0,0,0,.18), 0 13px 24px rgba(0,0,0,.14);
+      transform: translateY(0);
+      transition: transform .05s ease, box-shadow .05s ease, filter .12s ease;
+      touch-action: manipulation;
+    }
+
+    button:active {
+      transform: translateY(6px);
+      box-shadow: 0 3px 0 rgba(0,0,0,.18), 0 7px 14px rgba(0,0,0,.12);
+    }
+    button:hover { filter: brightness(1.04); }
+    button:focus-visible { outline: 5px solid #111; outline-offset: 4px; }
+
+    .primary { background: var(--blue); }
+    .good { background: var(--green); }
+    .bad { background: var(--red); }
+    .quiet { background: #7f8c8d; min-width: 0; padding: 13px 18px; border-radius: 18px; font-size: 1.05rem; }
+    .purple { background: var(--purple); }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 22px;
+      color: var(--muted);
+      font-size: clamp(1rem, 2.4vw, 1.35rem);
+      font-weight: 900;
+    }
+
+    .pill {
+      background: white;
+      border-radius: 999px;
+      padding: 10px 16px;
+      box-shadow: 0 6px 16px rgba(0,0,0,.08);
+      white-space: nowrap;
+    }
+
+    .problem-card {
+      background: white;
+      border-radius: 32px;
+      padding: clamp(22px, 7vw, 52px);
+      box-shadow: inset 0 0 0 4px rgba(47,128,237,.10), 0 12px 28px rgba(0,0,0,.10);
+      margin: 0 auto 24px;
+      max-width: 680px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-weight: 900;
+      font-size: clamp(1.1rem, 2.8vw, 1.6rem);
+      margin-bottom: 8px;
+    }
+
+    .calculation {
+      font-size: clamp(5.4rem, 22vw, 11rem);
+      line-height: .9;
+      font-weight: 1000;
+      letter-spacing: -.065em;
+      margin: 12px 0;
+    }
+
+    .answer {
+      min-height: 1.1em;
+      font-size: clamp(4rem, 16vw, 8rem);
+      line-height: 1;
+      font-weight: 1000;
+      color: var(--green);
+      opacity: 0;
+      transform: scale(.92);
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .answer.visible { opacity: 1; transform: scale(1); }
+
+    .message {
+      min-height: 2.1em;
+      margin-top: 20px;
+      font-weight: 950;
+      font-size: clamp(1.18rem, 3vw, 1.8rem);
+    }
+
+    .progress {
+      display: grid;
+      grid-template-columns: repeat(var(--dots, 20), 1fr);
+      gap: 5px;
+      max-width: 620px;
+      margin: 0 auto 18px;
+    }
+    .dot {
+      height: 13px;
+      border-radius: 999px;
+      background: rgba(36,48,71,.13);
+    }
+    .dot.done.good-dot { background: var(--green); }
+    .dot.done.bad-dot { background: var(--red); }
+
+    .summary-card {
+      background: white;
+      border-radius: 32px;
+      padding: clamp(20px, 5vw, 42px);
+      box-shadow: inset 0 0 0 4px rgba(155,81,224,.12), 0 12px 28px rgba(0,0,0,.10);
+      max-width: 720px;
+      margin: 0 auto 22px;
+    }
+
+    .big-result {
+      font-size: clamp(3rem, 11vw, 7rem);
+      font-weight: 1000;
+      line-height: .95;
+      margin: 8px 0 20px;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .result-box {
+      background: #f7f9fc;
+      border-radius: 22px;
+      padding: 16px 10px;
+    }
+    .result-box .num {
+      display: block;
+      font-size: clamp(2rem, 6vw, 3.4rem);
+      font-weight: 1000;
+      line-height: 1;
+    }
+    .result-box .label {
+      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .practice-list {
+      margin: 16px auto 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .practice-list li {
+      background: #fff1f1;
+      color: #9b1c1c;
+      font-weight: 950;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 1.1rem;
+    }
+
+    .hidden { display: none !important; }
+
+    .confetti {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .confetti span {
+      position: absolute;
+      top: -28px;
+      animation: fall 1350ms linear forwards;
+    }
+    @keyframes fall {
+      to { transform: translateY(110vh) rotate(720deg); opacity: .2; }
+    }
+
+    @media (max-width: 620px) {
+      .topline { align-items: stretch; flex-direction: column; }
+      .result-grid { grid-template-columns: 1fr; }
+      .buttons, .choices { flex-direction: column; align-items: stretch; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-live="polite">
+    <section id="startScreen" class="screen active">
+      <h1>🌟 Einmaleins<br>Mission</h1>
+      <p class="sub">Kurz trainieren, Sterne sammeln und am Ende stolz das Ergebnis zeigen.</p>
+      <div class="choices">
+        <button class="primary" data-mode="time">⏱️ 5 Minuten</button>
+        <button class="purple" data-mode="count">🎯 20 Aufgaben</button>
+      </div>
+      <p class="message" id="startMessage">Such dir eine Mission aus!</p>
+      <button class="quiet" id="resetAllBtn">🔄 Fortschritt löschen</button>
+    </section>
+
+    <section id="trainScreen" class="screen">
+      <div class="topline">
+        <div class="pill" id="leftInfo">Noch 20</div>
+        <div class="pill" id="sessionInfo">0 richtig</div>
+      </div>
+      <div class="progress" id="progress"></div>
+
+      <div class="problem-card">
+        <div class="hint" id="hint">Erst im Kopf lösen ...</div>
+        <div class="calculation" id="calculation">3 × 8</div>
+        <div class="answer" id="answer">24</div>
+      </div>
+
+      <div class="buttons">
+        <button class="primary" id="showBtn">👀 Ergebnis zeigen</button>
+        <button class="good hidden" id="knownBtn">😊 Gewusst</button>
+        <button class="bad hidden" id="unknownBtn">💪 Noch üben</button>
+      </div>
+      <div class="message" id="message">Du schaffst das!</div>
+    </section>
+
+    <section id="resultScreen" class="screen">
+      <h1>🏆 Geschafft!</h1>
+      <p class="sub" id="resultTitle">Das war eine starke Trainingseinheit.</p>
+      <div class="summary-card">
+        <div class="big-result" id="bigResult">18 / 20</div>
+        <div class="result-grid">
+          <div class="result-box"><span class="num" id="rKnown">0</span><span class="label">gewusst</span></div>
+          <div class="result-box"><span class="num" id="rUnknown">0</span><span class="label">noch üben</span></div>
+          <div class="result-box"><span class="num" id="rStars">0</span><span class="label">Sterne</span></div>
+        </div>
+        <div id="practiceWrap" class="hidden">
+          <p class="sub" style="margin-bottom:8px">Diese Aufgaben kommen nächstes Mal öfter:</p>
+          <ul class="practice-list" id="practiceList"></ul>
+        </div>
+      </div>
+      <div class="choices">
+        <button class="primary" id="againBtn">🚀 Nochmal</button>
+        <button class="purple" id="homeBtn">🏠 Auswahl</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+  <script>
+    "use strict";
+
+    const COOKIE_NAME = "einmaleinsMissionStateV2";
+    const MAX_FACTOR = 10;
+    const TIME_LIMIT_SECONDS = 5 * 60;
+    const COUNT_LIMIT = 20;
+    const ALL_TASKS = [];
+
+    for (let a = 1; a <= MAX_FACTOR; ++a) {
+      for (let b = 1; b <= MAX_FACTOR; ++b) ALL_TASKS.push(`${a}x${b}`);
+    }
+
+    const DEFAULT_STATE = { tasks: {}, lifetimeStars: 0 };
+    let state = loadState();
+    let current = null;
+    let answerVisible = false;
+    let session = null;
+    let timer = null;
+
+    const el = {
+      startScreen: document.getElementById("startScreen"),
+      trainScreen: document.getElementById("trainScreen"),
+      resultScreen: document.getElementById("resultScreen"),
+      startMessage: document.getElementById("startMessage"),
+      resetAllBtn: document.getElementById("resetAllBtn"),
+      leftInfo: document.getElementById("leftInfo"),
+      sessionInfo: document.getElementById("sessionInfo"),
+      progress: document.getElementById("progress"),
+      hint: document.getElementById("hint"),
+      calculation: document.getElementById("calculation"),
+      answer: document.getElementById("answer"),
+      showBtn: document.getElementById("showBtn"),
+      knownBtn: document.getElementById("knownBtn"),
+      unknownBtn: document.getElementById("unknownBtn"),
+      message: document.getElementById("message"),
+      resultTitle: document.getElementById("resultTitle"),
+      bigResult: document.getElementById("bigResult"),
+      rKnown: document.getElementById("rKnown"),
+      rUnknown: document.getElementById("rUnknown"),
+      rStars: document.getElementById("rStars"),
+      practiceWrap: document.getElementById("practiceWrap"),
+      practiceList: document.getElementById("practiceList"),
+      againBtn: document.getElementById("againBtn"),
+      homeBtn: document.getElementById("homeBtn"),
+      confetti: document.getElementById("confetti")
+    };
+
+    function cookieGet(name) {
+      const prefix = `${name}=`;
+      return document.cookie.split(";").map(x => x.trim()).find(x => x.startsWith(prefix))?.slice(prefix.length);
+    }
+
+    function cookieSet(name, value, days) {
+      const expires = new Date(Date.now() + days * 864e5).toUTCString();
+      document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+    }
+
+    function cookieDelete(name) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+    }
+
+    function loadState() {
+      try {
+        const raw = cookieGet(COOKIE_NAME) || localStorage.getItem(COOKIE_NAME);
+        if (!raw) return structuredClone(DEFAULT_STATE);
+        const parsed = JSON.parse(decodeURIComponent(raw));
+        return {
+          ...structuredClone(DEFAULT_STATE),
+          ...parsed,
+          tasks: parsed.tasks && typeof parsed.tasks === "object" ? parsed.tasks : {}
+        };
+      } catch {
+        return structuredClone(DEFAULT_STATE);
+      }
+    }
+
+    function saveState() {
+      const raw = encodeURIComponent(JSON.stringify(state));
+      cookieSet(COOKIE_NAME, raw, 365);
+      try { localStorage.setItem(COOKIE_NAME, raw); } catch {}
+    }
+
+    function resetAll() {
+      if (!confirm("Wirklich alle gespeicherten Übungen löschen?")) return;
+      cookieDelete(COOKIE_NAME);
+      try { localStorage.removeItem(COOKIE_NAME); } catch {}
+      state = structuredClone(DEFAULT_STATE);
+      el.startMessage.textContent = "Alles zurückgesetzt. Neue Mission? ✨";
+    }
+
+    function showScreen(screen) {
+      for (const s of [el.startScreen, el.trainScreen, el.resultScreen]) s.classList.remove("active");
+      screen.classList.add("active");
+    }
+
+    function start(mode) {
+      clearInterval(timer);
+      session = {
+        mode,
+        limit: mode === "count" ? COUNT_LIMIT : TIME_LIMIT_SECONDS,
+        startTime: Date.now(),
+        answered: 0,
+        known: 0,
+        unknown: 0,
+        stars: 0,
+        history: [],
+        lastMode: mode
+      };
+      makeProgressDots();
+      showScreen(el.trainScreen);
+      nextQuestion();
+      updateHeader();
+      if (mode === "time") timer = setInterval(tick, 250);
+    }
+
+    function makeProgressDots() {
+      const dots = session.mode === "count" ? COUNT_LIMIT : 20;
+      el.progress.style.setProperty("--dots", dots);
+      el.progress.innerHTML = "";
+      for (let i = 0; i < dots; ++i) {
+        const d = document.createElement("div");
+        d.className = "dot";
+        el.progress.appendChild(d);
+      }
+    }
+
+    function tick() {
+      if (!session || session.mode !== "time") return;
+      if (secondsLeft() <= 0) finish();
+      else updateHeader();
+    }
+
+    function secondsLeft() {
+      return Math.max(0, TIME_LIMIT_SECONDS - Math.floor((Date.now() - session.startTime) / 1000));
+    }
+
+    function updateHeader() {
+      if (!session) return;
+      if (session.mode === "count") {
+        el.leftInfo.textContent = `Noch ${Math.max(0, COUNT_LIMIT - session.answered)}`;
+      } else {
+        const s = secondsLeft();
+        const m = Math.floor(s / 60);
+        const r = String(s % 60).padStart(2, "0");
+        el.leftInfo.textContent = `${m}:${r}`;
+      }
+      el.sessionInfo.textContent = `${session.known} richtig`;
+      updateProgressDots();
+    }
+
+    function updateProgressDots() {
+      const dots = Array.from(el.progress.children);
+      if (session.mode === "count") {
+        dots.forEach((d, i) => {
+          d.className = "dot";
+          const h = session.history[i];
+          if (h) d.classList.add("done", h.known ? "good-dot" : "bad-dot");
+        });
+      } else {
+        const doneDots = Math.min(dots.length, Math.floor((TIME_LIMIT_SECONDS - secondsLeft()) / TIME_LIMIT_SECONDS * dots.length));
+        dots.forEach((d, i) => {
+          d.className = "dot";
+          if (i < doneDots) d.classList.add("done", "good-dot");
+        });
+      }
+    }
+
+    function taskInfo(key) {
+      return state.tasks[key] ?? { known: 0, unknown: 0, seen: 0 };
+    }
+
+    function weightFor(key) {
+      const t = taskInfo(key);
+      let w = 10 + t.unknown * 18 - t.known * 2;
+      if (current && current.key === key) w *= 0.12;
+      return Math.max(1, w);
+    }
+
+    function chooseTask() {
+      let total = 0;
+      const weighted = ALL_TASKS.map(key => {
+        const w = weightFor(key);
+        total += w;
+        return [key, w];
+      });
+      let r = Math.random() * total;
+      for (const [key, w] of weighted) {
+        r -= w;
+        if (r <= 0) return parseTask(key);
+      }
+      return parseTask(weighted.at(-1)[0]);
+    }
+
+    function parseTask(key) {
+      const [a, b] = key.split("x").map(Number);
+      return { key, a, b, result: a * b };
+    }
+
+    function nextQuestion() {
+      if (shouldFinish()) return finish();
+      current = chooseTask();
+      answerVisible = false;
+      el.hint.textContent = randomChoice(["Erst im Kopf lösen ...", "Bereit?", "Kopfrechnen-Power!", "Du kannst das!"]);
+      el.calculation.textContent = `${current.a} × ${current.b}`;
+      el.answer.textContent = current.result;
+      el.answer.classList.remove("visible");
+      el.showBtn.classList.remove("hidden");
+      el.knownBtn.classList.add("hidden");
+      el.unknownBtn.classList.add("hidden");
+      el.message.textContent = randomChoice(["Kurz überlegen ... 🧠", "Ganz ruhig. ✨", "Deine Mission läuft! 🚀"]);
+      updateHeader();
+    }
+
+    function shouldFinish() {
+      if (!session) return false;
+      return session.mode === "count" ? session.answered >= COUNT_LIMIT : secondsLeft() <= 0;
+    }
+
+    function showAnswer() {
+      answerVisible = true;
+      el.answer.classList.add("visible");
+      el.showBtn.classList.add("hidden");
+      el.knownBtn.classList.remove("hidden");
+      el.unknownBtn.classList.remove("hidden");
+      el.message.textContent = "War's richtig?";
+    }
+
+    function mark(known) {
+      const t = taskInfo(current.key);
+      t.seen += 1;
+      if (known) t.known += 1;
+      else t.unknown += 1;
+      state.tasks[current.key] = t;
+
+      session.answered += 1;
+      session.known += known ? 1 : 0;
+      session.unknown += known ? 0 : 1;
+      session.stars += known ? 1 : 0;
+      session.history.push({ key: current.key, known });
+      state.lifetimeStars += known ? 1 : 0;
+      saveState();
+
+      if (known) {
+        el.message.textContent = randomChoice(["Super! ⭐", "Ja! Toll gemacht! 🎉", "Das sitzt! 🏆"]);
+        confetti(12);
+      } else {
+        el.message.textContent = "Gut geübt — die kommt wieder. 💪";
+      }
+      updateHeader();
+      setTimeout(nextQuestion, 520);
+    }
+
+    function finish() {
+      clearInterval(timer);
+      timer = null;
+      if (!session) return;
+      const total = Math.max(1, session.answered);
+      const percent = Math.round(session.known / total * 100);
+      el.resultTitle.textContent = titleFor(percent, session.answered);
+      el.bigResult.textContent = `${session.known} / ${session.answered}`;
+      el.rKnown.textContent = session.known;
+      el.rUnknown.textContent = session.unknown;
+      el.rStars.textContent = session.stars;
+      fillPracticeList();
+      showScreen(el.resultScreen);
+      if (percent >= 70) confetti(40);
+    }
+
+    function titleFor(percent, answered) {
+      if (answered === 0) return "Heute war es nur eine Mini-Mission.";
+      if (percent >= 90) return "Wow! Das kannst du stolz herzeigen!";
+      if (percent >= 70) return "Stark trainiert — richtig gut!";
+      if (percent >= 50) return "Gut gekämpft — weiter so!";
+      return "Prima geübt. Beim nächsten Mal wird's leichter!";
+    }
+
+    function fillPracticeList() {
+      const missed = new Map();
+      for (const h of session.history) {
+        if (!h.known) missed.set(h.key, (missed.get(h.key) || 0) + 1);
+      }
+      const list = [...missed.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([key]) => key.replace("x", " × "));
+      el.practiceList.innerHTML = "";
+      el.practiceWrap.classList.toggle("hidden", list.length === 0);
+      for (const item of list) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        el.practiceList.appendChild(li);
+      }
+    }
+
+    function randomChoice(items) {
+      return items[Math.floor(Math.random() * items.length)];
+    }
+
+    function confetti(count) {
+      const symbols = ["⭐", "🎉", "✨", "🌈", "💛"];
+      for (let i = 0; i < count; ++i) {
+        const s = document.createElement("span");
+        s.textContent = randomChoice(symbols);
+        s.style.left = `${Math.random() * 100}%`;
+        s.style.animationDelay = `${Math.random() * 230}ms`;
+        s.style.fontSize = `${20 + Math.random() * 22}px`;
+        el.confetti.appendChild(s);
+        setTimeout(() => s.remove(), 1800);
+      }
+    }
+
+    document.querySelectorAll("[data-mode]").forEach(button => {
+      button.addEventListener("click", () => start(button.dataset.mode));
+    });
+    el.showBtn.addEventListener("click", showAnswer);
+    el.knownBtn.addEventListener("click", () => mark(true));
+    el.unknownBtn.addEventListener("click", () => mark(false));
+    el.againBtn.addEventListener("click", () => start(session?.lastMode || "count"));
+    el.homeBtn.addEventListener("click", () => showScreen(el.startScreen));
+    el.resetAllBtn.addEventListener("click", resetAll);
+
+    document.addEventListener("keydown", event => {
+      if (!el.trainScreen.classList.contains("active")) return;
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        if (!answerVisible) showAnswer();
+      } else if (answerVisible && (event.key === "ArrowRight" || event.key.toLowerCase() === "j")) {
+        mark(true);
+      } else if (answerVisible && (event.key === "ArrowLeft" || event.key.toLowerCase() === "n")) {
+        mark(false);
+      }
+    });
+  </script>
+</body>
+</html>
