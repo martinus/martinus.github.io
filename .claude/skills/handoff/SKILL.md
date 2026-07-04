@@ -61,17 +61,36 @@ What this session was trying to achieve, in one or two sentences.
 Ordered and concrete. The first step must be immediately executable.
 
 ## Reflection
-Answered by the outgoing agent, honestly and specifically.
+Answered by the outgoing agent, honestly and specifically. Each question has
+its own scope, noted below it — never repeat an answer across questions.
 
-### What am I least confident about right now?
+### 1. What in the delivered work am I least confident is correct?
+Scope: the work itself. Code paths, edge cases, or claims that were not fully
+verified this session. Name the file or behavior and how the next agent can check it.
 
-### What is the biggest thing the user may be missing about the situation? What don't they realize?
+### 2. What assumptions did I make that I never stated explicitly?
+Scope: unverified premises, not the work. Things treated as facts — about
+requirements, the environment, data, or user intent — without checking.
+For each: if it's wrong, what breaks?
 
-### If this breaks in 3 months, what's the most likely reason?
+### 3. What is the biggest thing the user may not realize about the broader situation?
+Scope: strategy and surroundings, not this task's code. Direction, alternatives
+never considered, or risks outside the task that the user shows no sign of seeing.
 
-### If I could add one unrequested, industry-leading feature, what would it be?
+### 4. If this work breaks in 3 months, what's the most likely reason?
+Scope: future change only — current correctness doubts belong in Q1. Dependency
+drift, scale or data growth, or a neighboring change violating an invariant
+this work silently relies on.
 
-### What assumptions did I make that I never stated explicitly?
+### 5. Were there any tools, scripts, or hooks that would have reduced my churn this session if they had existed when we started?
+Scope: missing automation and infrastructure. Name the concrete tool and the
+churn it would have eliminated, and say whether it's worth building now.
 
-### What could the user have done differently to make this session smoother?
+### 6. What could the user have done differently to make this session smoother?
+Scope: human process only — tooling belongs in Q5. Information provided or
+withheld, task framing, decision timing, feedback loops.
+
+### 7. If I could add one unrequested, industry-leading feature, what would it be?
+Scope: opportunity, not risk. One concrete feature, and why it would put this
+project ahead of comparable ones.
 ```
