@@ -242,6 +242,14 @@ date_format: "%B %-d, %Y"
 # --- You don't need to touch anything below here (but you can if you want) --- #
 #################################################################################
 
+# The base hostname & protocol for the site. Required so that absolute URLs
+# (canonical links, Open Graph/Twitter tags, RSS feed, navbar link) are
+# generated correctly. When the site was built by GitHub Pages' native
+# builder this was injected automatically; building with Jekyll directly
+# (via GitHub Actions) requires setting it explicitly.
+url: "https://martin.ankerl.com"
+baseurl: ""
+
 # Output options (more information on Jekyll's site)
 timezone: "Europe/Vienna"
 markdown: kramdown
