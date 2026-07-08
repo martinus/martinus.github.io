@@ -7,10 +7,13 @@ subtitle: I chased a regression through two months of history where half the com
 A few weeks ago I hit the kind of bug that ruins an afternoon: something that
 used to work didn't anymore, and I had no idea when it broke. Not "yesterday",
 not "in that one PR" — somewhere in the last month or two, buried in a stretch
-of history where I'd also been busy tearing up the build. New compiler, bumped
-CMake, a pile of little fixes to keep everything compiling with the current
-toolset. The regression and the build churn had happened in the same window,
-which is exactly the combination that makes `git bisect` miserable.
+of history where the build had also been getting torn up. This is a shared
+project with a lot of people committing to it, and in that same window a broken
+third-party dependency had been swapped for a newer version, a compiler had
+moved, and a pile of little fixes had gone in from all over to keep everything
+compiling with the current toolset. The regression and the build churn had
+happened in the same slice of history — which is exactly the combination that
+makes `git bisect` miserable.
 
 I reached for `git bisect run` like everyone does, wrote the obvious little
 shell script, and it lied to me. That's the short version. The long version is
@@ -80,15 +83,17 @@ remember.
 For my regression the recipe was basically this:
 
 ```python
-from bisectlib import run, test, replace
+from bisectlib import run, test, fixup, in_range
 
-# The old commits pin a third-party lib that no longer builds with today's
-# toolchain. Bump it to a newer release just for the bisect (auto-reverted).
-replace("third_party/CMakeLists.txt", "GIT_TAG v2.3.1", "GIT_TAG v2.5.0")
+# A teammate had already replaced the broken third-party lib with a newer
+# version. Cherry-pick that fix onto the older commits so they build too
+# (applied for the block, auto-reverted afterwards).
+with fixup(cherry_pick="<the-dependency-bump-commit>",
+           when=in_range("<good>..<dep-bump>")):
+    run("rm -rf build/CMakeCache.txt build/CMakeFiles")  # kill the stale cache
+    run("cmake -B build")                                 # broken build? ABORT
+    run("cmake --build build -j")
 
-run("rm -rf build/CMakeCache.txt build/CMakeFiles")  # kill the stale cache
-run("cmake -B build")                                 # broken build? ABORT
-run("cmake --build build -j")
 test("ctest --test-dir build -R the_regression")
 # fell off the end with no failure -> GOOD
 ```
@@ -99,17 +104,19 @@ A few things make that work where the shell script didn't:
 never mark a commit bad. Only `test()` does that. The single most important line
 in the whole recipe is the one that *isn't* a test.
 
-**The toolchain fix travels with me and cleans up after itself.** My actual
+**Someone else's fix travels with me and cleans up after itself.** My actual
 blocker was a third-party library those older commits pinned to a version that
-simply doesn't build anymore — so I swapped the pinned tag for a newer release
-with that `replace()`, a sed-like edit that's applied before each build and
-**reverted automatically** afterwards, leaving the tree clean again before git
-checks out the next commit. Instead of `git bisect skip`-ing every commit that
-carried the broken dependency and losing resolution, they all became testable.
-For a nastier swap you can reach for `fixup(patch=...)` or
-`fixup(cherry_pick=..., when=in_range("v1.0..v1.5"))` and scope the fix to
-exactly the commits that need it — same deal, applied for the block, reverted
-after.
+simply doesn't build anymore. I didn't fix that — a teammate had, further up
+the history, by bumping the dependency to a newer release. On a project this
+size the fix you need almost always already exists somewhere; it's just newer
+than the commits you're trying to test. So instead of `git bisect skip`-ing
+every commit that predates the bump and losing resolution, I cherry-picked that
+one commit onto each of them with `fixup(cherry_pick=..., when=in_range(...))`.
+It's applied for the block and **reverted automatically** afterwards, leaving
+the tree clean again before git checks out the next commit, and suddenly the
+whole broken stretch is testable. A plain patch file works the same way via
+`fixup(patch=...)`, and a one-line edit via `replace(path, old, new)` — same
+deal, scoped to exactly the commits that need it, reverted after.
 
 **The stale CMake cache had to die every round.** This one bit me for a while.
 By default `bisectlib` keeps the gitignored `build/` directory between commits
@@ -178,10 +185,18 @@ the result, in that order:
 
 The `.bisect/` directory carries its own `.gitignore` of `*`, so it stays out of
 `git status` and survives all the checkouts git does between commits without me
-having to think about it. When the search resolved it printed the culprit the
-way `git show` would — full commit, diffstat, the works — and of course it was a
-tiny, innocent-looking change that nobody would have flagged in review. They
-never are the scary ones. Then `git bisect reset` put me back on my branch.
+having to think about it.
+
+One configure-plus-build-plus-test cycle on this project takes about two
+minutes, and a bisect over that range was nine steps, so the whole thing ran a
+bit over fifteen minutes start to finish. That's the good part: it's fifteen
+minutes I didn't spend, fifteen minutes of `git checkout`, wait, build, wait,
+run, squint, repeat that I would have gotten wrong by hand around step four.
+Long enough to go fetch a good coffee and come back to an answer — thanks,
+automation. When the search resolved it printed the culprit the way `git show`
+would — full commit, diffstat, the works — and of course it was a tiny,
+innocent-looking change that nobody would have flagged in review. They never are
+the scary ones. Then `git bisect reset` put me back on my branch.
 
 # What I actually took away from this
 
@@ -212,5 +227,4 @@ pip install git_bisectlib
 
 Full disclaimer, in the tradition of my hashmap posts: I'm the author, so I think
 it's great. But I built it because a naive bisect handed me a wrong answer with a
-straight face, and I never want to spend that afternoon again. If it saves you
-one, [a sponsorship](https://github.com/sponsors/martinus) is always appreciated.
+straight face, and I never want to spend that afternoon again.
