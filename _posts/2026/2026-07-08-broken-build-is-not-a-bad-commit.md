@@ -82,30 +82,45 @@ For my regression the recipe was basically this:
 ```python
 from bisectlib import run, test, replace
 
-replace("CMakeLists.txt", "c++17", "c++20")   # toolchain drift, auto-reverted
+# The old commits pin a third-party lib that no longer builds with today's
+# toolchain. Bump it to a newer release just for the bisect (auto-reverted).
+replace("third_party/CMakeLists.txt", "GIT_TAG v2.3.1", "GIT_TAG v2.5.0")
 
-run("cmake -B build")                          # broken build? ABORT, don't guess
+run("rm -rf build/CMakeCache.txt build/CMakeFiles")  # kill the stale cache
+run("cmake -B build")                                 # broken build? ABORT
 run("cmake --build build -j")
 test("ctest --test-dir build -R the_regression")
 # fell off the end with no failure -> GOOD
 ```
 
-Three things make that work where the shell script didn't:
+A few things make that work where the shell script didn't:
 
 **The build can't vote.** Those `run()` lines can fail all they want; they will
 never mark a commit bad. Only `test()` does that. The single most important line
 in the whole recipe is the one that *isn't* a test.
 
-**The toolchain fix travels with me and cleans up after itself.** That
-`replace()` is a sed-like edit that gets applied before each build and
-**reverted automatically** afterwards, so the working tree is clean again before
-git checks out the next commit. Older commits in my range needed a one-line bump
-to compile with the current compiler; instead of `git bisect skip`-ing every one
-of them and losing resolution, I patched them on the fly and they became
-testable. For a nastier range you can reach for `fixup(patch=...)` or
+**The toolchain fix travels with me and cleans up after itself.** My actual
+blocker was a third-party library those older commits pinned to a version that
+simply doesn't build anymore — so I swapped the pinned tag for a newer release
+with that `replace()`, a sed-like edit that's applied before each build and
+**reverted automatically** afterwards, leaving the tree clean again before git
+checks out the next commit. Instead of `git bisect skip`-ing every commit that
+carried the broken dependency and losing resolution, they all became testable.
+For a nastier swap you can reach for `fixup(patch=...)` or
 `fixup(cherry_pick=..., when=in_range("v1.0..v1.5"))` and scope the fix to
 exactly the commits that need it — same deal, applied for the block, reverted
 after.
+
+**The stale CMake cache had to die every round.** This one bit me for a while.
+By default `bisectlib` keeps the gitignored `build/` directory between commits
+so incremental builds stay fast — which is usually what you want, and was
+exactly wrong here. A `CMakeCache.txt` written while configuring one commit
+pins absolute paths, the detected compiler, and the *old* library location, and
+then poisons the configure of the next commit git checks out. So half my "build
+failures" were really one commit's cache lying to the next. Nuking the cache
+files at the top of each run fixed it; if you'd rather wipe untracked build
+output wholesale, `configure(clean="clean")` runs a `git clean -fdx` (keeping
+`.bisect/`) for a pristine tree every single round.
 
 **A mistake in the recipe aborts, it doesn't mis-bisect.** The first time I ran
 it I had the `ctest` target name wrong. Old me would have gotten a clean,
