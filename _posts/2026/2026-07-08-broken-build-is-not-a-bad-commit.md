@@ -88,8 +88,8 @@ from bisectlib import run, test, fixup, in_range
 # A teammate had already replaced the broken third-party lib with a newer
 # version. Cherry-pick that fix onto the older commits so they build too
 # (applied for the block, auto-reverted afterwards).
-with fixup(cherry_pick="<the-dependency-bump-commit>",
-           when=in_range("<good>..<dep-bump>")):
+with fixup(cherry_pick="8b1f4e2",
+           when=in_range("2c7a0d9..8b1f4e2")):
     run("rm -rf build/CMakeCache.txt build/CMakeFiles")  # kill the stale cache
     run("cmake -B build")                                 # broken build? ABORT
     run("cmake --build build -j")
@@ -135,6 +135,16 @@ confident, completely wrong answer. Instead the run aborted, git kept the whole
 bisect state with the failing commit checked out, I fixed the typo, re-ran the
 *same* `git bisect run` command, and it resumed from where it stopped. Abort is
 the "my harness is wrong" signal, and it's built to be recovered from.
+
+And here's the bit I didn't expect to care about until afterwards: a recipe is
+just a small Python file, so once I'd worked out which cherry-pick made the old
+range build and which cache files had to go, all of that knowledge lived in one
+script I could check in next to the project. The next person who has to bisect
+across that same stretch — and on a team this size there will be one — doesn't
+get to re-discover the broken dependency or the poisoned cache the hard way.
+They run the recipe, or copy it and change the one `test()` line for their own
+regression. The fixups that used to live in someone's head, or get re-derived
+from scratch on every painful bisect, become a shared, reproducible artifact.
 
 # I didn't have a good commit
 
@@ -216,8 +226,13 @@ the scary ones. Then `git bisect reset` put me back on my branch.
    refuse to blame a commit for a build failure, so I can't get it wrong at 6pm
    on a Friday.
 
-It's a small library — pure standard library, no dependencies, just needs `git`
-on your `PATH` — and it's on GitHub as
+It's a small library, and deliberately so: it has **no external dependencies at
+all** beyond the Python standard library, and needs nothing but `git` on your
+`PATH`. That's not an accident — a tool you drop into a company build to help
+debug it has no business dragging a tree of third-party packages in with it, and
+"zero dependencies" is the cheapest supply-chain risk there is. You can even skip
+the install entirely and just sit the `bisectlib/` folder next to your recipe.
+It's on GitHub as
 [`git_bisectlib`](https://github.com/martinus/git_bisectlib) with a spec, tests,
 and runnable example recipes:
 
