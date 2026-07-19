@@ -10,7 +10,7 @@ categories:
 - health
 ---
 
-Here is a collection of visual body fat charts. Use these to estimate your personal body fat for the [keto calculator](http://keto-calculator.ankerl.com/). See below for men.
+Here is a collection of visual body fat charts. Use these to estimate your personal body fat for the [keto calculator](https://keto-calculator.ankerl.com/). See below for men.
 
 
 ## Women
@@ -36,7 +36,7 @@ As above with the female pictures, here are also two images with the same body f
 
 ## Back to the Keto Calculator
 
-Now when you have made up your mind where about your body fat percentage might be, head back to the [keto calculator](https://keto-calculator.ankerl.com/) and enter your number.
+Now when you have made up your mind where about your body fat percentage might be, head back to the [keto macro calculator](https://keto-calculator.ankerl.com/) and enter your number.
 
 
 ## Sources
