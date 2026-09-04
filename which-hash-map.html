@@ -1,0 +1,879 @@
+---
+layout: null
+permalink: /which-hash-map/
+sitemap: false
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which C++ hash map should you use?</title>
+<meta name="description" content="Seven questions, eight candidates, and a measured number behind every answer. Pick a C++ hash map by what your code actually does.">
+<meta property="og:title" content="Which C++ hash map should you use?">
+<meta property="og:description" content="Six questions. Every answer moves the scores, and you can see exactly how much.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,400..800;1,62..125,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* ground: a deep indigo, not black -- this is a diagram, not a terminal */
+  --ground:#12142A;
+  --ground-2:#1B1E3A;
+  --ground-3:#232748;
+  --rail:#2C3157;
+  --cell:#242848;
+  --ink:#E9E7F5;
+  --ink-2:#9A97BC;
+  --ink-3:#6C6A8C;
+
+  /* the palette is the taxonomy: amber stands alone, the three cools are
+     Boost's family, grey is the one already in your toolchain */
+  --c-udm:#F5A63C;
+  --c-tsl:#E8734A;
+  --c-bflat:#46C9B4;
+  --c-bnode:#4E9BD6;
+  --c-bmap:#9B7BE8;
+  --c-absl:#B6D94A;
+  --c-anode:#6FB84A;
+  --c-std:#7E7C94;
+
+  --edge:1px solid var(--rail);
+  --pad:clamp(1.1rem,3vw,2rem);
+  --maxw:1180px;
+  --ease:cubic-bezier(.22,.8,.28,1);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Archivo",system-ui,sans-serif;
+  font-variation-settings:"wdth" 100,"wght" 420;
+  font-size:clamp(15px,.4vw + 14px,17px);line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+/* a faint grid, like a memory diagram's backing paper */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--rail) 1px,transparent 1px),linear-gradient(90deg,var(--rail) 1px,transparent 1px);
+  background-size:64px 64px;opacity:.16;
+  mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 25%,transparent 78%);
+}
+.wrap{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding:0 var(--pad)}
+a{color:inherit}
+a:focus-visible{outline:2px solid var(--c-udm);outline-offset:2px;border-radius:1px}
+
+/* -- header ------------------------------------------------------- */
+header{padding:clamp(3rem,9vh,5.5rem) 0 clamp(1.6rem,4vh,2.4rem)}
+.eyebrow{
+  font-family:"JetBrains Mono",monospace;font-size:.7rem;font-weight:500;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);
+  display:flex;align-items:center;gap:.7rem;margin:0 0 1.4rem;
+}
+.eyebrow::after{content:"";height:1px;flex:1;background:var(--rail)}
+h1{
+  font-variation-settings:"wdth" 118,"wght" 760;
+  font-size:clamp(2.1rem,6.2vw,4.4rem);line-height:.98;letter-spacing:-.025em;
+  margin:0 0 1rem;max-width:16ch;text-wrap:balance;
+}
+h1 em{font-style:normal;color:var(--c-udm)}
+.deck{color:var(--ink-2);font-size:clamp(1rem,1.5vw,1.16rem);margin:0;max-width:54ch}
+
+/* -- the two-column body ------------------------------------------ */
+.board{
+  display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,1fr);
+  gap:clamp(1.2rem,3vw,2.4rem);align-items:start;
+  padding-bottom:clamp(2.5rem,7vh,4rem);
+}
+@media (max-width:900px){.board{grid-template-columns:1fr}}
+.panel{background:var(--ground-2);border:var(--edge);border-radius:3px}
+
+/* -- question ------------------------------------------------------ */
+.quiz{padding:clamp(1.2rem,3vw,2rem)}
+.qhead{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}
+.qcount{font-family:"JetBrains Mono",monospace;font-size:.72rem;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
+.probe{display:flex;gap:5px}
+.probe i{display:block;width:17px;height:7px;background:var(--rail);border-radius:1px;
+  transition:background .35s var(--ease),transform .35s var(--ease)}
+.probe i.done{background:var(--c-udm)}
+.probe i.now{background:var(--ink-2);transform:scaleY(1.7)}
+.qtext{
+  font-variation-settings:"wdth" 106,"wght" 640;
+  font-size:clamp(1.3rem,2.7vw,1.85rem);line-height:1.15;letter-spacing:-.015em;
+  margin:0 0 1.5rem;text-wrap:balance;
+}
+.qtext code{font-family:"JetBrains Mono",monospace;font-size:.82em;color:var(--c-std)}
+.opts{display:flex;flex-direction:column;gap:.55rem}
+.opt{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  background:var(--ground-3);color:var(--ink);
+  border:1px solid transparent;border-left:3px solid var(--rail);
+  border-radius:2px;padding:.85rem 1rem;font:inherit;
+  transition:border-color .18s,background .18s,transform .18s var(--ease);
+}
+.opt:hover{background:#282D53;border-left-color:var(--c-udm);transform:translateX(3px)}
+.opt:focus-visible{outline:2px solid var(--c-udm);outline-offset:2px}
+.opt.sel{border-left-color:var(--c-udm);background:#282D53}
+.opt.sel b::after{content:" \00B7 your answer";font-variation-settings:"wght" 400;color:var(--ink-3);font-size:.8rem;letter-spacing:.04em}
+.opt b{display:block;font-variation-settings:"wght" 600;margin-bottom:.15rem}
+.opt span{display:block;color:var(--ink-2);font-size:.87rem;line-height:1.4}
+.opt code{font-family:"JetBrains Mono",monospace;font-size:.86em;color:var(--c-udm)}
+.qfoot[hidden]{display:none}
+.qfoot{margin-top:1.4rem;padding-top:1rem;border-top:var(--edge);display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+.linkbtn{
+  background:none;border:none;padding:0;cursor:pointer;
+  font-family:"JetBrains Mono",monospace;font-size:.74rem;letter-spacing:.08em;
+  color:var(--ink-3);text-transform:uppercase;
+}
+.linkbtn:hover{color:var(--ink)}
+.linkbtn:focus-visible{outline:2px solid var(--c-udm);outline-offset:3px}
+
+/* -- the recap that replaces the quiz once it is answered ---------- */
+.recap h2{font-family:"JetBrains Mono",monospace;font-size:.7rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);margin:0 0 1.25rem}
+.recap ol{margin:0;padding:0;list-style:none}
+.recap li{border-bottom:var(--edge)}
+.recap li:last-child{border-bottom:none}
+.recap button{
+  width:100%;display:flex;gap:1rem;align-items:baseline;justify-content:space-between;
+  background:none;border:none;padding:.8rem 0;font:inherit;color:var(--ink);cursor:pointer;text-align:left;
+}
+.recap button:hover{color:var(--c-udm)}
+.recap button:focus-visible{outline:2px solid var(--c-udm);outline-offset:2px}
+.recap .rk{font-family:"JetBrains Mono",monospace;font-size:.72rem;letter-spacing:.06em;color:var(--ink-3);flex:none;min-width:9ch}
+.recap .rv{font-size:.92rem;text-align:right}
+.recap .edit{font-family:"JetBrains Mono",monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:1.2rem 0 0}
+
+/* -- standings: five bucket arrays -------------------------------- */
+.stand{padding:clamp(1.1rem,2.4vw,1.5rem);position:sticky;top:1.2rem}
+@media (max-width:900px){.stand{position:static}}
+.stand h2{font-family:"JetBrains Mono",monospace;font-size:.7rem;font-weight:500;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);margin:0 0 1.25rem}
+.legend{margin:1.5rem 0 0;padding-top:1.1rem;border-top:var(--edge);font-size:.82rem;line-height:1.5;color:var(--ink-3)}
+.row{margin-bottom:.72rem}
+.row:last-of-type{margin-bottom:0}
+.rowtop{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;margin-bottom:.4rem}
+.rowname{font-family:"JetBrains Mono",monospace;font-size:.71rem;letter-spacing:-.02em;
+  color:var(--ink-2);display:flex;align-items:center;gap:.5rem;min-width:0}
+.rowname i{width:7px;height:7px;border-radius:50%;flex:none;background:var(--m)}
+.rowname a{text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rowname a:hover{color:var(--m)}
+.row.lead .rowname{color:var(--ink);font-weight:500}
+.row.out{opacity:.32}
+.row.out .rowname a{text-decoration:line-through}
+.delta{font-family:"JetBrains Mono",monospace;font-size:.72rem;font-weight:500;
+  color:var(--m);opacity:0;transform:translateY(4px);flex:none}
+.delta.show{animation:pop 1.1s var(--ease) forwards}
+@keyframes pop{0%{opacity:0;transform:translateY(5px)}18%{opacity:1;transform:translateY(0)}
+  70%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-3px)}}
+.cells{display:flex;gap:3px}
+.cells i{flex:1;height:12px;background:var(--cell);border-radius:1px;
+  transition:background .3s var(--ease)}
+.cells i.on{background:var(--m)}
+.row.out .cells i{background:repeating-linear-gradient(45deg,var(--cell) 0 2px,transparent 2px 4px)}
+
+/* -- results: one box per candidate, ranked ----------------------- */
+.result[hidden]{display:none}
+.result{margin-bottom:clamp(2.5rem,7vh,4rem)}
+.rtop{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.1rem}
+.rtop h2{font-family:"JetBrains Mono",monospace;font-size:.72rem;font-weight:500;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin:0}
+.again{
+  cursor:pointer;background:var(--c-udm);color:var(--ground);border:none;border-radius:2px;
+  padding:.6rem 1.2rem;font-family:"JetBrains Mono",monospace;font-size:.74rem;
+  letter-spacing:.1em;text-transform:uppercase;font-weight:500;flex:none;
+}
+.again:hover{background:#FFBB5C}
+.again:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.rcard{
+  border:var(--edge);border-top:1px solid var(--m);border-radius:3px;
+  background:var(--ground-2);overflow:hidden;margin-bottom:.9rem;
+}
+.rcard.win{border-top-width:3px}
+.rcard.out{background:transparent;border-top-color:var(--rail)}
+.rcard:last-child{margin-bottom:0}
+.rhead{padding:clamp(1.1rem,2.8vw,1.8rem);border-bottom:var(--edge)}
+.rmeta{display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap;margin-bottom:.7rem}
+.rlabel{font-family:"JetBrains Mono",monospace;font-size:.68rem;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ink-3);margin:0}
+.win .rlabel{color:var(--m)}
+.rpts{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--ink-3);flex:none}
+.rname{
+  font-family:"JetBrains Mono",monospace;font-weight:700;
+  font-size:clamp(1rem,2.3vw,1.35rem);line-height:1.2;letter-spacing:-.02em;
+  margin:0 0 .7rem;word-break:break-word;
+}
+.win .rname{font-size:clamp(1.15rem,3.4vw,2rem)}
+.rname a{color:var(--m);text-decoration:none;border-bottom:1px solid transparent}
+.rname a:hover{border-bottom-color:var(--m)}
+.out .rname a{color:var(--ink-3);text-decoration:line-through}
+.rwhy{margin:0;font-size:clamp(.94rem,1.4vw,1.04rem);max-width:70ch;color:var(--ink-2)}
+.win .rwhy{color:var(--ink);font-size:clamp(1rem,1.6vw,1.14rem)}
+.ruled{
+  margin:.9rem 0 0;font-family:"JetBrains Mono",monospace;font-size:.75rem;
+  color:var(--ink-3);line-height:1.5;
+}
+.ruled b{color:var(--c-udm);font-weight:500}
+
+.rbody{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.rbody>*{min-width:0}
+@media (max-width:760px){.rbody{grid-template-columns:1fr}}
+.rsec{padding:clamp(1.1rem,2.8vw,1.7rem);border-right:var(--edge);border-bottom:var(--edge);min-width:0}
+.rsec:nth-child(even){border-right:none}
+@media (max-width:760px){.rsec{border-right:none}}
+.rsec h3{font-family:"JetBrains Mono",monospace;font-size:.68rem;font-weight:500;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin:0 0 .85rem}
+.rsec ul{margin:0;padding:0;list-style:none}
+.rsec li{position:relative;padding-left:1.1rem;margin-bottom:.7rem;
+  font-size:.9rem;line-height:1.5;color:var(--ink-2)}
+.rsec li:last-child{margin-bottom:0}
+.rsec li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:1px;background:var(--m)}
+.rsec li b{color:var(--ink);font-variation-settings:"wght" 600}
+.rsec li code,.rwhy code,.ruled code{font-family:"JetBrains Mono",monospace;font-size:.9em}
+.num{font-family:"JetBrains Mono",monospace;color:var(--m);font-weight:500}
+.out .num{color:var(--ink-3)}
+.rcode{padding:clamp(1.1rem,2.8vw,1.7rem);grid-column:1/-1;min-width:0}
+pre{margin:0;max-width:100%;background:var(--ground);border:var(--edge);border-radius:2px;
+  padding:1rem 1.1rem;overflow-x:auto;
+  font-family:"JetBrains Mono",monospace;font-size:.8rem;line-height:1.75;color:var(--ink-2)}
+pre .k{color:var(--c-bnode)}
+pre .t{color:var(--m)}
+pre .c{color:var(--ink-3);font-style:italic}
+
+/* -- weight sheet + footer ---------------------------------------- */
+.sheet{border-top:var(--edge);padding:clamp(2rem,5vh,3rem) 0 clamp(2.5rem,7vh,4rem)}
+.sheet .scroll{overflow-x:auto;padding-right:6.5rem}
+.sheet table{width:100%;min-width:30rem;border-collapse:collapse;font-family:"JetBrains Mono",monospace;font-size:.72rem}
+.sheet th,.sheet td{padding:.5rem .6rem;text-align:right;border-bottom:1px solid var(--rail)}
+.sheet th:first-child,.sheet td:first-child{text-align:left;color:var(--ink-2)}
+.sheet thead th{font-weight:500;letter-spacing:.02em;vertical-align:bottom}
+/* 45 degrees: narrow columns like a vertical header, but still readable at a
+   glance. The label is absolutely positioned so it never widens its column;
+   the table carries a right margin to leave the last diagonal somewhere to go. */
+.sheet thead th:not(:first-child){
+  padding:0;width:2.1rem;height:11rem;vertical-align:bottom;position:relative;
+}
+.sheet thead th:not(:first-child) > span{
+  position:absolute;bottom:.45rem;left:50%;
+  transform-origin:0 50%;transform:rotate(-45deg);
+  white-space:nowrap;
+}
+.sheet thead th a{text-decoration:none}
+.sheet thead th a:hover{text-decoration:underline}
+/* the header row is tall; keep the first cell's label at the bottom with them */
+.sheet thead th:first-child{vertical-align:bottom;padding-bottom:.6rem}
+.sheet td.z{color:var(--ink-3)}
+.sheetnote{color:var(--ink-2);font-size:.92rem;margin:0 0 1.4rem;max-width:64ch}
+.sheet .qgroup td{color:var(--ink);background:var(--ground-2);font-weight:500}
+details>summary{cursor:pointer;font-family:"JetBrains Mono",monospace;font-size:.74rem;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:1.4rem}
+details>summary:hover{color:var(--ink)}
+details>summary:focus-visible{outline:2px solid var(--c-udm);outline-offset:3px}
+
+footer{border-top:var(--edge);padding:2rem 0 3.5rem;color:var(--ink-3);font-size:.86rem}
+.vers{margin:1.6rem 0 1.4rem;border-top:var(--edge);border-bottom:var(--edge);padding:.4rem 0}
+.vers h2{font-family:"JetBrains Mono",monospace;font-size:.68rem;font-weight:500;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);margin:.9rem 0 .9rem}
+.vers dl{margin:0 0 .9rem;display:grid;grid-template-columns:auto 1fr;gap:.35rem 1.4rem;
+  font-family:"JetBrains Mono",monospace;font-size:.76rem;line-height:1.5}
+@media (max-width:560px){.vers dl{grid-template-columns:1fr;gap:.1rem .0rem}
+  .vers dd{margin-bottom:.6rem}}
+.vers dt{color:var(--ink-3);white-space:nowrap}
+.vers dd{margin:0;color:var(--ink-2)}
+.vers dd b{color:var(--ink);font-weight:500}
+.vers a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rail)}
+.vers a:hover{color:var(--c-udm);border-bottom-color:var(--c-udm)}
+footer p{margin:0 0 .7rem;max-width:70ch}
+footer a{color:var(--ink-2)}
+footer a:hover{color:var(--c-udm)}
+.wrapx{overflow-x:hidden}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  .delta.show{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<div class="wrapx">
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">C++ &middot; choosing a hash map</p>
+    <h1>Which C++ hash map should you <em>actually</em> use?</h1>
+    <p class="deck">There is no fastest one. There is a fastest one <em>for what your code does</em> &mdash; so answer for the map you have in mind, and watch the scores move.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="board">
+    <section class="panel quiz" aria-labelledby="qtext">
+      <div class="qhead">
+        <p class="qcount" id="qcount">Question 1 of 7</p>
+        <div class="probe" id="probe" aria-hidden="true"></div>
+      </div>
+      <h2 class="qtext" id="qtext">&nbsp;</h2>
+      <div class="opts" id="opts"></div>
+      <div class="qfoot" id="qfoot" hidden>
+        <button class="linkbtn" id="back" type="button">&larr; Back one</button>
+        <button class="linkbtn" id="keep" type="button" hidden>&larr; Keep this answer</button>
+        <button class="linkbtn" id="reset" type="button">Start over</button>
+      </div>
+    </section>
+
+    <aside class="panel stand" aria-label="Live standings">
+      <h2>Standing</h2>
+      <div id="rows"></div>
+      <p class="legend">Grouped by family. Colour says which: three cools are
+      Boost's, two greens are Abseil's, the two warm ones are single-header
+      libraries, grey is what your toolchain already ships.</p>
+    </aside>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="result" id="result" hidden aria-live="polite"></section>
+</div>
+
+<div class="wrap">
+  <section class="sheet">
+    <details>
+      <summary>Show every weight</summary>
+      <p class="sheetnote" id="sheetnote"></p>
+      <div class="scroll" id="sheet"></div>
+    </details>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p><strong style="color:var(--ink-2)">Where the numbers come from.</strong> Every figure on this page is a measurement, not an estimate: all eight maps interleaved in one process, given the same hash, running the fifteen workloads in <a href="https://github.com/martinus/unordered_dense/tree/main/scripts/ab">unordered_dense/scripts/ab</a>. Interleaving is what makes the comparison fair &mdash; machine drift lands on every candidate equally instead of on whichever ran last &mdash; and one hash for all of them is what keeps the subject the container rather than the hash function.</p>
+
+    <div class="vers">
+      <h2>Measured with</h2>
+      <dl>
+        <dt><a href="https://github.com/martinus/unordered_dense/releases/tag/v4.11.0">ankerl::unordered_dense</a></dt>
+          <dd><b>v4.11.0</b></dd>
+        <dt><a href="https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered.html">Boost.Unordered</a></dt>
+          <dd><b>1.92.0</b> &mdash; supplies <code>unordered_flat_map</code>, <code>unordered_node_map</code> and <code>unordered_map</code>. Re-running against 1.90.0 moved every one of them by less than the run-to-run noise, so these numbers are not sensitive to the Boost release.</dd>
+        <dt><a href="https://github.com/abseil/abseil-cpp">Abseil</a></dt>
+          <dd><b>20260107.1</b> &mdash; supplies <code>flat_hash_map</code> and <code>node_hash_map</code>. The only candidate that is not header-only.</dd>
+        <dt><a href="https://github.com/Tessil/robin-map">tsl::robin_map</a></dt>
+          <dd><b>1.4.0</b></dd>
+        <dt><a href="https://gcc.gnu.org/onlinedocs/libstdc++/">libstdc++</a></dt>
+          <dd><b>16</b> (GCC 16.2.1) &mdash; this is whose <code>std::unordered_map</code> was measured, and another standard library would give different numbers</dd>
+        <dt>Compiler</dt>
+          <dd><b>clang 22.1.8</b>, <code>-O3 -DNDEBUG -std=c++17</code>, no <code>-march</code></dd>
+        <dt>Machine</dt>
+          <dd><b>AMD Ryzen 9 7950X</b>, Linux</dd>
+        <dt>Measured</dt>
+          <dd>4 September 2026</dd>
+      </dl>
+    </div>
+    <p><strong style="color:var(--ink-2)">A summary number is a choice of basket, so here is the choice.</strong> These fifteen workloads come from <code>unordered_dense</code>'s own benchmark suite, and two of them iterate &mdash; which is the thing it wins by the widest margin. Drop those two and the ranking changes hands:</p>
+
+    <div class="vers">
+      <dl>
+        <dt>All fifteen workloads</dt>
+          <dd><code>unordered_dense</code> <b>1.00</b> &middot; boost-flat <b>1.21</b> &middot; absl-flat <b>1.31</b> &middot; boost-node <b>1.51</b> &middot; absl-node <b>1.57</b> &middot; tsl <b>1.79</b> &middot; <code>boost::unordered_map</code> <b>2.09</b> &middot; <code>std</code> <b>2.72</b></dd>
+        <dt>The thirteen that do not iterate</dt>
+          <dd>boost-flat <b>0.91</b> &middot; <code>unordered_dense</code> <b>1.00</b> &middot; absl-flat <b>1.04</b> &middot; boost-node <b>1.17</b> &middot; absl-node <b>1.27</b> &middot; tsl <b>1.33</b> &middot; <code>boost::unordered_map</code> <b>1.72</b> &middot; <code>std</code> <b>2.14</b></dd>
+      </dl>
+    </div>
+
+    <p>Counting first places rather than averaging says the same thing more bluntly: <code>boost::unordered_flat_map</code> is quickest on eight of the fifteen, <code>unordered_dense</code> on four, <code>tsl::robin_map</code> on two and <code>absl::flat_hash_map</code> on one. Neither view is the honest one on its own, which is why the quiz asks what your code does instead of handing you a league table.</p>
+
+    <p><strong style="color:var(--ink-2)">Three things that were checked rather than assumed.</strong> All eight produce byte-identical results on every workload, so they are demonstrably doing the same work. Boost recognises the shared hash as avalanching and therefore skips its own mixing step, so sharing it does not tax anyone &mdash; <code>boost::hash</code> is not avalanching, so this is if anything generous to Boost. And every container keeps its own default load factor, which is part of what is being compared: at a million entries they sit anywhere between <span class='num'>0.48</span> and <span class='num'>0.69</span> full.</p>
+
+    <p><strong style="color:var(--ink-2)">Memory was measured separately.</strong> One map per process, so no peak can contaminate another: build a million entries from empty, then read the high-water mark and the settled size out of <code>/proc/self/status</code>. That run deliberately leaves the allocator alone &mdash; the timing runs raise glibc's mmap and trim thresholds to keep pages out of the kernel, which is right for a stopwatch and would falsify a memory figure.</p>
+
+    <p>Your workload is not those workloads. This quiz narrows eight choices to one worth trying first; it does not replace measuring the thing you actually built. If the difference matters enough to ask the question, it matters enough to benchmark.</p>
+  </div>
+</footer>
+
+</div>
+<script>
+(function(){
+"use strict";
+
+/* -- the candidates. Colour encodes family: amber stands alone, the three
+      cools are Boost's, grey is the standard library. ------------------- */
+var MAPS=[
+ {id:"udm",  full:"ankerl::unordered_dense::map", c:"var(--c-udm)",
+  url:"https://github.com/martinus/unordered_dense"},
+ {id:"bflat",full:"boost::unordered_flat_map",    c:"var(--c-bflat)",
+  url:"https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered/reference/unordered_flat_map.html"},
+ {id:"bnode",full:"boost::unordered_node_map",    c:"var(--c-bnode)",
+  url:"https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered/reference/unordered_node_map.html"},
+ {id:"bmap", full:"boost::unordered_map",         c:"var(--c-bmap)",
+  url:"https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered/reference/unordered_map.html"},
+ {id:"absl", full:"absl::flat_hash_map",          c:"var(--c-absl)",
+  url:"https://abseil.io/docs/cpp/guides/container"},
+ {id:"anode",full:"absl::node_hash_map",          c:"var(--c-anode)",
+  url:"https://abseil.io/docs/cpp/guides/container"},
+ {id:"tsl",  full:"tsl::robin_map",               c:"var(--c-tsl)",
+  url:"https://github.com/Tessil/robin-map"},
+ {id:"std",  full:"std::unordered_map",           c:"var(--c-std)",
+  url:"https://en.cppreference.com/w/cpp/container/unordered_map"}
+];
+
+/* Ties fall back to the order of the standing above, so the two lists never
+   disagree about which of two level candidates comes first. A dead heat is
+   surfaced rather than hidden: the result says so whenever the top two are
+   within a point. */
+var ORDER={};
+for (var mi = 0; mi < MAPS.length; mi++) ORDER[MAPS[mi].id] = mi;
+function byScore(s){
+  return function(a,b){ return (s[b.id]-s[a.id]) || (ORDER[a.id]-ORDER[b.id]) };
+}
+
+var QUESTIONS=[
+ {
+  k:"Iterating",
+  q:"How often do you walk the whole map?",
+  opts:[
+   {id:"noiter",  t:"Almost never",  d:"It is a lookup table. I ask it about one key at a time.",  w:{}},
+   {id:"someiter",t:"Now and then",  d:"A save, a sweep, a report &mdash; not in the hot path.",   w:{udm:2}},
+   {id:"iter",    t:"Constantly",    d:"A loop over everything, every frame or every tick.",       w:{udm:5,absl:1,anode:1}}
+  ]
+ },
+ {
+  k:"Mostly",
+  q:"What does it do the rest of the time?",
+  opts:[
+   {id:"lookup", t:"Answers lookups",                 d:"Read far more often than written.",                  w:{bflat:5,bnode:4,absl:4,udm:4,anode:4,tsl:2,bmap:1,std:1}},
+   {id:"build",  t:"Fills up, then gets thrown away", d:"Built from empty, used, discarded, built again.",     w:{udm:5,bflat:3,absl:3,anode:1,bnode:1,tsl:1}},
+   {id:"churn",  t:"Erases and inserts forever",      d:"A cache or an index, holding roughly the same size.", w:{tsl:5,bflat:5,udm:4,absl:4,bmap:3,bnode:2,anode:2,std:1}}
+  ]
+ },
+ {
+  k:"Entry size",
+  q:"How big is one entry?",
+  opts:[
+   {id:"set",   t:"There is no value &mdash; it's a set",  d:"I only need to know whether the key is in there.",     w:{bflat:3,tsl:3,absl:3,std:1,bnode:1,bmap:1,anode:1,udm:1}},
+   {id:"tiny",  t:"Small: a number, a pointer, an index",  d:"Sixteen bytes of <code>value_type</code> or less.",    w:{bflat:3,tsl:3,absl:3,std:1,bnode:1,bmap:1,anode:1,udm:1}},
+   {id:"struct",t:"A struct, roughly 32 to 100 bytes",     d:"An entity, a record, a handful of fields.",            w:{udm:2,anode:2,bmap:2,bnode:2,std:2,absl:1,tsl:1,bflat:1}},
+   {id:"heavy", t:"Big, or expensive to move",             d:"A string, a vector, something holding an allocation.", w:{udm:3,anode:3,bmap:3,bnode:3,std:3,absl:1,tsl:1,bflat:1}}
+  ]
+ },
+ {
+  k:"Memory",
+  q:"Does the memory it uses matter?",
+  opts:[
+   {id:"nomem", t:"Not really",                       d:"I have RAM. Speed is what I am here for.",                     w:{}},
+   {id:"steady",t:"The steady footprint matters",     d:"It sits there for the life of the process and I pay for it.",  w:{udm:3,bflat:3,absl:3,std:2,bmap:2,bnode:1,tsl:1,anode:1}},
+   {id:"peak",  t:"The spike while it grows matters", d:"Briefly holding two copies of a big table is not affordable.", w:{udm:3,std:3,bmap:2,bnode:2,anode:2,bflat:1,absl:1,tsl:1}}
+  ]
+ },
+ {
+  k:"Addresses",
+  q:"Do you hold on to pointers or references to elements?",
+  opts:[
+   {id:"nostable",t:"No",                            d:"I look something up and use it right away.",           w:{}},
+   {id:"unsure",  t:"I'm not sure",                  d:"Answer this and the result will tell you the tell.",   w:{}},
+   {id:"stable",  t:"Yes, and they must stay valid", d:"I keep <code>&amp;map[key]</code> and use it after other inserts.",
+    w:{bnode:4,anode:4,bmap:2,std:1}, gate:["bnode","anode","bmap","std"], gateWhy:"you keep pointers or references to elements"}
+  ]
+ },
+ {
+  k:"Interface",
+  q:"Does it have to behave exactly like <code>std::unordered_map</code>?",
+  opts:[
+   {id:"anyapi", t:"No",                               d:"I will use whatever interface is fastest.",                w:{}},
+   {id:"nearapi",t:"Mostly",                           d:"Familiar is good, but I do not rely on the corners.",      w:{bmap:3,bnode:2,anode:2,std:2}},
+   {id:"dropin", t:"Yes &mdash; it must be a drop-in", d:"Same guarantees, same bucket interface, same everything.", w:{bmap:5,std:3}}
+  ]
+ },
+ {
+  k:"Depends on",
+  q:"What can this project depend on?",
+  opts:[
+   {id:"header", t:"One header, nothing more",               d:"A single file I can drop in. No CMake, no linking.",    w:{udm:4,tsl:2},
+    gate:["udm","tsl","std"], gateWhy:"you can only add a single header"},
+   {id:"boost",  t:"Boost is already in the build",          d:"It is there, so its containers cost me nothing new.",   w:{bflat:3,bnode:2,bmap:2}},
+   {id:"abseil", t:"Abseil is already in the build",         d:"Same again &mdash; and I am not adding Boost as well.", w:{absl:4,anode:3}},
+   {id:"any",    t:"Anything &mdash; I will add what is best", d:"No constraint. Pick the container on merit.",         w:{}},
+   {id:"stdonly",t:"The standard library, and nothing else", d:"No new dependency. Not negotiable.",                    w:{std:5},
+    gate:["std"], gateWhy:"you can only depend on the standard library"}
+  ]
+ }
+];
+
+
+
+/* -- every figure below was measured; see the footer ----------------- */
+var RESULTS={
+ udm:{
+  why:"Values live in one contiguous vector in insertion order. Iterating is a plain linear scan, and a large value is appended in order rather than written into a hash-scattered slot.",
+  good:[
+   {if:"iter",  h:"Iteration is a vector walk.", t:"<span class='num'>2.97&nbsp;ms</span> against <span class='num'>25&ndash;54&nbsp;ms</span> for the other seven. The nearest is <code>absl::node_hash_map</code> at <span class='num'>25.57</span>; nothing is within a factor of eight, because nothing else keeps its values in order."},
+   {if:"heavy", h:"Big values stay cheap.",      t:"Building 200k entries with a 64-byte value: <span class='num'>4.85&nbsp;ms</span>, against <span class='num'>10.21</span> for the quickest node map, <span class='num'>11.02</span> for boost-flat and <span class='num'>32.86</span> for <code>tsl::robin_map</code>."},
+   {if:"struct",h:"Value size barely touches building it.", t:"A flat map writes the whole <code>value_type</code> into a scattered slot; this one writes eight bytes there and appends the rest in order. That flips construction &mdash; though boost-flat stays ahead on steady-state lookups."},
+   {if:"build", h:"String keys build fastest here.", t:"200k string keys: <span class='num'>11.10&nbsp;ms</span> against boost-flat's <span class='num'>16.60</span> and Abseil's <span class='num'>17.96</span>."},
+   {if:"steady",h:"The smallest steady footprint of the eight.", t:"A million <code>&lt;uint64_t,uint64_t&gt;</code> entries settle at <span class='num'>31.5&nbsp;MB</span>, against boost-flat's <span class='num'>32.2</span>, Abseil's <span class='num'>34.3</span> and <code>tsl::robin_map</code>'s <span class='num'>48.2</span>."},
+   {if:"peak",  h:"And the smallest peak while growing.", t:"<span class='num'>36.6&nbsp;MB</span> at its high-water mark against boost-flat's <span class='num'>48.0</span> and Abseil's <span class='num'>51.1</span>. With a 64-byte value the flat maps peak at <span class='num'>205&ndash;240&nbsp;MB</span> where this one takes <span class='num'>101</span> &mdash; or <span class='num'>85</span> if you <code>reserve</code>, since a grown vector keeps up to twice the capacity it needs."},
+   {if:"churn", h:"Its churn cost does not drift.", t:"Its lookups held at <span class='num'>0.91&ndash;1.00&times;</span> of fresh cost over two million operations, where boost-flat drifted to <span class='num'>1.31&times;</span> before a rehash repaired it. Boost is still quicker overall &mdash; <span class='num'>9.09&nbsp;ms</span> against <span class='num'>12.17</span>."},
+   {always:1,   h:"It is one header.",           t:"No build-system change, no linking, no submodule. Only <code>tsl::robin_map</code> is as cheap to try."}
+  ],
+  watch:[
+   {always:1,   h:"Insert invalidates pointers, references and iterators.", t:"So does <code>erase</code> &mdash; the last element is moved into the hole it left, which is exactly what keeps the values dense."},
+   {if:"lookup",h:"Lookups are not its best event.", t:"Ten million at a 50% hit rate: <span class='num'>54.05&nbsp;ms</span> against boost-flat's <span class='num'>44.63</span> and Abseil's <span class='num'>51.05</span>."},
+   {if:"unsure",h:"The tell for whether you need stable addresses:", t:"search for <code>&amp;map[</code> and for <code>auto&amp;</code> bound to an element. If one of those survives across an insert, you needed a node-based map."},
+   {always:1,   h:"Erase is not free.",          t:"Keeping the values dense means erase moves the last element into the hole and repoints its bucket. That is the price of the iteration you are buying."},
+   {always:1,   h:"It is not the standard container.", t:"The interface is close, but this is a swap a reviewer will notice."},
+   {always:1,   h:"Its headline depends on the basket.", t:"Over all fifteen workloads it leads. Over the thirteen that do not iterate, <code>boost::unordered_flat_map</code> is <span class='num'>1.10&times;</span> ahead of it. Two of the fifteen are iteration and it wins those by eight to eighteen times, so a summary number is really a statement about how much you iterate."}
+  ],
+  code:'<span class="c">// one header, nothing to link</span>\n<span class="k">#include</span> <span class="t">&lt;ankerl/unordered_dense.h&gt;</span>\n\nankerl::unordered_dense::<span class="t">map</span>&lt;uint64_t, Value&gt; m;'
+ },
+ tsl:{
+  why:"A single-header robin-hood map &mdash; the closest thing here to <code>unordered_dense</code> in design, but storing the whole element in the bucket array instead of in a vector beside it.",
+  good:[
+   {if:"churn", h:"Churn is the one thing it wins.", t:"With string keys <span class='num'>29.15&nbsp;ms</span> and with 64-byte values <span class='num'>10.96</span> &mdash; the quickest of the eight at both. Backward shift deletion keeps its probe sequences short."},
+   {always:1,   h:"One header, no build system.", t:"Drop in <code>tsl/robin_map.h</code> and go. Only <code>unordered_dense</code> asks as little."}
+  ],
+  watch:[
+   {always:1,   h:"Iteration is the slowest of the eight.", t:"<span class='num'>54.10&nbsp;ms</span> against <code>unordered_dense</code>'s <span class='num'>2.97</span> &mdash; eighteen times &mdash; because it walks a sparse bucket array and skips every empty slot."},
+   {always:1,   h:"It uses the most memory of the eight.", t:"<span class='num'>48.2&nbsp;MB</span> steady per million <code>uint64_t</code> entries against <span class='num'>31.5</span>, and a <span class='num'>239.7&nbsp;MB</span> peak with 64-byte values against <span class='num'>100.7</span>."},
+   {always:1,   h:"Building is expensive.",     t:"200k entries with a 64-byte value: <span class='num'>32.86&nbsp;ms</span> against <span class='num'>4.85</span>. It moves the whole element on every rehash."},
+   {always:1,   h:"Behind overall.",            t:"<span class='num'>1.79&times;</span> <code>unordered_dense</code> on the geometric mean of fifteen workloads. It is here for completeness; on this evidence it wins only sustained churn."}
+  ],
+  code:'<span class="c">// one header, nothing to link</span>\n<span class="k">#include</span> <span class="t">&lt;tsl/robin_map.h&gt;</span>\n\ntsl::<span class="t">robin_map</span>&lt;uint64_t, Value&gt; m;'
+ },
+ bflat:{
+  why:"Open addressing with a SIMD group scan over metadata bytes. It wins more of these fifteen workloads than anything else here.",
+  good:[
+   {always:1,  h:"The most first places of the eight.", t:"Quickest on eight of the fifteen workloads, including every string lookup and every kind of miss. Ten million lookups at a 50% hit rate: <span class='num'>44.63&nbsp;ms</span> against <code>unordered_dense</code>'s <span class='num'>54.05</span> and Abseil's <span class='num'>51.05</span>."},
+   {always:1,  h:"Misses are its speciality.",  t:"Ten million that cannot hit: <span class='num'>32.72&nbsp;ms</span>, against <span class='num'>52.24</span> for <code>absl::flat_hash_map</code> and <span class='num'>48.02</span> for <code>unordered_dense</code>."},
+   {if:"tiny", h:"Small values are its best case.", t:"Building 200k <code>uint64_t</code> keys: <span class='num'>2.57&nbsp;ms</span>, the quickest here. The whole element fits in a slot, so there is only one array to touch."},
+   {if:"churn",h:"It churns fast.",             t:"Fixed-size erase-and-insert with <code>uint64_t</code> keys: <span class='num'>9.09&nbsp;ms</span> against <code>unordered_dense</code>'s <span class='num'>12.17</span>."},
+   {always:1,  h:"Header-only, despite Boost being large.", t:"Boost.Unordered needs no building and no linking, which is not true of Abseil."}
+  ],
+  watch:[
+   {always:1,  h:"Cost scales with <code>sizeof(value_type)</code>.", t:"At 64 bytes it builds in <span class='num'>11.02&nbsp;ms</span> where the dense map takes <span class='num'>4.85</span>, and peaks at <span class='num'>205&nbsp;MB</span> against <span class='num'>101</span>."},
+   {always:1,  h:"Iterating means skipping holes.", t:"<span class='num'>32.44&nbsp;ms</span> against <code>unordered_dense</code>'s <span class='num'>2.97</span> on the same data."},
+   {if:"churn",h:"The repair is a latency spike.", t:"Erase does not undo the displacement it caused, so probe sequences only grow &mdash; lookups drift to <span class='num'>1.31&times;</span> of fresh cost and snap back on an in-place rehash, at <span class='num'>+7&nbsp;ns</span> per operation on the round that pays."},
+   {always:1,  h:"Pointers and references move.", t:"Any rehash relocates every element."}
+  ],
+  code:'<span class="k">#include</span> <span class="t">&lt;boost/unordered/unordered_flat_map.hpp&gt;</span>\n\nboost::<span class="t">unordered_flat_map</span>&lt;uint64_t, Value&gt; m;'
+ },
+ absl:{
+  why:"Google's SwissTable: open addressing with a SIMD scan over control bytes, and the design most modern flat maps descend from. Boost's is a cousin, not a copy &mdash; and they do not behave alike.",
+  good:[
+   {always:1,  h:"It iterates faster than the other flat maps.", t:"<span class='num'>26.83&nbsp;ms</span> against boost-flat's <span class='num'>32.44</span>, and <span class='num'>25.38</span> against <span class='num'>33.39</span> with string keys. If you must have a flat map and you do iterate, this is the flat map to have."},
+   {always:1,  h:"The quickest all-hit lookups here.", t:"Ten million lookups that all succeed: <span class='num'>48.12&nbsp;ms</span>, ahead of boost-flat's <span class='num'>51.61</span> &mdash; the one workload it wins outright."},
+   {if:"tiny", h:"Small values suit it.",       t:"Building 200k <code>uint64_t</code> keys: <span class='num'>2.63&nbsp;ms</span>, a hair behind boost-flat's <span class='num'>2.57</span>."},
+   {if:"abseil",h:"You already have it.",       t:"If Abseil is in the build, this costs nothing to adopt and is within <span class='num'>8%</span> of boost-flat overall. Do not add Boost just for a container."}
+  ],
+  watch:[
+   {always:1,  h:"Misses cost it dearly.",      t:"Ten million that cannot hit: <span class='num'>52.24&nbsp;ms</span> against boost-flat's <span class='num'>32.72</span> &mdash; <span class='num'>1.6&times;</span>. That is the mirror of its iteration win, and it is the single biggest difference between the two designs."},
+   {always:1,  h:"Behind boost-flat overall.",  t:"<span class='num'>1.31&times;</span> <code>unordered_dense</code> on the geometric mean against boost-flat's <span class='num'>1.21</span>, and it uses more memory: <span class='num'>34.3&nbsp;MB</span> steady per million against <span class='num'>32.2</span>."},
+   {always:1,  h:"It is not header-only.",      t:"CMake or Bazel, compiled libraries to link, and an ABI that has to match your compiler flags. The only candidate here with a real build cost."},
+   {always:1,  h:"Pointers and references move.", t:"Any rehash relocates every element. Use <code>absl::node_hash_map</code> if that matters."}
+  ],
+  code:'<span class="c">// needs CMake or Bazel and linking</span>\n<span class="k">#include</span> <span class="t">&lt;absl/container/flat_hash_map.h&gt;</span>\n\nabsl::<span class="t">flat_hash_map</span>&lt;uint64_t, Value&gt; m;'
+ },
+ bnode:{
+  why:"Each element lives in its own node, so its address never changes &mdash; but the index in front of those nodes is still open-addressed, which is what separates it from a bucket-and-chain map.",
+  good:[
+   {always:1,  h:"Addresses are stable.",       t:"A pointer or reference survives every insert and every erase but its own. Four maps here offer that; this is the quickest of them."},
+   {always:1,  h:"Quickest node map of the four.", t:"<span class='num'>1.51&times;</span> <code>unordered_dense</code> on the geometric mean, against <span class='num'>1.57</span> for <code>absl::node_hash_map</code>, <span class='num'>2.09</span> for <code>boost::unordered_map</code> and <span class='num'>2.72</span> for the standard container."},
+   {always:1,  h:"Misses stay cheap.",          t:"Ten million that cannot hit: <span class='num'>34.89&nbsp;ms</span>, within a whisker of boost-flat's <span class='num'>32.72</span> and far ahead of Abseil's node map at <span class='num'>52.22</span>."},
+   {if:"peak", h:"The lowest peak of the eight for big values.", t:"A million 64-byte entries never exceed <span class='num'>93.5&nbsp;MB</span>, because nodes are allocated one at a time and growth never holds two copies. The flat maps peak at <span class='num'>205&ndash;240</span>."}
+  ],
+  watch:[
+   {always:1,  h:"A pointer chase per lookup.", t:"Finding the slot is quick; reaching the element is an indirection the flat and dense maps never pay."},
+   {always:1,  h:"A node allocation per insert.", t:"Building 200k <code>uint64_t</code> keys: <span class='num'>7.39&nbsp;ms</span> against boost-flat's <span class='num'>2.57</span>."},
+   {always:1,  h:"Iteration is a pointer chase too.", t:"<span class='num'>32.68&nbsp;ms</span> against <code>unordered_dense</code>'s <span class='num'>2.97</span>."},
+   {always:1,  h:"Worth checking you need it.", t:"Stable addresses are a real requirement, but an index into a vector often serves the same purpose for nothing."}
+  ],
+  code:'<span class="k">#include</span> <span class="t">&lt;boost/unordered/unordered_node_map.hpp&gt;</span>\n\n<span class="c">// &amp;m.at(k) stays valid across inserts</span>\nboost::<span class="t">unordered_node_map</span>&lt;uint64_t, Value&gt; m;'
+ },
+ anode:{
+  why:"Abseil's node variant: stable addresses behind the same SwissTable index. It stands to <code>absl::flat_hash_map</code> exactly as Boost's node map stands to Boost's flat one.",
+  good:[
+   {always:1,  h:"Addresses are stable.",       t:"A pointer or reference survives every insert and every erase but its own."},
+   {always:1,  h:"The quickest node map to iterate.", t:"<span class='num'>25.57&nbsp;ms</span> against <code>boost::unordered_node_map</code>'s <span class='num'>32.68</span> &mdash; the same iteration advantage Abseil's flat map has over Boost's, for the same reason."},
+   {if:"heavy",h:"Best of the node maps at big values.", t:"Building 200k 64-byte entries: <span class='num'>10.21&nbsp;ms</span>, ahead of Boost's node map at <span class='num'>11.46</span>, and peaking at <span class='num'>95.6&nbsp;MB</span>."},
+   {if:"abseil",h:"You already have it.",       t:"If Abseil is in the build and you need stable addresses, this is the container that costs you nothing new."}
+  ],
+  watch:[
+   {always:1,  h:"Misses cost it dearly.",      t:"Ten million that cannot hit: <span class='num'>52.22&nbsp;ms</span> against Boost's node map at <span class='num'>34.89</span> &mdash; <span class='num'>1.5&times;</span>, the same trade its flat sibling makes."},
+   {always:1,  h:"Slightly behind Boost's node map.", t:"<span class='num'>1.57&times;</span> <code>unordered_dense</code> on the geometric mean against <span class='num'>1.51</span>. Close enough that your workload decides it, not this page."},
+   {always:1,  h:"It is not header-only.",      t:"CMake or Bazel, compiled libraries, matching ABI."},
+   {always:1,  h:"A pointer chase per lookup, and an allocation per insert.", t:"The price every node map pays for keeping addresses still."}
+  ],
+  code:'<span class="c">// needs CMake or Bazel and linking</span>\n<span class="k">#include</span> <span class="t">&lt;absl/container/node_hash_map.h&gt;</span>\n\nabsl::<span class="t">node_hash_map</span>&lt;uint64_t, Value&gt; m;'
+ },
+ bmap:{
+  why:"Boost's conforming <code>std::unordered_map</code>: closed addressing, buckets and chains, the whole standard interface &mdash; and measurably quicker than the one your toolchain ships.",
+  good:[
+   {always:1,  h:"It really is a drop-in.",     t:"Same API, same guarantees, the same bucket interface down to <code>local_iterator</code> and <code>bucket_count()</code>. Change the include and the namespace; nothing else."},
+   {always:1,  h:"Quicker than the standard container.", t:"<span class='num'>1.30&times;</span> on the geometric mean of fifteen workloads. Iteration <span class='num'>31.07&nbsp;ms</span> against <span class='num'>41.00</span>, string lookups <span class='num'>268.08</span> against <span class='num'>390.11</span>, string churn <span class='num'>32.09</span> against <span class='num'>59.12</span>."},
+   {if:"churn",h:"Churn is where it does best.", t:"With string keys: <span class='num'>32.09&nbsp;ms</span>, within a whisker of <code>unordered_dense</code>'s <span class='num'>31.29</span> and <span class='num'>1.84&times;</span> quicker than the standard container."},
+   {if:"stable",h:"The strongest guarantees here.", t:"Stable addresses <em>and</em> the standard's iterator rules, which is more than either open-addressed node map promises."}
+  ],
+  watch:[
+   {always:1,  h:"It is still bucket-and-chain.", t:"Ten million lookups at a 50% hit rate: <span class='num'>110.88&nbsp;ms</span>, against boost-flat's <span class='num'>44.63</span>. Overall <span class='num'>2.09&times;</span> behind <code>unordered_dense</code>."},
+   {always:1,  h:"It builds slower than the standard container, not faster.", t:"200k <code>uint64_t</code> keys: <span class='num'>12.73&nbsp;ms</span> against std's <span class='num'>11.48</span>; strings <span class='num'>41.14</span> against <span class='num'>38.32</span>. Its wins are lookup, iteration and churn &mdash; not filling it up."},
+   {always:1,  h:"You are paying for conformance.", t:"If the bucket interface is not what you actually need, <code>boost::unordered_node_map</code> keeps the stable addresses and is <span class='num'>1.4&times;</span> quicker."}
+  ],
+  code:'<span class="k">#include</span> <span class="t">&lt;boost/unordered_map.hpp&gt;</span>\n\n<span class="c">// a conforming std::unordered_map, bucket interface and all</span>\nboost::<span class="t">unordered_map</span>&lt;uint64_t, Value&gt; m;'
+ },
+ std:{
+  why:"The one you already have, and the slowest of the eight almost everywhere it was measured.",
+  good:[
+   {always:1, h:"It is already there.",         t:"No new dependency, no build change, no review argument to have."},
+   {always:1, h:"The semantics are the ones everyone knows.", t:"Stable addresses, stable references, and iterators that survive everything but a rehash."}
+  ],
+  watch:[
+   {always:1, h:"Slowest here, by a wide margin.", t:"<span class='num'>2.72&times;</span> behind <code>unordered_dense</code> on the geometric mean of fifteen workloads, and last of the eight on twelve of them. The exceptions are the three build workloads, where <code>boost::unordered_map</code> is slower still."},
+   {always:1, h:"Not because implementations are lazy.", t:"The standard requires bucket-and-chain semantics &mdash; a pointer chase to reach an element, a node allocation per insert &mdash; and no implementation can optimise its way out of what it must promise."},
+   {always:1, h:"You can still fix the hash.",  t:"The hash is a template parameter, and swapping it costs no dependency you have not already got: <code>std::unordered_map&lt;K,&nbsp;V,&nbsp;ankerl::unordered_dense::hash&lt;K&gt;&gt;</code>. It is the cheapest change on this page."},
+   {always:1, h:"Boost has the same interface, faster.", t:"If a dependency is acceptable but a rewrite is not, <code>boost::unordered_map</code> is a drop-in and <span class='num'>1.30&times;</span> quicker."}
+  ],
+  code:'<span class="k">#include</span> <span class="t">&lt;unordered_map&gt;</span>\n\nstd::<span class="t">unordered_map</span>&lt;uint64_t, Value&gt; m;\n\n<span class="c">// if you can add one header, this alone is worth it:</span>\nstd::<span class="t">unordered_map</span>&lt;uint64_t, Value,\n                   ankerl::unordered_dense::hash&lt;uint64_t&gt;&gt; fast;'
+ }
+};
+
+
+/* -- state ---------------------------------------------------------- */
+var answers=[],step=0,editing=false,QUIZ_HTML="";
+var el=function(id){return document.getElementById(id)};
+var link=function(m){return '<a href="'+m.url+'" target="_blank" rel="noopener">'+m.full+'</a>'};
+
+function scores(){
+  var s={},allowed=null,i,o,k;
+  for(i=0;i<MAPS.length;i++) s[MAPS[i].id]=0;
+  for(i=0;i<answers.length;i++){
+    if(answers[i]===undefined) continue;
+    o=QUESTIONS[i].opts[answers[i]];
+    for(k in o.w) if(o.w.hasOwnProperty(k)) s[k]+=o.w[k];
+    if(o.gate) allowed = allowed ? allowed.filter(function(x){return o.gate.indexOf(x)>=0}) : o.gate.slice();
+  }
+  return {s:s,allowed:allowed};
+}
+
+/* which answer, if any, took this candidate off the table */
+function ruledBy(id){
+  for(var i=0;i<answers.length;i++){
+    if(answers[i]===undefined) continue;
+    var o=QUESTIONS[i].opts[answers[i]];
+    if(o.gate && o.gate.indexOf(id)<0) return o.gateWhy;
+  }
+  return null;
+}
+
+function buildRows(){
+  var html="",i,m;
+  for(i=0;i<MAPS.length;i++){
+    m=MAPS[i];
+    html+='<div class="row" id="row-'+m.id+'" style="--m:'+m.c+'">'
+       +  '<div class="rowtop"><span class="rowname"><i></i>'+link(m)+'</span>'
+       +  '<span class="delta" id="d-'+m.id+'"></span></div><div class="cells" id="c-'+m.id+'">'
+       +  new Array(15).join('<i></i>')+'</div></div>';
+  }
+  el("rows").innerHTML=html;
+}
+
+function paint(deltas){
+  var st=scores(),s=st.s,allowed=st.allowed,i,j,m,max=0,lead=null,live,ranked=[];
+  for(i=0;i<MAPS.length;i++){
+    m=MAPS[i];
+    if(!allowed || allowed.indexOf(m.id)>=0) ranked.push(m);
+  }
+  ranked.sort(byScore(s));
+  if(ranked.length && s[ranked[0].id]>0){ lead=ranked[0].id; max=s[ranked[0].id] }
+  for(i=0;i<MAPS.length;i++){
+    m=MAPS[i]; live = !allowed || allowed.indexOf(m.id)>=0;
+    var row=el("row-"+m.id), cells=el("c-"+m.id).children;
+    row.className="row"+(live?"":" out")+(m.id===lead?" lead":"");
+    var on = (live && max>0) ? Math.round(s[m.id]/max*14) : 0;
+    for(j=0;j<14;j++){
+      var c=cells[j];
+      if(j<on && live){
+        if(c.className!=="on"){c.className="on";c.style.transitionDelay=(j*22)+"ms"}
+      }else{c.className="";c.style.transitionDelay="0ms"}
+    }
+    var d=el("d-"+m.id);
+    if(deltas && deltas[m.id] && live){
+      d.textContent="+"+deltas[m.id];
+      d.className="delta"; void d.offsetWidth; d.className="delta show";
+    }else{ d.className="delta"; d.textContent="" }
+  }
+}
+
+function renderQuestion(){
+  var q=QUESTIONS[step],html="",i,o;
+  el("qcount").textContent="Question "+(step+1)+" of "+QUESTIONS.length;
+  el("qtext").innerHTML=q.q;
+  for(i=0;i<q.opts.length;i++){
+    o=q.opts[i];
+    html+='<button class="opt'+(answers[step]===i?" sel":"")+'" type="button" data-i="'+i+'">'
+       +  '<b>'+o.t+'</b><span>'+o.d+'</span></button>';
+  }
+  el("opts").innerHTML=html;
+  var p="";
+  for(i=0;i<QUESTIONS.length;i++) p+='<i class="'+(i<step?"done":i===step?"now":"")+'"></i>';
+  el("probe").innerHTML=p;
+  el("back").hidden = step===0 || editing;
+  el("reset").hidden = step===0 && !editing;
+  el("keep").hidden = !editing;
+  el("qfoot").hidden = step===0 && !editing;
+}
+
+/* -- the result: one box per candidate, ranked, the first highlighted -- */
+function finish(){
+  var st=scores(),s=st.s,allowed=st.allowed,i,m,live=[],out=[],picked={};
+  for(i=0;i<answers.length;i++) picked[QUESTIONS[i].opts[answers[i]].id]=true;
+  for(i=0;i<MAPS.length;i++){
+    m=MAPS[i];
+    if(allowed && allowed.indexOf(m.id)<0) out.push(m); else live.push(m);
+  }
+  var bysc=byScore(s);
+  live.sort(bysc); out.sort(bysc);
+  /* a ruled-out candidate ranks below every usable one, however well it scored */
+  var rank=live.concat(out);
+  var gap = live.length>1 ? s[live[0].id]-s[live[1].id] : 99;
+
+  function lines(arr){
+    var o="",n=0,i2,x;
+    for(i2=0;i2<arr.length&&n<4;i2++){
+      x=arr[i2];
+      if(x.always||picked[x["if"]]){o+="<li><b>"+x.h+"</b> "+x.t+"</li>";n++}
+    }
+    return o;
+  }
+
+  var ord=["Start with","2nd","3rd","4th","5th"];
+  var head='<div class="rtop"><h2>'
+    + (gap<=1 && live.length>1
+        ? "Too close to call &mdash; the top two are within a point"
+        : "Ranked for what you said")
+    + '</h2><button class="again" type="button" id="again">Ask again</button></div>';
+
+  var html="";
+  for(i=0;i<rank.length;i++){
+    m=rank[i];
+    var r=RESULTS[m.id], why=ruledBy(m.id), win=(i===0 && !why);
+    html+='<article class="rcard'+(win?" win":"")+(why?" out":"")+'" style="--m:'+m.c+'">'
+      +'<div class="rhead"><div class="rmeta">'
+      +'<p class="rlabel">'+(win?ord[0]:ord[i]||(i+1))+'</p>'
+      +'<span class="rpts">'+s[m.id]+' pt'+(s[m.id]===1?"":"s")+'</span></div>'
+      +'<h3 class="rname">'+link(m)+'</h3>'
+      +'<p class="rwhy">'+r.why+'</p>'
+      +(why?'<p class="ruled"><b>Ruled out</b> &mdash; '+why+'.</p>':'')
+      +'</div><div class="rbody">'
+      +'<div class="rsec"><h3>Why it fits</h3><ul>'+lines(r.good)+'</ul></div>'
+      +'<div class="rsec"><h3>What it costs you</h3><ul>'+lines(r.watch)+'</ul></div>'
+      +'<div class="rcode"><pre>'+r.code+'</pre></div>'
+      +'</div></article>';
+  }
+
+  el("result").innerHTML=head+html;
+  el("result").hidden=false;
+  el("again").addEventListener("click",restart);
+  el("result").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function recap(){
+  var html='<h2>Your answers</h2><ol>',i,q,o;
+  for(i=0;i<QUESTIONS.length;i++){
+    q=QUESTIONS[i]; o=q.opts[answers[i]];
+    html+='<li><button type="button" data-q="'+i+'">'
+       +  '<span class="rk">'+q.k+'</span><span class="rv">'+o.t+'</span></button></li>';
+  }
+  html+='</ol><p class="edit">Pick any line to change it</p>';
+  var panel=document.querySelector(".quiz");
+  panel.className="panel quiz recap";
+  panel.innerHTML=html;
+  panel.addEventListener("click",function(e){
+    var b=e.target.closest("button[data-q]"); if(b) jumpTo(+b.getAttribute("data-q"));
+  });
+}
+
+function showQuiz(){
+  var panel=document.querySelector(".quiz");
+  panel.className="panel quiz";
+  panel.innerHTML=QUIZ_HTML;
+  bindQuiz();
+  el("result").hidden=true; el("result").innerHTML="";
+}
+/* Re-answering one question keeps every other answer: change your mind about the
+   value size without being asked again about iteration. */
+function jumpTo(i){
+  step=i; editing=true;
+  showQuiz(); renderQuestion(); paint(null);
+  document.querySelector(".quiz").scrollIntoView({behavior:"smooth",block:"center"});
+}
+function restart(){
+  answers=[];step=0;editing=false;
+  showQuiz(); renderQuestion(); paint(null);
+  document.querySelector("header").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function bindQuiz(){
+  el("opts").addEventListener("click",function(e){
+    var b=e.target.closest(".opt"); if(!b) return;
+    var i=+b.getAttribute("data-i");
+    answers[step]=i;
+    paint(QUESTIONS[step].opts[i].w);
+    if(editing){ editing=false; recap(); finish(); return }
+    step++;
+    if(step>=QUESTIONS.length){ recap(); finish() }
+    else renderQuestion();
+  });
+  el("back").addEventListener("click",function(){
+    if(step>0){step--;renderQuestion();paint(null)}
+  });
+  el("reset").addEventListener("click",restart);
+  el("keep").addEventListener("click",function(){
+    editing=false; recap(); finish();
+  });
+}
+
+/* -- the weight table, generated from the same data the quiz runs on -- */
+(function(){
+  el("sheetnote").innerHTML='Every option adds a fixed number of points to each candidate. Three answers are gates rather than weights: needing stable addresses removes the four maps that cannot give them, allowing only a single header removes everything that needs a build system, and allowing only the standard library removes the rest. Candidates are grouped by family, and a tie falls back to that same order so the ranking and the standing never disagree. Where the top two land within a point the result says so rather than quietly picking one, which is what a tie actually deserves. The last row is the one worth arguing with: if those ceilings were far apart, a candidate could win on breadth rather than on merit.';
+  var h='<table><thead><tr><th>Answer</th>';
+  var i,j,k,q,o,v,vv,mx,tot={};
+  for(i=0;i<MAPS.length;i++) h+='<th style="color:'+MAPS[i].c+'"><span>'+link(MAPS[i])+'</span></th>';
+  h+='</tr></thead><tbody>';
+  for(i=0;i<QUESTIONS.length;i++){
+    q=QUESTIONS[i];
+    h+='<tr class="qgroup"><td colspan="'+(MAPS.length+1)+'">'+(i+1)+'. '+q.q.replace(/<\/?code>/g,"")+'</td></tr>';
+    for(j=0;j<q.opts.length;j++){
+      o=q.opts[j];
+      h+='<tr><td>'+o.t+(o.gate?' <span style="color:var(--c-udm)">&middot; gate</span>':'')+'</td>';
+      for(k=0;k<MAPS.length;k++){
+        v=o.w[MAPS[k].id]||0;
+        h+='<td class="'+(v?"":"z")+'">'+(v?"+"+v:"&middot;")+'</td>';
+      }
+      h+='</tr>';
+    }
+  }
+  /* the ceilings matter: a candidate that can score in more places could win on
+     breadth rather than on merit, and that is not visible from the rows alone */
+  for(k=0;k<MAPS.length;k++) tot[MAPS[k].id]=0;
+  for(i=0;i<QUESTIONS.length;i++){
+    mx={};
+    for(j=0;j<QUESTIONS[i].opts.length;j++)
+      for(k=0;k<MAPS.length;k++){
+        vv=QUESTIONS[i].opts[j].w[MAPS[k].id]||0;
+        if(vv>(mx[MAPS[k].id]||0)) mx[MAPS[k].id]=vv;
+      }
+    for(k=0;k<MAPS.length;k++) tot[MAPS[k].id]+=mx[MAPS[k].id]||0;
+  }
+  h+='<tr class="qgroup"><td>Most points a candidate can reach</td>';
+  for(k=0;k<MAPS.length;k++) h+='<td>'+tot[MAPS[k].id]+'</td>';
+  h+='</tr>';
+  el("sheet").innerHTML=h+'</tbody></table>';
+})();
+
+QUIZ_HTML=document.querySelector(".quiz").innerHTML;
+buildRows();bindQuiz();renderQuestion();paint(null);
+})();
+</script>
+</body>
+</html>
