@@ -48,7 +48,7 @@
     </g>
     <text x="0" y="48" class="muted" font-size="12">bucket 40</text>
     <text x="450" y="48" class="muted" font-size="12" text-anchor="middle">… 47</text>
-    <text x="570" y="48" class="muted" font-size="12" text-anchor="middle">3 sentinels, new this year</text>
+    <text x="570" y="48" class="muted" font-size="12" text-anchor="middle">3 sentinels, new in 4.10</text>
   </g>
 
   <!-- values vector -->

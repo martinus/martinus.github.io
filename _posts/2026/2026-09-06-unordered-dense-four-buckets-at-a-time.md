@@ -1,11 +1,11 @@
 ---
 layout: post
 title: Four Buckets at a Time
-subtitle: A year of making ankerl::unordered_dense faster, with the SSE2 part explained for people who have never written an intrinsic
+subtitle: How ankerl::unordered_dense got 1.6x faster lookups with SSE2, explained for people who have never written an intrinsic
 ---
 
 [`ankerl::unordered_dense`](https://github.com/martinus/unordered_dense) is my C++ hash map. It
-has been stable for years, and this year it got the most performance work since I wrote it.
+has been stable for years, and this summer it got the most performance work since I wrote it.
 Random lookups with integer keys run **1.6x faster** than they did in January, insert and erase
 **1.25x**, and the string find, insert, build and churn workloads gained 14 to 17%. Most of that comes from one idea: the
 probe now reads **four buckets at once** with SSE2 instead of one at a time, and the insert and
@@ -355,7 +355,7 @@ verdicts**; this map's 32 byte window gives **4**, because half of every bucket 
 the values vector. Boost's keys also live right next to the metadata, one load away, where here a
 hit is bucket, then index, then value: two dependent loads. On lookups that all hit Boost is at
 28 cycles against this map's 48, and 1.21x ahead on the benchmark's 50/50 find. That is what is
-left of the gap after this year, down from 1.94x in January.
+left of the gap after this summer, down from 1.94x in January.
 
 Boost also never moves an element once placed. There is no robin hood, no shift on insert and
 no shift on erase. That is why an insert into Boost costs only 0.10 mispredictions; the vector
@@ -385,7 +385,7 @@ Neither map is the right one for every workload, which is why I built
 [a quiz](/which-hash-map/) about that a few days ago rather than another ranking. The comparison is
 fair in one respect that matters: both maps use this library's hash, and Boost's
 `hash_is_avalanching` trait is honoured, so it skips its own mixing step exactly as it would for
-its own hash. That interop is [one of this year's smaller changes](https://github.com/martinus/unordered_dense/pull/186).
+its own hash. That interop is [one of the smaller changes](https://github.com/martinus/unordered_dense/pull/186).
 
 # The hash
 
@@ -413,7 +413,7 @@ where a good share of the string workloads' 15% came from.
 # The benchmark lied, five times
 
 The score I optimise for is the geometric mean of fifteen workloads. It is a single number,
-which makes it easy to chase, and this year it turned out to be measuring the wrong things in
+which makes it easy to chase, and it turned out to be measuring the wrong things in
 several ways at once. Each of these was found because a change that should have helped did
 not, and each changed what the benchmark rewards.
 
@@ -474,7 +474,7 @@ new evidence. The ones that taught me something:
   shortens the *data* side of a store moves it, and vectorising the probe there made it 1.4x
   slower, because the store address then waited on the window load.
 
-# Also this year
+# Also this summer
 
 Not everything was about speed. Reserving, rehashing and growing on insert all used to release
 the old bucket array before asking for the new one, so a failed allocation left values with no
@@ -501,7 +501,7 @@ under 5% measured the old way, before and after in separate runs, is a coin flip
 in this post with an "x" on it came out of that harness, with the January header as the
 baseline and Boost as a third contender:
 
-[![The year, workload by workload: throughput relative to the January header, with boost for scale](/img/2026/unordered-dense/year-ab.svg)](/img/2026/unordered-dense/year-ab.svg)
+[![Workload by workload: throughput relative to the January header, with boost for scale](/img/2026/unordered-dense/year-ab.svg)](/img/2026/unordered-dense/year-ab.svg)
 
 The second tool is [`perf stat`](https://perfwiki.github.io/main/) with
 `-e cycles,instructions,branch-misses` on a runner that does one
