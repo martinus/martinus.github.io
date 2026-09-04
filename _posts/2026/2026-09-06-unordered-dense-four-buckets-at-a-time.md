@@ -104,7 +104,9 @@ to every lane at once. Four 32 bit lanes is the width that matters here, because
 32 bit fields and a lookup wants to examine four of them.
 
 In C++ you reach these through *intrinsics*: functions from `<emmintrin.h>` that map one to one
-onto instructions, with a `__m128i` type for a register holding integers. Every one used in the
+onto instructions, with a `__m128i` type for a register holding integers. Intel's
+[Intrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html)
+documents every one of them, with the exact lane semantics. Every one used in the
 map is in this table, and there are only a dozen.
 
 | intrinsic | what it does |
@@ -142,83 +144,111 @@ proof of absence. The **lowest lane that is either** decides, and it is found wi
 [![Walking through one lookup: four buckets, two compares, one mask, one decision](/img/2026/unordered-dense/probe.svg)](/img/2026/unordered-dense/probe.svg)
 
 Reading the buckets is the first bit of plumbing. Two loads fetch four buckets, but each 16 byte
-load holds two buckets as `[dist·fp, index, dist·fp, index]`, and the compare wants the four
-`dist·fp` values side by side. `_mm_shuffle_ps` picks lanes 0 and 2 of each load:
+load holds two *whole* buckets, so its four lanes are `[dist·fp, index, dist·fp, index]`, and
+the compare wants the four `dist·fp` values side by side in one register. That is a shuffle:
 
 ```cpp
 template <int Field>   // 0: m_dist_and_fingerprint, 1: m_value_idx
 static auto gather(Bucket const* gp) -> __m128i {
+    // d = dist·fp, i = index; lanes written low to high, lane 0 first
     auto lo = _mm_loadu_si128(reinterpret_cast<__m128i const*>(gp));      // [d0 i0 d1 i1]
     auto hi = _mm_loadu_si128(reinterpret_cast<__m128i const*>(gp + 2));  // [d2 i2 d3 i3]
+    // result lanes 0 and 1 come from lo, lanes 2 and 3 from hi. With Field = 0:
+    // lo[0] lo[2] hi[0] hi[2] = [d0 d1 d2 d3]. With Field = 1: [i0 i1 i2 i3].
     return _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(lo), _mm_castsi128_ps(hi),
                                            _MM_SHUFFLE(2 + Field, Field, 2 + Field, Field)));
 }
 ```
 
+So `gather<0>` returns the four `dist·fp` values, `[d0 d1 d2 d3]`, and `gather<1>` the four
+indices. The selector needs a word, because `_MM_SHUFFLE` reads backwards. `_mm_shuffle_ps`
+always fills result lanes 0 and 1 from its first argument and lanes 2 and 3 from its second; the
+selector says *which* lane of that argument each one takes, and the macro takes them in the
+order `_MM_SHUFFLE(lane3, lane2, lane1, lane0)`, highest first, the way you would write the bits
+of a number. So `_MM_SHUFFLE(2 + Field, Field, 2 + Field, Field)` means: lane 0 of the result is
+`lo[Field]`, lane 1 is `lo[2 + Field]`, lane 2 is `hi[Field]`, lane 3 is `hi[2 + Field]`. Read
+left to right it looks like it starts with the high lane, and it does, because that is the
+macro's convention and not the data's.
+
 With that, the probe is this. I have left out the casts and the `NOLINT`s; the real thing is
-`probe_simd` in the header.
+`probe_simd` in [the header](https://github.com/martinus/unordered_dense/blob/main/include/ankerl/unordered_dense.h), and the change
+as a whole is [PR #211](https://github.com/martinus/unordered_dense/pull/211).
+
+The step numbers in the comments are the ones in the figure above.
 
 ```cpp
-// what the key would carry in each of the four buckets from home
+// Step 3, done once: what the key would carry in each of the four buckets from home.
+// set1 puts the key's dist·fp in all four lanes; setr adds 0, 1, 2, 3 distances to them,
+// so with dist·fp = 1·5B the lanes hold [1·5B 2·5B 3·5B 4·5B].
 auto expected = _mm_add_epi32(_mm_set1_epi32(dist_and_fingerprint),
                               _mm_setr_epi32(0, dist_inc, 2 * dist_inc, 3 * dist_inc));
-auto const step = _mm_set1_epi32(4 * dist_inc);
+auto const step = _mm_set1_epi32(4 * dist_inc);   // four more distances, for the next window
 
 while (true) {
+    // Steps 1 and 2: the four buckets from bucket_idx, and their dist·fp side by side.
     auto const* gp = m_buckets.data() + bucket_idx;
-    auto d = gather<0>(gp);
+    auto d = gather<0>(gp);                     // [d0 d1 d2 d3]
 
-    auto eqv   = _mm_cmpeq_epi32(d, expected);  // all ones where the fingerprint matches
-    auto lessv = _mm_sub_epi32(d, expected);    // sign bit set where the bucket holds less
+    // Step 4a: a lane is all ones where the bucket holds exactly what the key would carry
+    // there, which is a fingerprint match at the right distance.
+    auto eqv = _mm_cmpeq_epi32(d, expected);
+    // Step 4b: a lane's top bit is set where the bucket holds *less*, because the subtraction
+    // went negative. That is the robin hood proof that the key is absent.
+    auto lessv = _mm_sub_epi32(d, expected);
+    // Step 5: movemask takes the top bit of each lane and packs them into an integer, bit 0
+    // for lane 0. `candidates` has a bit for every lane that decided either way, `less` only
+    // for the "absent" ones.
     auto candidates = _mm_movemask_ps(_mm_castsi128_ps(_mm_or_si128(eqv, lessv)));
     auto less       = _mm_movemask_ps(_mm_castsi128_ps(lessv));
 
     if (candidates != 0) {
-        auto j = countr_zero(candidates);       // the lowest lane that decided
+        // Step 6: the lowest lane that decided is the answer, because buckets further along
+        // cannot hold the key if an earlier one already proved it absent.
+        auto j = countr_zero(candidates);       // 0b1110 -> 1
         if ((less >> j) & 1) {
-            return not_found_at(bucket_idx + j); // ... which is where an insert would go
+            // that lane said "less": the key is not in the table, and this is where an insert
+            // would put it
+            return not_found_at(bucket_idx + j);
         }
+        // that lane said "equal": a fingerprint match, so compare the actual key
         auto value_idx = gp[j].m_value_idx;
         if (m_equal(key, m_values[value_idx].first)) {
             return found(value_idx);
         }
-        return probe_scalar(key, /* from lane j + 1 on */);   // fingerprint collision, rare
+        // fingerprint collision, rare: carry on one bucket at a time from lane j + 1
+        return probe_scalar(key, /* from lane j + 1 on */);
     }
-    // nothing decided in these four: the next four
+    // nothing decided in these four: the next four buckets, each four distances further
     bucket_idx += 4;
     expected = _mm_add_epi32(expected, step);
 }
 ```
 
-A few things worth pointing at.
+A few things worth pointing at:
 
-**"Less" costs no compare.** Both values are far below 2<sup>31</sup>, so `bucket - expected`
-is negative exactly when the bucket holds less, and `_mm_movemask_ps` reads sign bits. One
-subtraction gives the "less" lanes, one compare gives the "equal" lanes, an `or` gives "either",
-and both masks come out as integers.
-
-**One data dependent branch.** `candidates != 0` is almost always true: a chain longer than four
-buckets is rare at 80% load. The branch that follows, hit or miss, is the caller's own
-uncertainty, and it would have been paid on `it != end()` anyway. What is gone is the branch
-*per bucket*, the one whose outcome depended on the position of the hit.
-
-**The array grew three sentinel buckets.** A window of four read from the last bucket would run
-off the end, so the array carries three extra buckets that hold a `dist_and_fingerprint` no key
-can expect and no real bucket can be less than. A window passes over them as it would over
-occupied buckets that are not the answer, and only where a window decides *nothing* does the
-probe wrap to bucket zero, by handing over to the scalar probe. `bucket_count()` does not count
-them.
-
-**The key comparison happens outside the vector code.** On a fingerprint collision, the rare
-case where the fingerprint matched but the key did not, the probe continues in the scalar loop
-from the next bucket rather than going back around. An earlier version kept the vector state
-alive across the key comparison, and for string keys that made the compiler spill all of it
-around `bcmp` on every hit.
-
-**Not every configuration gets this.** The vector probe needs the default `std::vector` bucket
-storage and the standard 8 byte bucket. The segmented and custom bucket containers, the big
-bucket type, and non-x86 targets keep the scalar path. ARM has the same four lane compares
-in NEON and is the obvious next step.
+- **"Less" costs no compare.** Both values are far below 2<sup>31</sup>, so `bucket - expected`
+  is negative exactly when the bucket holds less, and `_mm_movemask_ps` reads sign bits. One
+  subtraction gives the "less" lanes, one compare gives the "equal" lanes, an `or` gives
+  "either", and both masks come out as integers.
+- **One data dependent branch.** `candidates != 0` is almost always true: a chain longer than
+  four buckets is rare at 80% load. The branch that follows, hit or miss, is the caller's own
+  uncertainty, and it would have been paid on `it != end()` anyway. What is gone is the branch
+  *per bucket*, the one whose outcome depended on the position of the hit.
+- **The array grew three sentinel buckets.** A window of four read from the last bucket would
+  run off the end, so the array carries three extra buckets that hold a `dist_and_fingerprint`
+  no key can expect and no real bucket can be less than. A window passes over them as it would
+  over occupied buckets that are not the answer, and only where a window decides *nothing* does
+  the probe wrap to bucket zero, by handing over to the scalar probe. `bucket_count()` does not
+  count them.
+- **The key comparison happens outside the vector code.** On a fingerprint collision, the rare
+  case where the fingerprint matched but the key did not, the probe continues in the scalar loop
+  from the next bucket rather than going back around. An earlier version kept the vector state
+  alive across the key comparison, and for string keys that made the compiler spill all of it
+  around `bcmp` on every hit.
+- **Not every configuration gets this.** The vector probe needs the default `std::vector` bucket
+  storage and the standard 8 byte bucket. The segmented and custom bucket containers, the big
+  bucket type, and non-x86 targets keep the scalar path. ARM has the same four lane compares
+  in NEON and is the obvious next step.
 
 ## What it bought
 
@@ -247,7 +277,8 @@ found and repointed. That scan now matches value indices four at a time with `ga
 
 # The same trick for inserting and erasing
 
-With the probe done, `perf` said inserts and erases were still paying 0.6 mispredictions each,
+With the probe done ([PR #213](https://github.com/martinus/unordered_dense/pull/213) has the rest of this section), `perf` said
+inserts and erases were still paying 0.6 mispredictions each,
 and the branch was in the robin hood shift. Placing a key into an occupied bucket pushes the
 occupant along, and that one may push the next; the loop asks "is this bucket occupied" once per
 bucket. Measured over eight million inserts into a table at its load factor, 73% shift nothing,
@@ -310,7 +341,8 @@ second slot was still a branch.
 
 # Compared with Boost's flat map
 
-Boost's flat map is the container I measure against, because it is the fastest open addressing
+[Boost's flat map](https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered/structures.html#structures_open_addressing_containers)
+is the container I measure against, because it is the fastest open addressing
 table I know of and because its design is the other answer to the same question. It is a
 [SwissTable](https://abseil.io/about/design/swisstables) descendant: slots are grouped in
 fifteens, each group has a 16 byte metadata word, and a lookup compares the whole word against
@@ -326,9 +358,10 @@ hit is bucket, then index, then value: two dependent loads. On lookups that all 
 left of the gap after this year, down from 1.94x in January.
 
 Boost also never moves an element once placed. There is no robin hood, no shift on insert and
-no shift on erase, which is the 0.10 mispredictions per insert that the vector shifts above got
-this map down towards but not to. So on a fresh table Boost is ahead on every lookup and insert
-workload with small values, and it is worth being clear about that.
+no shift on erase. That is why an insert into Boost costs only 0.10 mispredictions; the vector
+shifts brought this map from 0.61 down to 0.24, better, but still above a table that has nothing
+to shift. So on a fresh table Boost is ahead on every lookup and insert workload with small
+values, and it is worth being clear about that.
 
 What the index buys is everything else:
 
@@ -352,11 +385,12 @@ Neither map is the right one for every workload, which is why I built
 [a quiz](/which-hash-map/) about that a few days ago rather than another ranking. The comparison is
 fair in one respect that matters: both maps use this library's hash, and Boost's
 `hash_is_avalanching` trait is honoured, so it skips its own mixing step exactly as it would for
-its own hash. That interop is one of this year's smaller changes.
+its own hash. That interop is [one of this year's smaller changes](https://github.com/martinus/unordered_dense/pull/186).
 
 # The hash
 
-Three changes to the string hash, a descendant of wyhash, all from July:
+Three changes to the string hash, a descendant of [wyhash](https://github.com/wangyi-fudan/wyhash),
+all from July ([#165](https://github.com/martinus/unordered_dense/pull/165) and [#166](https://github.com/martinus/unordered_dense/pull/166)):
 
 - **Six lanes for long inputs.** The main loop processed 48 bytes per iteration with three
   independent accumulators; it now does 96 with six, which halves the length of the multiply
@@ -366,9 +400,9 @@ Three changes to the string hash, a descendant of wyhash, all from July:
   bytes the last 16 bytes are now mixed with secret constants only, so that work runs in
   parallel with the lane loops and a single dependent mix finishes.
 - **Two 8 byte reads for 8 to 16 byte keys**, overlapping, instead of assembling the two words
-  from four 4 byte reads with shifts. This is what rapidhash does for short inputs, and it was
-  the one place rapidhash was ahead; for anything over 24 bytes the hash here is faster than
-  rapidhash v3, which is why it was not swapped for it.
+  from four 4 byte reads with shifts. This is what [rapidhash](https://github.com/Nicoshev/rapidhash) does for short inputs, and it
+  was the one place rapidhash was ahead; for anything over 24 bytes the hash here is faster
+  than rapidhash v3, which is why it was not swapped for it.
 
 [![Hash latency by key length, January against now](/img/2026/unordered-dense/hash-latency.svg)](/img/2026/unordered-dense/hash-latency.svg)
 
@@ -387,35 +421,38 @@ not, and each changed what the benchmark rewards.
    sequence of hits and misses repeated every run, and a branch predictor with a long history
    learned half of it: 0.6 mispredictions per lookup where a random sequence costs more than
    double. That rewarded branchy probing and hid most of what the SSE2 probe gains. The workload
-   now decides every lookup with an rng of its own.
+   now decides every lookup with an rng of its own ([#211](https://github.com/martinus/unordered_dense/pull/211)).
 2. **Every string key was 200 bytes.** The hash dispatches on length, and one length makes that
    dispatch perfectly predictable: 0.01 mispredictions per hash on a fixed length against 0.31
    on lengths spread from 4 to 200. It also put every key on the heap. Keys now run from 8 to
-   135 bytes, skewed short, the way real keys are.
+   135 bytes, skewed short, the way real keys are ([#213](https://github.com/martinus/unordered_dense/pull/213)).
 3. **The integer keys hashed to a lattice.** The insert-erase workload used small sequential
    values as keys, and the hash of a `uint64_t` is one multiply, so the top bits of multiples
    of a small integer walked a lattice: 10000 keys landed at most one to a bucket, 82% of erases
    moved nothing, and the vector shifts above first read as *losses*. Keys are now scrambled
-   through a bijection first.
+   through a bijection first ([#213](https://github.com/martinus/unordered_dense/pull/213)).
 4. **Nothing grew a table.** Building a map of a million entries costs 52% more than building
    it after a `reserve`, all of it rehashing, and no scored workload paid it. A build-from-empty
    workload was added, and it showed at once that growth is where this map is weakest against
-   Boost.
+   Boost ([#213](https://github.com/martinus/unordered_dense/pull/213)).
 5. **Nothing churned.** Every workload measured a fresh table, which is systematically kind to a
    design that trades erase quality for lookup speed. The churn workload above was added, and it
-   is the one where backward shift deletion gets to show what it is for.
+   is the one where backward shift deletion gets to show what it is for ([#215](https://github.com/martinus/unordered_dense/pull/215)).
 
 And a sixth that was not the benchmark's fault: the build workload was measuring the kernel. A
 build asks for megabytes and gives them back, glibc returns anything above its mmap threshold to
 the OS, and every repetition faulted the same pages in again: 38% of the cycles were kernel
 time, at 2000 page faults per build, and whether it was paid depended on what had run *before*
 in the process. Raising `M_MMAP_THRESHOLD` and `M_TRIM_THRESHOLD` so the arena is kept took the
-build from 6.6 ms to 3.8 ms and made the number the same whatever ran first.
+build from 6.6 ms to 3.8 ms and made the number the same whatever ran first
+([#216](https://github.com/martinus/unordered_dense/pull/216)).
 
 # What did not work
 
-The list is long, and it is in `CLAUDE.md` in the repository with the measurements, so that
-neither I nor anyone else re-tries them without new evidence. The ones that taught me something:
+The list is long, and it is in
+[`CLAUDE.md`](https://github.com/martinus/unordered_dense/blob/main/CLAUDE.md#optimization-dead-ends-verified-with-paired-ab-runs-re-test-before-assuming-they-still-hold)
+in the repository with the measurements, so that neither I nor anyone else re-tries them without
+new evidence. The ones that taught me something:
 
 - **Force-inlining the hash** into the map: icache and register pressure cost more than the
   call saved.
@@ -424,13 +461,13 @@ neither I nor anyone else re-tries them without new evidence. The ones that taug
   1.6x slower.
 - **Prefetching** the value in the probe, or the moved element's home bucket in erase:
   out-of-order execution already hides those latencies.
-- **An AES-NI hash** (a port of gxhash): 30% *slower* on 200 byte keys. Its serial `aesenc` chain
+- **An AES-NI hash** (a port of [gxhash](https://github.com/ogxd/gxhash)): 30% *slower* on 200 byte keys. Its serial `aesenc` chain
   has worse latency, and latency is what the string loop pays for. Fewer instructions do not
   help a chain.
 - **Aligned groups of four** instead of a window starting at home: left the "nothing decided,
   next group" branch random. **Two branches to decide** (scalar home bucket, then the vector for
   the rest): mispredicted *more* than one vector decision, although each branch is more biased.
-- **Four attempts at the rehash loop.** It costs 21 to 26 cycles per element at every size from
+- **Four attempts at the rehash loop** ([#217](https://github.com/martinus/unordered_dense/pull/217)). It costs 21 to 26 cycles per element at every size from
   L1 to L3, and what bounds it is not memory but an in-core chain: each element's loads sit
   behind the previous element's stores through the bucket array. Adding 11 cycles of artificial
   latency between the probe load and the store address added 17 cycles per element. Nothing that
@@ -441,18 +478,21 @@ neither I nor anyone else re-tries them without new evidence. The ones that taug
 
 Not everything was about speed. Reserving, rehashing and growing on insert all used to release
 the old bucket array before asking for the new one, so a failed allocation left values with no
-buckets to find them by; they now build the new array first, and a failure leaves the table
-exactly as it was ([#182](https://github.com/martinus/unordered_dense/issues/182)). The
-segmented vector's allocator handling was fixed, and Daniel Kral found and fixed a quadratic
-case in its block index growth. There is a mutation testing tool now, which found seven promises
-the tests were not checking; the fuzz targets run under libFuzzer and AFL++ nightly; and there
-is a valgrind leg in CI. Releases: 4.9.0 through 4.9.2 in August, 4.10.0 with the SSE2 probe and
-4.11.0 with the vector shifts in September.
+buckets to find them by; they now [build the new array first](https://github.com/martinus/unordered_dense/pull/183), and a failure
+leaves the table exactly as it was ([#182](https://github.com/martinus/unordered_dense/issues/182)). The segmented vector's
+[allocator handling was fixed](https://github.com/martinus/unordered_dense/pull/173), and Daniel Kral found and fixed
+[a quadratic case](https://github.com/martinus/unordered_dense/pull/188) in its block index growth. There is a
+[mutation testing tool](https://github.com/martinus/unordered_dense/tree/main/scripts/mutate) now, which found
+[seven promises the tests were not checking](https://github.com/martinus/unordered_dense/pull/192); the fuzz targets
+[run under libFuzzer and AFL++ nightly](https://github.com/martinus/unordered_dense/blob/main/.github/workflows/fuzz.yml); and there is
+[a valgrind leg](https://github.com/martinus/unordered_dense/pull/201) in CI. Releases: [4.9.0](https://github.com/martinus/unordered_dense/releases/tag/v4.9.0) through
+[4.9.2](https://github.com/martinus/unordered_dense/releases/tag/v4.9.2) in August, [4.10.0](https://github.com/martinus/unordered_dense/releases/tag/v4.10.0) with the SSE2
+probe and [4.11.0](https://github.com/martinus/unordered_dense/releases/tag/v4.11.0) with the vector shifts in September.
 
 # How this was measured, and how you can
 
-The tool I would not do this without is a **paired, interleaved A/B**. `scripts/ab/run.sh` in
-the repository builds the working tree's header against any git revision of itself in *one*
+The tool I would not do this without is a **paired, interleaved A/B**.
+[`scripts/ab/run.sh`](https://github.com/martinus/unordered_dense/tree/main/scripts/ab) in the repository builds the working tree's header against any git revision of itself in *one*
 binary, by renaming the baseline into a second namespace, and runs both on the same workloads
 interleaved in the same slice of time with [nanobench](https://nanobench.ankerl.com)'s
 `compare()`. Machine drift cancels out of the ratio and you get a confidence interval on it. A
@@ -463,7 +503,8 @@ baseline and Boost as a third contender:
 
 [![The year, workload by workload: throughput relative to the January header, with boost for scale](/img/2026/unordered-dense/year-ab.svg)](/img/2026/unordered-dense/year-ab.svg)
 
-The second tool is `perf stat -e cycles,instructions,branch-misses` on a runner that does one
+The second tool is [`perf stat`](https://perfwiki.github.io/main/) with
+`-e cycles,instructions,branch-misses` on a runner that does one
 workload and nothing else. It is what separates "more instructions" from "more mispredictions",
 and with the cost model above it predicted the outcome of most experiments before the A/B
 confirmed them. Two cautions from using it. A harness that erases the same keys in the same
