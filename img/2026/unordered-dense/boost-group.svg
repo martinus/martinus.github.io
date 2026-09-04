@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+    .muted{fill:#6b7280}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .b{fill:#fff7ed;stroke:#c2410c}
+    .ofw{fill:#fed7aa;stroke:#c2410c}
+    .u{fill:#f0fdfa;stroke:#0f766e}
+    .idx{fill:#fef3c7;stroke:#0f766e}
+  </style>
+  <text x="20" y="24" font-weight="600" fill="#c2410c">boost::unordered_flat_map: one 16 byte metadata word per group of 15 slots</text>
+  <g transform="translate(20,36)" class="mono" text-anchor="middle">
+    <rect x="0" y="0" width="28" height="30" class="cell b"/><text x="14" y="20">h0</text>
+    <rect x="28" y="0" width="28" height="30" class="cell b"/><text x="42" y="20">h1</text>
+    <rect x="56" y="0" width="28" height="30" class="cell b"/><text x="70" y="20">h2</text>
+    <rect x="84" y="0" width="28" height="30" class="cell b"/><text x="98" y="20">h3</text>
+    <rect x="112" y="0" width="28" height="30" class="cell b"/><text x="126" y="20">h4</text>
+    <rect x="140" y="0" width="28" height="30" class="cell b"/><text x="154" y="20">h5</text>
+    <rect x="168" y="0" width="28" height="30" class="cell b"/><text x="182" y="20">h6</text>
+    <rect x="196" y="0" width="28" height="30" class="cell b"/><text x="210" y="20">h7</text>
+    <rect x="224" y="0" width="28" height="30" class="cell b"/><text x="238" y="20">h8</text>
+    <rect x="252" y="0" width="28" height="30" class="cell b"/><text x="266" y="20">h9</text>
+    <rect x="280" y="0" width="28" height="30" class="cell b"/><text x="294" y="20">h10</text>
+    <rect x="308" y="0" width="28" height="30" class="cell b"/><text x="322" y="20">h11</text>
+    <rect x="336" y="0" width="28" height="30" class="cell b"/><text x="350" y="20">h12</text>
+    <rect x="364" y="0" width="28" height="30" class="cell b"/><text x="378" y="20">h13</text>
+    <rect x="392" y="0" width="28" height="30" class="cell b"/><text x="406" y="20">h14</text>
+    <rect x="420" y="0" width="28" height="30" class="cell ofw"/><text x="434" y="20">ofw</text>
+  </g>
+  <text x="20" y="90" class="muted" font-size="12">15 reduced hashes of one byte each, plus an overflow byte. One 16 byte compare answers "which of these 15 slots</text>
+  <text x="20" y="106" class="muted" font-size="12">might hold my key". The 15 elements live right next to it, so a match is one more load away. Nothing ever moves.</text>
+
+  <text x="20" y="150" font-weight="600" fill="#0f766e">ankerl::unordered_dense::map: four buckets of 8 bytes, the probe's window</text>
+  <g transform="translate(20,162)" class="mono" text-anchor="middle">
+    <rect x="0" y="0" width="84" height="30" class="cell u"/><text x="42" y="20">dist·fp</text>
+    <rect x="84" y="0" width="84" height="30" class="cell idx"/><text x="126" y="20">index</text>
+    <rect x="168" y="0" width="84" height="30" class="cell u"/><text x="210" y="20">dist·fp</text>
+    <rect x="252" y="0" width="84" height="30" class="cell idx"/><text x="294" y="20">index</text>
+    <rect x="336" y="0" width="84" height="30" class="cell u"/><text x="378" y="20">dist·fp</text>
+    <rect x="420" y="0" width="84" height="30" class="cell idx"/><text x="462" y="20">index</text>
+    <rect x="504" y="0" width="84" height="30" class="cell u"/><text x="546" y="20">dist·fp</text>
+    <rect x="588" y="0" width="84" height="30" class="cell idx"/><text x="630" y="20">index</text>
+  </g>
+  <text x="20" y="216" class="muted" font-size="12">Half of every bucket is an index into the values vector, which is what makes iteration a plain array walk and</text>
+  <text x="20" y="232" class="muted" font-size="12">a 64 byte value cheap to insert. The same 16 byte compare covers four slots here, and the key is two loads away.</text>
+  <text x="20" y="266" fill="#1f2937" font-size="12.5">Boost gets 15 verdicts out of 16 bytes of metadata; this map gets 4 out of 32 bytes of buckets.</text>
+  <text x="20" y="284" fill="#1f2937" font-size="12.5">That is the price of the index, and the index is what the values vector is bought with.</text>
+</svg>

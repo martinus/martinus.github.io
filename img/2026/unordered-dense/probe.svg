@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12.5px}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .dim{fill:#f3f4f6;stroke:#9ca3af}
+    .yes{fill:#ccfbf1;stroke:#0f766e}
+    .hit{fill:#0f766e;stroke:#0f766e}
+    .bit{fill:#1f2937;font-weight:600}
+  </style>
+  <defs>
+    <marker id="h2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6b7280"/></marker>
+  </defs>
+  <text x="20" y="24" font-weight="600" fill="#1f2937">looking up a key whose home is bucket 40 and whose fingerprint is 5B</text>
+
+  <!-- lane headers -->
+  <g class="muted" font-size="12" text-anchor="middle">
+    <text x="335" y="52">lane 0 · bucket 40</text><text x="445" y="52">lane 1 · 41</text><text x="555" y="52">lane 2 · 42</text><text x="665" y="52">lane 3 · 43</text>
+  </g>
+
+  <!-- row 1: loaded -->
+  <text x="20" y="80" class="lbl">1. load four buckets, 32 bytes</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,60)">
+    <rect x="0" y="0" width="110" height="30" class="cell"/><text x="55" y="20">1·9C→3</text>
+    <rect x="110" y="0" width="110" height="30" class="cell"/><text x="165" y="20">2·5B→0</text>
+    <rect x="220" y="0" width="110" height="30" class="cell"/><text x="275" y="20">1·11→5</text>
+    <rect x="330" y="0" width="110" height="30" class="cell"/><text x="385" y="20" class="muted">0</text>
+  </g>
+
+  <!-- row 2: shuffle -->
+  <text x="20" y="125" class="lbl">2. shuffle: keep only dist·fp</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,105)">
+    <rect x="0" y="0" width="110" height="30" class="cell"/><text x="55" y="20">1·9C</text>
+    <rect x="110" y="0" width="110" height="30" class="cell"/><text x="165" y="20">2·5B</text>
+    <rect x="220" y="0" width="110" height="30" class="cell"/><text x="275" y="20">1·11</text>
+    <rect x="330" y="0" width="110" height="30" class="cell"/><text x="385" y="20" class="muted">0</text>
+  </g>
+
+  <!-- row 3: expected -->
+  <text x="20" y="170" class="lbl">3. what the key would carry there</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,150)">
+    <rect x="0" y="0" width="110" height="30" class="cell dim"/><text x="55" y="20">1·5B</text>
+    <rect x="110" y="0" width="110" height="30" class="cell dim"/><text x="165" y="20">2·5B</text>
+    <rect x="220" y="0" width="110" height="30" class="cell dim"/><text x="275" y="20">3·5B</text>
+    <rect x="330" y="0" width="110" height="30" class="cell dim"/><text x="385" y="20">4·5B</text>
+  </g>
+
+  <!-- row 4: equal -->
+  <text x="20" y="215" class="lbl">4a. equal? (fingerprint match)</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,195)">
+    <rect x="0" y="0" width="110" height="30" class="cell dim"/><text x="55" y="20" class="muted">–</text>
+    <rect x="110" y="0" width="110" height="30" class="cell yes"/><text x="165" y="20">yes</text>
+    <rect x="220" y="0" width="110" height="30" class="cell dim"/><text x="275" y="20" class="muted">–</text>
+    <rect x="330" y="0" width="110" height="30" class="cell dim"/><text x="385" y="20" class="muted">–</text>
+  </g>
+
+  <!-- row 5: less -->
+  <text x="20" y="260" class="lbl">4b. bucket holds less? (key absent)</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,240)">
+    <rect x="0" y="0" width="110" height="30" class="cell dim"/><text x="55" y="20" class="muted">–</text>
+    <rect x="110" y="0" width="110" height="30" class="cell dim"/><text x="165" y="20" class="muted">–</text>
+    <rect x="220" y="0" width="110" height="30" class="cell yes"/><text x="275" y="20">yes</text>
+    <rect x="330" y="0" width="110" height="30" class="cell yes"/><text x="385" y="20">yes</text>
+  </g>
+
+  <!-- row 6: mask -->
+  <text x="20" y="305" class="lbl">5. either, as one bit per lane</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,285)">
+    <rect x="0" y="0" width="110" height="30" class="cell dim"/><text x="55" y="20" class="bit">0</text>
+    <rect x="110" y="0" width="110" height="30" class="cell hit"/><text x="165" y="20" fill="#fff" font-weight="600">1</text>
+    <rect x="220" y="0" width="110" height="30" class="cell yes"/><text x="275" y="20" class="bit">1</text>
+    <rect x="330" y="0" width="110" height="30" class="cell yes"/><text x="385" y="20" class="bit">1</text>
+  </g>
+  <text x="280" y="340" class="mono">movemask → 0b1110 → lowest set bit is lane 1</text>
+
+  <!-- verdict -->
+    <text x="20" y="372" class="lbl">6. lane 1 was an "equal": compare the key in values[0]. Found.</text>
+  <text x="20" y="392" class="muted" font-size="12">Had the lowest set bit been a "less" lane, the key is not in the table, and that lane is where an insert puts it.</text>
+</svg>

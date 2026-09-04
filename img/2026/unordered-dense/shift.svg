@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 345" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12.5px}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .dim{fill:#f3f4f6;stroke:#9ca3af}
+    .new{fill:#fef3c7;stroke:#b45309}
+    .keep{fill:#ccfbf1;stroke:#0f766e}
+    .bit{fill:#1f2937;font-weight:600}
+  </style>
+  <text x="20" y="24" font-weight="600" fill="#1f2937">inserting 1·5B→6 at bucket 40, where something already sits</text>
+  <g class="muted" font-size="12" text-anchor="middle">
+    <text x="335" y="52">bucket 40</text><text x="445" y="52">41</text><text x="555" y="52">42</text><text x="665" y="52">43</text>
+  </g>
+
+  <text x="20" y="80" class="lbl">1. the four buckets, before</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,60)">
+    <rect x="0" y="0" width="110" height="30" class="cell"/><text x="55" y="20">1·9C→3</text>
+    <rect x="110" y="0" width="110" height="30" class="cell"/><text x="165" y="20">2·A7→4</text>
+    <rect x="220" y="0" width="110" height="30" class="cell"/><text x="275" y="20" class="muted">0</text>
+    <rect x="330" y="0" width="110" height="30" class="cell"/><text x="385" y="20">1·E0→1</text>
+  </g>
+
+  <text x="20" y="125" class="lbl">2. empty? as one bit per lane</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,105)">
+    <rect x="0" y="0" width="110" height="30" class="cell dim"/><text x="55" y="20" class="bit">0</text>
+    <rect x="110" y="0" width="110" height="30" class="cell dim"/><text x="165" y="20" class="bit">0</text>
+    <rect x="220" y="0" width="110" height="30" class="cell keep"/><text x="275" y="20" class="bit">1</text>
+    <rect x="330" y="0" width="110" height="30" class="cell dim"/><text x="385" y="20" class="bit">0</text>
+  </g>
+  <text x="280" y="158" class="mono">0b0100 → lowest set bit is lane 2: shift two buckets</text>
+
+  <text x="20" y="195" class="lbl">3. all moved one along, distance +1</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,175)">
+    <rect x="0" y="0" width="110" height="30" class="cell new"/><text x="55" y="20">1·5B→6</text>
+    <rect x="110" y="0" width="110" height="30" class="cell"/><text x="165" y="20">2·9C→3</text>
+    <rect x="220" y="0" width="110" height="30" class="cell"/><text x="275" y="20">3·A7→4</text>
+    <rect x="330" y="0" width="110" height="30" class="cell dim"/><text x="385" y="20" class="muted">2·E0→1</text>
+  </g>
+
+  <text x="20" y="240" class="lbl">4. blend: moved, up to the empty lane</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,220)">
+    <rect x="0" y="0" width="110" height="30" class="cell keep"/><text x="55" y="20" class="bit">moved</text>
+    <rect x="110" y="0" width="110" height="30" class="cell keep"/><text x="165" y="20" class="bit">moved</text>
+    <rect x="220" y="0" width="110" height="30" class="cell keep"/><text x="275" y="20" class="bit">moved</text>
+    <rect x="330" y="0" width="110" height="30" class="cell dim"/><text x="385" y="20" class="muted">old</text>
+  </g>
+
+  <text x="20" y="285" class="lbl">5. store 32 bytes, after</text>
+  <g class="mono" text-anchor="middle" transform="translate(280,265)">
+    <rect x="0" y="0" width="110" height="30" class="cell new"/><text x="55" y="20">1·5B→6</text>
+    <rect x="110" y="0" width="110" height="30" class="cell"/><text x="165" y="20">2·9C→3</text>
+    <rect x="220" y="0" width="110" height="30" class="cell"/><text x="275" y="20">3·A7→4</text>
+    <rect x="330" y="0" width="110" height="30" class="cell"/><text x="385" y="20">1·E0→1</text>
+  </g>
+  <text x="20" y="318" class="muted" font-size="12">No loop, no branch per bucket. The scalar loop asked "occupied?" at 40, at 41 and at 42,</text>
+  <text x="20" y="334" class="muted" font-size="12">and those answers mispredicted 0.6 times per insert on average.</text>
+</svg>
