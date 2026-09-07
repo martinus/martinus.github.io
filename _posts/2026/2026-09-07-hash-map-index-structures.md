@@ -630,13 +630,49 @@ and inserting one:
 | 1.25 | 1.058 |
 
 **It is a saw, and the teeth are about two thirds of a turnover apart** -- at 200,000 entries, one
-repair per 120,000 to 150,000 erase-insert pairs. Between them the probe grows by about 15%, and a
-miss with it: 10.4 ns freshly built against 12.5 ns at the top of a tooth, reproducible to 0.1 ns
-across runs. The repair is an **in-place rehash**: the bucket count is 245,759 before and after, so
-the table does not grow, it is rebuilt at the same size to clear the bits.
+repair per 120,000 to 150,000 erase-insert pairs. The repair is an **in-place rehash**: the bucket
+count is 245,759 before and after, so the table does not grow, it is rebuilt at the same size to
+clear the bits.
 
-This is the same problem as SwissTable's tombstones, one level cheaper: boost pays it in probe
-length rather than in occupancy, so it degrades more gently and recovers more cheaply.
+(Those probe lengths are from a build with `BOOST_UNORDERED_ENABLE_STATS` defined, which adds
+Welford accounting to every lookup and makes a miss take 10.4 ns instead of 3.9. The counts are
+exact either way; the times below are from a build without it.)
+
+## Why an overflow bit degrades more gently than a tombstone
+
+Both boost and abseil leave something behind that only a rehash clears, so it is fair to ask why one
+is so much worse than the other. Same workload, same hash, same machine, a miss on a 200,000 entry
+table, worst point over one turnover of erase-and-insert:
+
+| | miss, freshly built | worst over one turnover | bucket count |
+|---|---|---|---|
+| `boost::unordered_flat_map` | 3.91 ns | 5.71 ns (**1.46x**) | 245,759, unchanged |
+| `absl::flat_hash_map` | 6.26 ns | 14.62 ns (**2.34x**) | 262,143, unchanged |
+
+The difference is *what* the erase leaves behind, and it comes down to three things.
+
+**A tombstone occupies a slot; an overflow bit does not.** After abseil erases, that slot is not
+available to the next insert of any key -- it holds `kDeleted`, and only a rehash converts it back.
+Boost's erase frees its slot completely: the very next key that lands in that group can have it. So
+under churn abseil's table gets *effectively fuller* while its size stays the same, and everything
+that a rising load factor costs, it pays.
+
+**A tombstone stops every miss; a bit stops one in eight.** abseil's miss ends at the first group
+containing an empty control byte, and a tombstone is not empty, so a single tombstone anywhere in a
+group makes *every* miss that reaches that group continue -- whatever its hash. Boost's bit is one of
+eight, chosen by `h % 8`, so a group that has overflowed for one class still stops seven eighths of
+the misses arriving at it. That is the whole reason the overflow byte is a *byte* and not a flag.
+
+**And a tombstone makes the miss longer in a second way**: the probe that continues has to
+`Match(h2)` the next group and compare any key whose tag collides, where boost's continuation is
+just another `test` against the next overflow byte until something matches. The 1.46x against 2.34x
+is those three compounding.
+
+What boost pays instead is that its bit is *approximate* in the other direction: it can be set by a
+key that has since been erased, so boost's miss sometimes walks on for nothing where abseil's
+tombstone at least marks a slot that really was used. That is a cost in probe length only, and
+[chapter 12](#group-index)'s counters are what removes it -- a count can come back down where a bit
+cannot.
 
 ## Good at, pays for
 
@@ -681,6 +717,30 @@ least four bytes that is the most space-efficient capacity; twelve for four byte
 a chunk exactly one cache line. The tag is the top byte of the hash, forced to at least 1 so that 0
 can mean empty.
 
+**The low four bits of `control_` are the odd one out, and they belong to the table rather than to
+the chunk.** Every other F14 map here keeps "how many elements may I hold before I rehash" in the
+container object; F14 keeps it in the metadata of **chunk 0** and nowhere else. `capacityScale` is
+the per-chunk capacity, so the table's limit is `chunkCount * scale` -- for a multi-chunk table the
+scale is `kDesiredCapacity`, twelve of the fourteen slots, and for a single-chunk table it is
+whatever that one chunk was sized to (2, 6 or 14):
+
+```cpp
+static std::size_t computeCapacity(std::size_t chunkCount, std::size_t scale) {
+  return (((chunkCount - 1) >> Chunk::kCapacityScaleShift) + 1) * scale;
+}
+```
+
+It is written once, by `computeChunkCountAndScale` when the chunk array is allocated, and read on
+the insert path to decide whether this insert is the one that rehashes. Two reasons to put it there.
+It **costs nothing**: those four bits of chunk 0's `control_` are unused, because
+`hostedOverflowCount` only needs the top four, so the field is free storage that a container member
+would not be -- and `sizeof(F14ValueMap)` is something folly cares about, since these maps get held
+by the million. And a nonzero scale doubles as the marker that says "this is a real chunk array and
+not the shared empty one", which is what `eof()` tests when an iterator runs off the end.
+
+For chunks of twelve, tags 12 and 13 are unused as well, so the scale gets sixteen bits there
+instead of four. That is the whole of `kCapacityScaleBits`.
+
 ## One lookup: double hashing, not triangular
 
 ```cpp
@@ -716,7 +776,8 @@ comment that is a direct answer to abseil and boost:
 `outboundOverflowCount_` counts the keys that wanted this chunk and did not fit. An insert that
 passes a full chunk increments it; **an erase of such a key decrements it again**. So unlike boost's
 bit, it comes back down, and a table that churns at a fixed size does not degrade. That is the idea
-unordered_dense's index is built on, and F14 got there first.
+`unordered_dense` **5.0**'s index is built on -- 4.11.0 is robin hood and has no counters at all --
+and F14 got there first.
 
 The two limits are in the comment. It **saturates at 254** and once saturated it never moves again,
 so a pathological table can pin a chunk permanently. And there is exactly **one counter per chunk**,
