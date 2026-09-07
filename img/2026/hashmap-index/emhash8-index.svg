@@ -41,15 +41,15 @@
   <text x="354" y="129" class="muted" text-anchor="start">the word has to be loaded anyway</text>
   <text x="20" y="180" class="hd" text-anchor="start">the chain, threaded through the index</text>
   <rect x="132" y="190" width="52" height="30" class="cell "/>
-  <text x="158" y="209" class="mono" text-anchor="middle" font-size="11">0&gt;2</text>
+  <text x="158" y="209" class="mono" text-anchor="middle" font-size="11">next 2</text>
   <rect x="184" y="190" width="52" height="30" class="cell "/>
   <text x="210" y="209" class="mono" text-anchor="middle" font-size="11">--</text>
   <rect x="236" y="190" width="52" height="30" class="cell "/>
-  <text x="262" y="209" class="mono" text-anchor="middle" font-size="11">5&gt;7</text>
+  <text x="262" y="209" class="mono" text-anchor="middle" font-size="11">next 4</text>
   <rect x="288" y="190" width="52" height="30" class="cell "/>
   <text x="314" y="209" class="mono" text-anchor="middle" font-size="11">--</text>
   <rect x="340" y="190" width="52" height="30" class="cell "/>
-  <text x="366" y="209" class="mono" text-anchor="middle" font-size="11">end&gt;1</text>
+  <text x="366" y="209" class="mono" text-anchor="middle" font-size="11">end</text>
   <rect x="392" y="190" width="52" height="30" class="cell "/>
   <text x="418" y="209" class="mono" text-anchor="middle" font-size="11">--</text>
   <text x="120" y="210" class="muted" text-anchor="end">index[]</text>
