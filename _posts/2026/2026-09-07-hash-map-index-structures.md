@@ -528,37 +528,9 @@ Pays for: tombstones. A table held at a constant size by erasing one and inserti
 workload where SwissTable's answer to "gone?" is the weakest of the field, and it is the workload
 [chapter 16](#same-workloads) measures on purpose.
 
-## Measured in the group index: a per-table seed, which is nearly free
-
-The seed is the one thing here aimed at an adversary rather than at a workload, and it is cheap
-enough to be worth reporting precisely. Implemented the same way -- `mixed_hash` returns
-`hash ^ m_seed`, with the seed scrambled from the table's own address, so two live tables differ and
-ASLR makes two processes differ -- it costs, one map per binary at 50,000 entries, **one instruction
-and zero cycles** per lookup: 21.4 cycles against 21.4 on a miss and 29.6 against 29.6 on a hit, ns
-per operation identical to two decimals. On a *build* it costs 3.5% (7.13 to 7.38 ns per element),
-because the pipelined rehash is latency-bound and the xor lands between the hash and the group
-address.
-
-What makes it a feature rather than a patch is the rest. The seed has to travel with the index it
-built, through both allocator-aware constructors, both branches of the move assignment, the copy
-assignment and `swap` -- six sites, and the test suite failed in 85 places until all six were right,
-which is a good sign for the suite and a fair statement of the surface area. Eleven tests then still
-fail because they assert that `mixed_hash` returns an avalanching hash *unchanged*, which a seed
-contradicts by design. And iteration order stops being reproducible between runs.
-
-So: worth having behind a switch, not worth making the default, because the cost is paid by everyone
-and the threat is not everyone's. abseil makes the opposite call, and it is defensible -- it is a
-library used at a scale where somebody is always feeding you keys.
-
-## Measured in the group index: cache-line-aligned metadata
-
-abseil's and boost's groups are cache-line-aligned, which they get for free because their metadata
-is 16 bytes. This library's sixteen value indices are exactly 64 bytes, and glibc hands back large
-allocations at 16 mod 64, so *every* group's indices straddle two cache lines. Giving the index
-array a 64 byte aligned block type does exactly what you would expect on lookups (find and hit both
-1.02x) and costs 4-5% on builds and churn, for a geometric mean of **0.993** -- a net loss. The
-likely mechanism is conflict misses: with both arrays at power-of-two offsets, a group's metadata
-and its indices collide in the same cache sets more often than when one of them is skewed.
+Two things from this chapter were tried inside `unordered_dense` 5.0 and are measured in
+[chapter 12](#group-index): the per-table seed, which turns out to cost nothing on a lookup, and
+cache-line-aligning the metadata, which turns out to cost 0.7%.
 
 # 7. Boost's unordered_flat_map: fifteen slots and an overflow byte {#boost}
 
@@ -570,40 +542,40 @@ sixteenth metadata byte on the answer to "absent?" instead of on a sixteenth slo
 
 [![Fifteen reduced hash values and an overflow byte, and the bit it sets](/img/2026/hashmap-index/boost-group15.svg)](/img/2026/hashmap-index/boost-group15.svg)
 
-Boost's header explains it better than I can paraphrase it:
+Fifteen of the sixteen bytes are one reduced hash value per slot. [Boost's header](https://github.com/boostorg/unordered/blob/develop/include/boost/unordered/detail/foa/core.hpp)
+describes them as:
 
-```
- *   +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
- *   |ofw|h14|h13|h13|h11|h10|h09|h08|h07|h06|h05|h04|h03|h02|h01|h00|
- *   +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
- *
- * hi is 0 if the i-th element slot is avalaible, 1 to mark a sentinel and,
- * when the slot is occupied, a value in the range [2,255] obtained from the
- * element's original hash value.
- * ofw is the so-called overflow byte. If insertion of an element with hash
- * value h is tried on a full group, then the (h%8)-th bit of the overflow
- * byte is set to 1 and a further group is probed.
-```
+> `hi` is 0 if the i-th element slot is available, 1 to mark a sentinel and, when the slot is
+> occupied, a value in the range [2,255] obtained from the element's original hash value.
 
-Two consequences, and the comment names both. First, **no value has to be reserved for a
-tombstone**, so a reduced hash keeps log2(254) = 7.99 bits where a design that spends a bit on
+**The sentinel is not a tombstone**, which is worth pausing on because the two words get used for
+the same thing elsewhere. A tombstone is per slot and means "something was here and was erased";
+boost has none. Boost's sentinel is a single byte written once at the very end of the *whole* slot
+array -- `set_sentinel()` writes it into the last slot of the last group -- and it exists so that
+iteration knows where to stop without carrying a separate end pointer. One byte in the table, not
+one per erase.
+
+The sixteenth byte of each group is the interesting one:
+
+> `ofw` is the so-called overflow byte. If insertion of an element with hash value `h` is tried on a
+> full group, then the `(h%8)`-th bit of the overflow byte is set to 1 and a further group is
+> probed.
+
+Two consequences, and the header names both. First, **no value has to be reserved for a tombstone**,
+so a reduced hash keeps log2(254) = 7.99 bits where a design that spends one on
 available-or-deleted keeps seven. Second, and much more important:
 
-```
- *   - When doing an unsuccessful lookup (i.e. the element is not present in
- *     the table), probing stops at the first non-overflowed group. Having 8
- *     bits for signalling overflow makes it very likely that we stop at the
- *     current group (this happens when no element with the same (h%8) value
- *     has overflowed in the group), saving us an additional group check even
- *     under high-load/high-erase conditions. It is critical that hash
- *     reduction is invariant under modulo 8 (see maybe_caused_overflow).
-```
+> When doing an unsuccessful lookup (i.e. the element is not present in the table), probing stops at
+> the first non-overflowed group. Having 8 bits for signalling overflow makes it very likely that we
+> stop at the current group (this happens when no element with the same `(h%8)` value has overflowed
+> in the group), saving us an additional group check even under high-load/high-erase conditions. It
+> is critical that hash reduction is invariant under modulo 8.
 
 That last sentence is a lovely detail. The reduced hash is not `h & 0xFF`; 0 and 1 are reserved, so
-they are remapped -- to 8 and 9 respectively, precisely so that the remap does not change `h % 8`
-and the overflow bit a group consults is the same one an insert set. The remap is a 256 entry table
-of pre-broadcast 32 bit words, which is the same trick unordered_dense 5.0 uses for its own fingerprint
-word.
+they are remapped, to 8 and 9 respectively, precisely so that the remap does not change `h % 8` and
+the overflow bit a group consults is the same one an insert set. The remap is a 256 entry table of
+pre-broadcast 32 bit words -- **and that is the one I took for `unordered_dense` 5.0's own
+fingerprint word. Boost had it first.**
 
 ## One lookup: match, then is_not_overflowed
 
@@ -641,10 +613,23 @@ sets a bit to say "someone of class *h*%8 passed through here". An erase cannot 
 the bit is shared by every key of that class and there is no count -- the map does not know whether
 some other key still needs it. So on a table held at a fixed size by erasing one and inserting one,
 boost's overflow bits accumulate, misses walk further and further, and the only thing that clears
-them is a rehash. Measured on unordered_dense's churn workload, boost's lookups degrade to
-**1.31x** of their fresh cost and snap back on an in-place rehash it pays for roughly every third
-round, at +7 ns per operation on the round that repairs. Its bucket count never changes while that
-happens.
+them is a rehash. Measured with boost's own statistics facility, a table of 200,000 entries at load 0.81, erasing one
+and inserting one:
+
+| erase-insert pairs, in turnovers of the table | groups visited per miss |
+|---|---|
+| 0.00, freshly built | 1.104 |
+| 0.25 | 1.206 |
+| 0.50 | **1.269** |
+| 0.62 | 1.104 |
+| 1.12 | 1.214 |
+| 1.25 | 1.058 |
+
+**It is a saw, and the teeth are about two thirds of a turnover apart** -- at 200,000 entries, one
+repair per 120,000 to 150,000 erase-insert pairs. Between them the probe grows by about 15%, and a
+miss with it: 10.4 ns freshly built against 12.5 ns at the top of a tooth, reproducible to 0.1 ns
+across runs. The repair is an **in-place rehash**: the bucket count is 245,759 before and after, so
+the table does not grow, it is rebuilt at the same size to clear the bits.
 
 This is the same problem as SwissTable's tombstones, one level cheaper: boost pays it in probe
 length rather than in occupancy, so it degrades more gently and recovers more cheaply.
@@ -768,7 +753,7 @@ so chunk 0 is special.
 
 ## Measured in the group index: what one counter costs against eight
 
-This library keeps eight counters per group, one per fingerprint class, and folly's design is the
+The group index keeps eight counters per group, one per fingerprint class, and folly's design is the
 natural question: is one enough? It is measurable, and the answer is no by a distance. Building
 unordered_dense 5.0 with a single class-blind counter per group, on a table at load 0.76 after 200
 turnovers:
@@ -1392,6 +1377,40 @@ workloads that fit under 2^16 entries, and the reason kills the adaptive version
 enough to be indexed in 16 bits has an index of at most 128 KB, which is already in L2, so halving
 something that already fits buys nothing, and the maps whose index footprint hurts are exactly the
 ones that need more than 16 bits.
+
+## A per-table seed, borrowed from abseil, and nearly free
+
+[abseil](#swisstable) mixes a seed of its own into every hash so that keys chosen against a known
+hash cannot be aimed at a particular table. It is the one idea in this post aimed at an adversary
+rather than at a workload, and it is cheap enough to be worth reporting precisely. Implemented here
+the same way -- `mixed_hash` returns
+`hash ^ m_seed`, with the seed scrambled from the table's own address, so two live tables differ and
+ASLR makes two processes differ -- it costs, one map per binary at 50,000 entries, **one instruction
+and zero cycles** per lookup: 21.4 cycles against 21.4 on a miss and 29.6 against 29.6 on a hit, ns
+per operation identical to two decimals. On a *build* it costs 3.5% (7.13 to 7.38 ns per element),
+because the pipelined rehash is latency-bound and the xor lands between the hash and the group
+address.
+
+What makes it a feature rather than a patch is the rest. The seed has to travel with the index it
+built, through both allocator-aware constructors, both branches of the move assignment, the copy
+assignment and `swap` -- six sites, and the test suite failed in 85 places until all six were right,
+which is a good sign for the suite and a fair statement of the surface area. Eleven tests then still
+fail because they assert that `mixed_hash` returns an avalanching hash *unchanged*, which a seed
+contradicts by design. And iteration order stops being reproducible between runs.
+
+So: worth having behind a switch, not worth making the default, because the cost is paid by everyone
+and the threat is not everyone's. abseil makes the opposite call, and it is defensible -- it is a
+library used at a scale where somebody is always feeding you keys.
+
+## Cache-line-aligning the metadata, borrowed from abseil and boost, and a small loss
+
+[abseil](#swisstable)'s and [boost](#boost)'s groups are cache-line-aligned, which they get for free
+because their metadata is 16 bytes. The group index's sixteen value indices are exactly 64 bytes, and glibc hands back large
+allocations at 16 mod 64, so *every* group's indices straddle two cache lines. Giving the index
+array a 64 byte aligned block type does exactly what you would expect on lookups (find and hit both
+1.02x) and costs 4-5% on builds and churn, for a geometric mean of **0.993** -- a net loss. The
+likely mechanism is conflict misses: with both arrays at power-of-two offsets, a group's metadata
+and its indices collide in the same cache sets more often than when one of them is skewed.
 
 ## Growth: the pipelined rehash
 
@@ -2198,7 +2217,7 @@ rather than in the container.
 
 **Prefetching should probably be tuned per architecture and is not.** Boost tunes it and says so in
 a comment: *"ARM architectures get a higher speedup when around the first half of the element slots
-in a group are prefetched, whereas for Intel just the first cache line is best."* This library issues
+in a group are prefetched, whereas for Intel just the first cache line is best."* `unordered_dense` 5.0 issues
 the same two prefetches everywhere. On x86 I did chase it and there is nothing to tune that is right
 for both compilers -- dropping the second prefetch is a clang win of 5-11% and a gcc loss of up to
 12% at four million entries, because gcc emits the `movdqu` before the prefetches and clang emits
