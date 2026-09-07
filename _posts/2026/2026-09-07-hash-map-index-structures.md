@@ -273,9 +273,16 @@ a chain link. emhash8's two words carry a chain and a value index. These designs
 questions a byte cannot, and they pay for it in branches and in memory.
 
 **A group, plus something on the side.** boost's sixteenth byte, F14's two counter bytes, indivi's
-and unordered_dense's eight counters. This is where the answer to "when may a miss stop?" got
+and `unordered_dense` 5.0's eight counters. This is where the answer to "when may a miss stop?" got
 interesting in the last few years, and it is what [chapters 7](#boost), [8](#f14),
 [11](#indivi) and [12](#group-index) are mostly about.
+
+One piece of vocabulary before Part II, because it turns up well before its own chapter does. When I
+write **the group index** I mean the index `unordered_dense` 5.0 uses and
+[chapter 12](#group-index) takes apart: sixteen one-byte fingerprints and eight overflow counters per
+group of sixteen slots, with the value indices in the same block. It is the last design in Part II
+and it is what every other chapter's "measured in the group index" section reports against, so the
+name has to arrive here rather than there.
 
 Read each chapter for two things: **how a miss stops**, and **what an erase leaves behind**. Those
 two are one question asked from both ends, and no two of these maps answer it the same way.
@@ -366,6 +373,9 @@ one octave, where a group design swings 1.07 to 1.28x. [Chapter 16](#same-worklo
 same measurement for 4.11.0 with its vector probe.
 
 ## What carried into the group index, and what did not
+
+Into `unordered_dense` 5.0, that is; [chapter 12](#group-index) is the whole of it, and this is only
+the part that came from the design above.
 
 Kept: the fingerprint from the low byte of the hash and the home from the top bits, so the two are
 independent; the dense value vector; the 8 bit fingerprint width.
