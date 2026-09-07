@@ -386,15 +386,19 @@ replaced them is [chapter 12](#group-index).
 # 6. SwissTable: abseil's flat_hash_map {#swisstable}
 
 The design everything else in this post is measured against, whether or not it says so.
-[abseil](https://abseil.io/about/design/swisstables)'s `raw_hash_set` is the original, and boost,
-folly, indivi, emilib, ihtab and unordered_dense 5.0 are all answering questions it asked first.
+[abseil](https://abseil.io/about/design/swisstables)'s `raw_hash_set` is where the shape comes from:
+a group of slots, one byte of hash each, compared in a single SIMD instruction. Boost, folly,
+indivi, emilib, ihtab and `unordered_dense` 5.0 are all variations on it, and the chapters that
+follow are mostly about the one thing each of them changed.
 
 ## Layout: one control byte per slot, sixteen at a time
 
 [![The hash split into H1 and H2, sixteen control bytes, and the slots](/img/2026/hashmap-index/swiss-group.svg)](/img/2026/hashmap-index/swiss-group.svg)
 
-0x80 is empty and 0xFE a tombstone, both with the top bit set, so one sign test finds either; an
-occupied byte is the tag with its top bit clear.
+**Each control byte** describes exactly one slot, and is one of three things: `0x80` if that slot is
+empty, `0xFE` if it holds a tombstone, or the seven bit tag of the key that is in it. The two
+markers have their top bit set and a tag has its top bit clear, which is what lets one sign test
+separate "there is a key here" from "there is not".
 
 ```cpp
 enum class ctrl_t : int8_t {
@@ -460,12 +464,65 @@ bigger, but the tombstones go away and every probe sequence is rebuilt.
 
 The maximum load factor is 7/8, so growth happens at capacity times 7/8.
 
+## The small table: one element, and no allocation at all
+
+Recent abseil has something no other map here does, and it is aimed at a case a benchmark suite
+almost never measures: the map that holds nothing, or one thing.
+
+A `flat_hash_map` whose capacity is one does not allocate. The single element lives **inside the
+container object**, in the same bytes that otherwise hold the pointer to the heap:
+
+```cpp
+constexpr size_t SooCapacity() { return 1; }
+constexpr bool IsSmallCapacity(size_t capacity) { return capacity <= 1; }
+
+constexpr static bool SooEnabled() {
+  return PolicyTraits::soo_enabled() &&
+         sizeof(slot_type) <= sizeof(HeapOrSoo) &&
+         alignof(slot_type) <= alignof(HeapOrSoo);
+}
+```
+
+`HeapOrSoo` is a union of the heap pointers and one slot, so the optimization applies exactly when
+the `value_type` is no bigger than those pointers -- a `map<int, int>` gets it, a
+`map<std::string, std::string>` does not. And the lookup on that table is not a probe at all:
+
+```cpp
+iterator find_small(const key_arg<K>& key) {
+  return empty() || !equal_to(key, single_slot()) ? end() : single_iterator();
+}
+```
+
+No control bytes, no group compare, no probe sequence: one key comparison. `find()` branches on
+`is_small()` and takes that path instead of hashing.
+
+**One element and not two**, deliberately, and the header says why:
+
+```cpp
+// We only allow a maximum of 1 SOO element, which makes the implementation
+// much simpler. Complications with multiple SOO elements include:
+// - Satisfying the guarantee that erasing one element doesn't invalidate
+//   iterators to other elements ...
+// - In order to prevent user code from depending on iteration order for small
+//   tables, we would need to randomize the iteration order somehow.
+```
+
+What it buys is an allocation, which is worth far more than a probe: a `map<int, int>` used as a
+local scratch variable, or one held per node of a tree, costs a `malloc` and a `free` in every other
+map in this post and costs nothing here. There is a second, smaller tier above it -- once a table
+outgrows the single slot, capacities up to seven use a simplified algorithm
+(`MaxSmallAfterSooCapacity`) rather than the general one.
+
+**None of it shows in my measurements**, and that is worth being explicit about: the smallest table
+[chapter 16](#same-workloads) builds holds a thousand entries, so every abseil number in this post is
+from the general path. A workload of many tiny maps would rank the field differently, and abseil
+would be the map to beat.
+
 ## Good at, pays for
 
 Good at: the shortest lookup of any design here on a fresh table -- one region, one dependent load
-after the metadata, and the key right there. Fifteen years of tuning behind it. Small-table
-optimizations recent versions add (a single-slot "small" mode with no probing at all) that nothing
-else here has.
+after the metadata, and the key right there. Fifteen years of tuning behind it, and the only
+small-table optimization in the field.
 
 Pays for: tombstones. A table held at a constant size by erasing one and inserting one is the one
 workload where SwissTable's answer to "gone?" is the weakest of the field, and it is the workload
@@ -2096,7 +2153,8 @@ lookup, so the argument against it is about reproducible iteration order and not
 else re-derives the home from the key.
 
 **Small, short-lived maps.** The maps that allocate nothing until the first insert, and abseil's
-recent single-element mode. Worth measuring if that is your workload, because the ranking there is
+[single-element mode](#swisstable), which makes an empty or one-entry map allocate nothing at all.
+Worth measuring if that is your workload, because the ranking there is
 not the ranking anywhere else.
 
 ## Which one, then {#which-one}
