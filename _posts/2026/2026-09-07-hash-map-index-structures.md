@@ -287,6 +287,10 @@ name has to arrive here rather than there.
 Read each chapter for two things: **how a miss stops**, and **what an erase leaves behind**. Those
 two are one question asked from both ends, and no two of these maps answer it the same way.
 
+Where a design has an idea worth stealing, its chapter says so and
+[chapter 12](#borrowed) says what happened when I stole it: twelve of them, implemented in
+`unordered_dense` 5.0 and measured, four kept and eight not.
+
 # 5. Robin hood with an ordered word: unordered_dense 4.11.0 {#robin-hood}
 
 This is my own map as it stood until a few days ago, and the design I have written about
@@ -528,9 +532,9 @@ Pays for: tombstones. A table held at a constant size by erasing one and inserti
 workload where SwissTable's answer to "gone?" is the weakest of the field, and it is the workload
 [chapter 16](#same-workloads) measures on purpose.
 
-Two things from this chapter were tried inside `unordered_dense` 5.0 and are measured in
-[chapter 12](#group-index): the per-table seed, which turns out to cost nothing on a lookup, and
-cache-line-aligning the metadata, which turns out to cost 0.7%.
+Two things from this chapter were tried inside `unordered_dense` 5.0 and are measured with the
+others in [chapter 12](#borrowed): the per-table seed, which costs nothing on a lookup, and
+cache-line-aligning the metadata, which costs 0.7%.
 
 # 7. Boost's unordered_flat_map: fifteen slots and an overflow byte {#boost}
 
@@ -642,23 +646,8 @@ on. It is consistently among the two or three fastest maps here on every lookup 
 
 Pays for: a churning table, and the fact that an erase leaves work for a future rehash.
 
-## Measured in the group index: the miss bound, and the same fingerprint table
-
-Two things went the other way. Boost's prober **terminates** -- `return step<=mask` -- and until
-the review before release unordered_dense's group probe did not. It stopped only at a group whose
-counter for the key's class was zero, on the argument that an exact counter puts a zero right after
-the furthest entry of that class. The argument is wrong, because a counter counts entries that
-overflowed past its group on *their* probe sequences, not on the one being walked. Eight chosen keys
-are enough to make `contains()` on an absent key loop forever: fill a group, send one key of class 1
-past it, erase the fillers -- the passer stays, so the counter stays -- and repeat for every group.
-The fix is `|| delta == m_group_mask`, and by mechanism it is free: 83.6 to 82.7 instructions on a
-hit, 69.5 to 67.6 on a miss, cycles and mispredictions unchanged. `indivi::flat_umap`, where the
-counters came from, has the same hole, and the same eight keys hang it.
-
-The other is the 256 entry table of pre-broadcast fingerprint words, which boost has and this
-library had lost somewhere: building the word arithmetically is an and, a compare, a shift, an or
-and a multiply on the critical path of every probe, placement and erase, and one L1 load is cheaper.
-Paired, integer misses 1.05-1.06x on both compilers, big-value finds 1.14x under gcc.
+Two of boost's ideas ended up in `unordered_dense` 5.0, its terminating prober and its
+pre-broadcast fingerprint word table; [chapter 12](#borrowed) says what each was worth.
 
 # 8. Folly F14: one counter per chunk {#f14}
 
@@ -751,55 +740,8 @@ Pays for: one class-blind counter per chunk, and a saturation point it cannot co
 the table itself is more elaborate than the others here -- the chunk carries capacity bookkeeping,
 so chunk 0 is special.
 
-## Measured in the group index: what one counter costs against eight
-
-The group index keeps eight counters per group, one per fingerprint class, and folly's design is the
-natural question: is one enough? It is measurable, and the answer is no by a distance. Building
-unordered_dense 5.0 with a single class-blind counter per group, on a table at load 0.76 after 200
-turnovers:
-
-| counters per group | fresh miss | churned miss | misses continuing past home | score |
-|---|---|---|---|---|
-| 1, F14 style | 1.21 groups | 2.79 | 60% | **0.959** |
-| 8, one byte each | 1.06 | 1.26 | 17.5% | 1.000 |
-| 16 nibbles | 1.03 | 1.13 | 9.7% | 0.986 |
-| 32 two-bit | 1.02 | 1.15 and rising | rising | 0.988 |
-
-A shared counter does not know the fingerprint class, so *any* overflow past a group makes every
-later miss into it carry on -- and in a churned table most groups have seen an overflow, so 60% of
-misses continue. Its geometric mean over the benchmark suite is 0.959 and its churn workload 0.83.
-
-The rest of that table is [chapter 12](#group-index)'s, and the short version is that eight one-byte
-counters is the point where the counter is still a single aligned load and already knows the class.
-
-## Measured in the group index: double hashing, which works and still loses
-
-The other transferable thing here is the probe sequence, and it is aimed at a real weakness. Under a
-triangular sequence every key homed in group *g* walks the same groups, so a **sibling** -- another
-key that belongs in *g* and did not fit -- sits exactly where a later miss for *g* will look. That is
-not a small share of the problem: about 80% of what the overflow counter fails to filter is siblings.
-
-Double hashing breaks it. Taking the step from bits 8 to 15 of the hash -- which neither the group
-(the top bits) nor the fingerprint (the low byte) uses -- and forcing it odd keeps the "visits every
-group exactly once" property that the miss bound needs, and gives two siblings different tours. It
-does exactly what it is supposed to. Groups visited per lookup, triangular against double hashed:
-
-| | fresh miss | churned miss | fresh hit |
-|---|---|---|---|
-| load 0.760 | 1.052 to **1.035** | 1.061 to 1.050 | 1.031 to 1.027 |
-| load 0.799 | 1.086 to **1.054** | 1.122 to 1.096 | 1.039 to 1.033 |
-
-**A third of the excess, gone -- and it is slower.** Paired on the benchmark suite, random integer
-misses read **0.915**, builds 0.950, big-value churn 0.970. One map per binary says why: **+4.6
-instructions per lookup** and one more live register in the probe, the placement and the counter
-walk, against 0.03 groups on a path five percent of misses reach. Branch misses actually improve
-slightly, 0.108 to 0.093, and it does not matter.
-
-It is the same answer as every other idea in this post that added work to a path that always runs.
-The group compare and the counter have already taken the probe to 1.03 groups, so **the shape of the
-sequence past home has nothing left to win.** Folly's comment is right about folly's map, where the
-tour matters precisely because there is no per-class counter stopping a miss at home in the first
-place.
+Two of F14's ideas were tried in `unordered_dense` 5.0 and neither survived, the single counter
+and the double hashing; [chapter 12](#borrowed) has both, with the numbers.
 
 # 9. emhash8: chaining through the index, and a fingerprint for free {#emhash8}
 
@@ -884,19 +826,8 @@ misses are its weakest column in [chapter 16](#same-workloads) -- a miss has to 
 chain, and whether there is one is exactly the unpredictable question. And the eviction machinery
 means an insert can move an existing key, which the group designs never do.
 
-## Measured in the group index: a second fingerprint in the spare bits
-
-emhash8's free fingerprint is the most tempting idea in this post to steal, because unordered_dense's
-value index is also a `uint32_t` with spare high bits, and it is also loaded on every hit. Eight
-bits there cost nothing until a table wants more than 2^24 slots.
-
-Measured, it is a **0.975** on the geometric mean, and the losses are precisely on lookups:
-find 0.912, big-value find 0.919, random hit 0.930, churn 0.915. The reason is the general shape
-this whole exercise keeps running into: **a filter only pays where nothing cheaper filtered first.**
-For emhash8 the trick is free because there is no group-level fingerprint and the word has to be
-consulted anyway. Here the sixteen-way fingerprint compare has already rejected everything it is
-going to reject, so a second check adds an xor, a shift and a compare to the dependent chain of
-every lookup in order to avoid a value access on the 3% with a fingerprint collision.
+The free fingerprint was tried in `unordered_dense` 5.0 and lost, for a reason worth reading:
+[chapter 12](#borrowed).
 
 # 10. emilib: a state byte per slot {#emilib}
 
@@ -1059,30 +990,8 @@ costs no hash.
 Pays for: two bytes per slot instead of one, and the bookkeeping -- an insert maintains counters and
 distances, an erase undoes both.
 
-## Measured in the group index: the counters, and the nibbles that did not follow
-
-The counters are the ancestor of unordered_dense's, and what changed in the copy is small: the
-fingerprint word remap (0 to 8, so that the class is unchanged), the fact that unordered_dense's
-counters live in the same block as the value indices, and the **termination bound** indivi does not
-have -- `find_impl` loops on `gIndex <= mGMask`, which the mask makes always true, so the eight
-chosen keys of [chapter 7](#boost) hang it too.
-
-The nibbles did not follow, and they were measured properly before being dropped. Implemented here
-as a slot back-pointer per value (four extra bytes per entry) plus indivi's distance nibbles, so
-that `erase(iterator)` needs no hash at all, on the one workload it exists for -- find, then
-`erase(it)`, then insert, on a reserved table:
-
-- with `std::string` keys, **1.10x faster**: 1006 to 888 instructions per round, one wyhash and two
-  probes gone.
-- with `uint64_t` keys, **1.10x slower**: 352 to 363 instructions. The saved hash is eight
-  instructions and the back-pointer maintained on every insert costs more than that.
-- on the benchmark suite, where every erase is by key and the back-pointer can only cost:
-  geomean 0.959, integer build 0.831, big-value build 0.893, integer churn 0.900.
-- memory 31 to 38 MB per million eight byte values.
-
-So it is a real win for a real pattern, and the pattern needs an expensive key *and* an erase by
-iterator, and a caller with both can call `erase(key)` with the hash their own `find` already paid
-for.
+`unordered_dense` 5.0's counters are indivi's, and its distance nibbles were tried there and
+dropped; [chapter 12](#borrowed) has both.
 
 # 12. The group index: unordered_dense 5.0 {#group-index}
 
@@ -1378,40 +1287,6 @@ enough to be indexed in 16 bits has an index of at most 128 KB, which is already
 something that already fits buys nothing, and the maps whose index footprint hurts are exactly the
 ones that need more than 16 bits.
 
-## A per-table seed, borrowed from abseil, and nearly free
-
-[abseil](#swisstable) mixes a seed of its own into every hash so that keys chosen against a known
-hash cannot be aimed at a particular table. It is the one idea in this post aimed at an adversary
-rather than at a workload, and it is cheap enough to be worth reporting precisely. Implemented here
-the same way -- `mixed_hash` returns
-`hash ^ m_seed`, with the seed scrambled from the table's own address, so two live tables differ and
-ASLR makes two processes differ -- it costs, one map per binary at 50,000 entries, **one instruction
-and zero cycles** per lookup: 21.4 cycles against 21.4 on a miss and 29.6 against 29.6 on a hit, ns
-per operation identical to two decimals. On a *build* it costs 3.5% (7.13 to 7.38 ns per element),
-because the pipelined rehash is latency-bound and the xor lands between the hash and the group
-address.
-
-What makes it a feature rather than a patch is the rest. The seed has to travel with the index it
-built, through both allocator-aware constructors, both branches of the move assignment, the copy
-assignment and `swap` -- six sites, and the test suite failed in 85 places until all six were right,
-which is a good sign for the suite and a fair statement of the surface area. Eleven tests then still
-fail because they assert that `mixed_hash` returns an avalanching hash *unchanged*, which a seed
-contradicts by design. And iteration order stops being reproducible between runs.
-
-So: worth having behind a switch, not worth making the default, because the cost is paid by everyone
-and the threat is not everyone's. abseil makes the opposite call, and it is defensible -- it is a
-library used at a scale where somebody is always feeding you keys.
-
-## Cache-line-aligning the metadata, borrowed from abseil and boost, and a small loss
-
-[abseil](#swisstable)'s and [boost](#boost)'s groups are cache-line-aligned, which they get for free
-because their metadata is 16 bytes. The group index's sixteen value indices are exactly 64 bytes, and glibc hands back large
-allocations at 16 mod 64, so *every* group's indices straddle two cache lines. Giving the index
-array a 64 byte aligned block type does exactly what you would expect on lookups (find and hit both
-1.02x) and costs 4-5% on builds and churn, for a geometric mean of **0.993** -- a net loss. The
-likely mechanism is conflict misses: with both arrays at power-of-two offsets, a group's metadata
-and its indices collide in the same cache sets more often than when one of them is skewed.
-
 ## Growth: the pipelined rehash
 
 Placement is shift-free, so a rehash can place in any order. The loop hashes sixteen elements ahead
@@ -1481,6 +1356,177 @@ What did work is restructuring the block range so that every 16 byte block up to
 independently and folded into one finalizer, instead of chaining blocks through the seed: latency is
 one multiply plus the finalizer for any length in that range. Paired on the suite that is
 `hashstr` 1.13, string misses 1.08, string insert-erase 1.09, string builds 1.07.
+
+## Every idea taken from another map, and what each was worth {#borrowed}
+
+Every design in Part II was read with one question in mind: is there something in it that belongs
+here? Twelve ideas were implemented and measured. Four are in the shipped index; eight are not, and
+the eight are the more interesting half, because a negative result with a mechanism behind it says
+more about a design than a positive one does.
+
+| idea | from | measured | kept |
+|---|---|---|---|
+| overflow counters, one per hash class | [indivi](#indivi) | it is the design | **yes** |
+| an erase that decrements the counter | [folly F14](#f14) | it is the design | **yes** |
+| the pre-broadcast fingerprint word table | [boost](#boost) | integer misses 1.05 to 1.06x | **yes** |
+| a probe that terminates | [boost](#boost) | free, by instruction count | **yes** |
+| a per-table seed | [abseil](#swisstable) | 0 cycles a lookup, 3.5% a build | behind a switch |
+| one counter per group instead of eight | [folly F14](#f14) | 0.959 | no |
+| double hashing instead of a triangular probe | [folly F14](#f14) | 0.915 | no |
+| a second fingerprint in the spare index bits | [emhash8](#emhash8) | 0.975 | no |
+| distance nibbles, with a slot back-pointer | [indivi](#indivi) | 0.959 | no |
+| cache-line-aligned metadata | [abseil](#swisstable), [boost](#boost) | 0.993 | no |
+| an exact in-home test | [Verstable](#two-more) | 2 to 3% in cache, nothing out of it | no |
+| a value index narrower than 32 bits | CPython's compact dict | 0.986 | no |
+
+Ratios above are the geometric mean of the fifteen workloads of `unordered_dense`'s own benchmark
+suite, measured paired against the header without the change, so **below 1.00 is a loss**. Where a
+number needs more than a row, it is below. Two of the twelve, the counter width and the exact
+in-home test, are already covered by [the counters section](#group-index) above and are not repeated
+here.
+
+### From boost: a probe that terminates, and the fingerprint word table
+
+Two things came from [boost](#boost). Its prober **terminates** -- `return step<=mask` -- and until
+the review before release unordered_dense's group probe did not. It stopped only at a group whose
+counter for the key's class was zero, on the argument that an exact counter puts a zero right after
+the furthest entry of that class. The argument is wrong, because a counter counts entries that
+overflowed past its group on *their* probe sequences, not on the one being walked. Eight chosen keys
+are enough to make `contains()` on an absent key loop forever: fill a group, send one key of class 1
+past it, erase the fillers -- the passer stays, so the counter stays -- and repeat for every group.
+The fix is `|| delta == m_group_mask`, and by mechanism it is free: 83.6 to 82.7 instructions on a
+hit, 69.5 to 67.6 on a miss, cycles and mispredictions unchanged. `indivi::flat_umap`, where the
+counters came from, has the same hole, and the same eight keys hang it.
+
+The other is the 256 entry table of pre-broadcast fingerprint words, which boost has and
+`unordered_dense` had lost somewhere: building the word arithmetically is an and, a compare, a shift, an or
+and a multiply on the critical path of every probe, placement and erase, and one L1 load is cheaper.
+Paired, integer misses 1.05-1.06x on both compilers, big-value finds 1.14x under gcc.
+
+### From folly F14: one counter per group instead of eight
+
+The group index keeps eight counters per group, one per fingerprint class, and folly's design is the
+natural question: is one enough? It is measurable, and the answer is no by a distance. Building
+unordered_dense 5.0 with a single class-blind counter per group, on a table at load 0.76 after 200
+turnovers:
+
+| counters per group | fresh miss | churned miss | misses continuing past home | score |
+|---|---|---|---|---|
+| 1, F14 style | 1.21 groups | 2.79 | 60% | **0.959** |
+| 8, one byte each | 1.06 | 1.26 | 17.5% | 1.000 |
+| 16 nibbles | 1.03 | 1.13 | 9.7% | 0.986 |
+| 32 two-bit | 1.02 | 1.15 and rising | rising | 0.988 |
+
+A shared counter does not know the fingerprint class, so *any* overflow past a group makes every
+later miss into it carry on -- and in a churned table most groups have seen an overflow, so 60% of
+misses continue. Its geometric mean over the benchmark suite is 0.959 and its churn workload 0.83.
+
+The other two rows are [the counters section](#group-index) above; the short version is that eight
+one-byte counters is the point where the counter is still a single aligned load and already knows
+the class.
+
+### From folly F14: double hashing instead of a triangular probe
+
+The other transferable thing in [F14](#f14) is the probe sequence, and it is aimed at a real
+weakness here. Under a
+triangular sequence every key homed in group *g* walks the same groups, so a **sibling** -- another
+key that belongs in *g* and did not fit -- sits exactly where a later miss for *g* will look. That is
+not a small share of the problem: about 80% of what the overflow counter fails to filter is siblings.
+
+Double hashing breaks it. Taking the step from bits 8 to 15 of the hash -- which neither the group
+(the top bits) nor the fingerprint (the low byte) uses -- and forcing it odd keeps the "visits every
+group exactly once" property that the miss bound needs, and gives two siblings different tours. It
+does exactly what it is supposed to. Groups visited per lookup, triangular against double hashed:
+
+| | fresh miss | churned miss | fresh hit |
+|---|---|---|---|
+| load 0.760 | 1.052 to **1.035** | 1.061 to 1.050 | 1.031 to 1.027 |
+| load 0.799 | 1.086 to **1.054** | 1.122 to 1.096 | 1.039 to 1.033 |
+
+**A third of the excess, gone -- and it is slower.** Paired on the benchmark suite, random integer
+misses read **0.915**, builds 0.950, big-value churn 0.970. One map per binary says why: **+4.6
+instructions per lookup** and one more live register in the probe, the placement and the counter
+walk, against 0.03 groups on a path five percent of misses reach. Branch misses actually improve
+slightly, 0.108 to 0.093, and it does not matter.
+
+It is the same answer as every other idea in this post that added work to a path that always runs.
+The group compare and the counter have already taken the probe to 1.03 groups, so **the shape of the
+sequence past home has nothing left to win.** Folly's comment is right about folly's map, where the
+tour matters precisely because there is no per-class counter stopping a miss at home in the first
+place.
+
+### From emhash8: a second fingerprint in the spare index bits
+
+[emhash8](#emhash8)'s free fingerprint is the most tempting idea in this post to steal, because
+`unordered_dense`'s value index is also a `uint32_t` with spare high bits, and it is also loaded on every hit. Eight
+bits there cost nothing until a table wants more than 2^24 slots.
+
+Measured, it is a **0.975** on the geometric mean, and the losses are precisely on lookups:
+find 0.912, big-value find 0.919, random hit 0.930, churn 0.915. The reason is the general shape
+this whole exercise keeps running into: **a filter only pays where nothing cheaper filtered first.**
+For emhash8 the trick is free because there is no group-level fingerprint and the word has to be
+consulted anyway. Here the sixteen-way fingerprint compare has already rejected everything it is
+going to reject, so a second check adds an xor, a shift and a compare to the dependent chain of
+every lookup in order to avoid a value access on the 3% with a fingerprint collision.
+
+### From indivi: the counters themselves, and the nibbles that did not follow
+
+[indivi](#indivi)'s counters are the ancestor of these, and what changed in the copy is small: the
+fingerprint word remap (0 to 8, so that the class is unchanged), the fact that unordered_dense's
+counters live in the same block as the value indices, and the **termination bound** indivi does not
+have -- `find_impl` loops on `gIndex <= mGMask`, which the mask makes always true, so the eight
+chosen keys of [chapter 7](#boost) hang it too.
+
+The nibbles did not follow, and they were measured properly before being dropped. Implemented here
+as a slot back-pointer per value (four extra bytes per entry) plus indivi's distance nibbles, so
+that `erase(iterator)` needs no hash at all, on the one workload it exists for -- find, then
+`erase(it)`, then insert, on a reserved table:
+
+- with `std::string` keys, **1.10x faster**: 1006 to 888 instructions per round, one wyhash and two
+  probes gone.
+- with `uint64_t` keys, **1.10x slower**: 352 to 363 instructions. The saved hash is eight
+  instructions and the back-pointer maintained on every insert costs more than that.
+- on the benchmark suite, where every erase is by key and the back-pointer can only cost:
+  geomean 0.959, integer build 0.831, big-value build 0.893, integer churn 0.900.
+- memory 31 to 38 MB per million eight byte values.
+
+So it is a real win for a real pattern, and the pattern needs an expensive key *and* an erase by
+iterator, and a caller with both can call `erase(key)` with the hash their own `find` already paid
+for.
+
+### From abseil: a per-table seed
+
+[abseil](#swisstable) mixes a seed of its own into every hash so that keys chosen against a known
+hash cannot be aimed at a particular table. It is the one idea in this post aimed at an adversary
+rather than at a workload, and it is cheap enough to be worth reporting precisely. Implemented here
+the same way -- `mixed_hash` returns
+`hash ^ m_seed`, with the seed scrambled from the table's own address, so two live tables differ and
+ASLR makes two processes differ -- it costs, one map per binary at 50,000 entries, **one instruction
+and zero cycles** per lookup: 21.4 cycles against 21.4 on a miss and 29.6 against 29.6 on a hit, ns
+per operation identical to two decimals. On a *build* it costs 3.5% (7.13 to 7.38 ns per element),
+because the pipelined rehash is latency-bound and the xor lands between the hash and the group
+address.
+
+What makes it a feature rather than a patch is the rest. The seed has to travel with the index it
+built, through both allocator-aware constructors, both branches of the move assignment, the copy
+assignment and `swap` -- six sites, and the test suite failed in 85 places until all six were right,
+which is a good sign for the suite and a fair statement of the surface area. Eleven tests then still
+fail because they assert that `mixed_hash` returns an avalanching hash *unchanged*, which a seed
+contradicts by design. And iteration order stops being reproducible between runs.
+
+So: worth having behind a switch, not worth making the default, because the cost is paid by everyone
+and the threat is not everyone's. abseil makes the opposite call, and it is defensible -- it is a
+library used at a scale where somebody is always feeding you keys.
+
+### From abseil and boost: cache-line-aligned metadata
+
+[abseil](#swisstable)'s and [boost](#boost)'s groups are cache-line-aligned, which they get for free
+because their metadata is 16 bytes. The group index's sixteen value indices are exactly 64 bytes, and glibc hands back large
+allocations at 16 mod 64, so *every* group's indices straddle two cache lines. Giving the index
+array a 64 byte aligned block type does exactly what you would expect on lookups (find and hit both
+1.02x) and costs 4-5% on builds and churn, for a geometric mean of **0.993** -- a net loss. The
+likely mechanism is conflict misses: with both arrays at power-of-two offsets, a group's metadata
+and its indices collide in the same cache sets more often than when one of them is skewed.
 
 ## Good at, pays for
 
