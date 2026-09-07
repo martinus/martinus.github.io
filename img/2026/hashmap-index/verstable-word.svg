@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 318" font-family="Inter, system-ui, sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 236" font-family="Inter, system-ui, sans-serif" font-size="13">
   <style>
     .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
     .muted{fill:#6b7280}
@@ -22,40 +22,32 @@
       <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
     </marker>
   </defs>
-  <text x="20" y="24" class="hd" text-anchor="start">one bucket's metadata: 16 bits</text>
-  <rect x="132" y="34" width="52" height="30" class="cell fp"/>
-  <text x="158" y="53" class="mono" text-anchor="middle" font-size="9">fragment</text>
-  <rect x="184" y="34" width="26" height="30" class="cell ovf"/>
-  <text x="197" y="53" class="mono" text-anchor="middle" font-size="9">home</text>
-  <rect x="210" y="34" width="130" height="30" class="cell dist"/>
-  <text x="275" y="53" class="mono" text-anchor="middle" font-size="11">displacement</text>
-  <text x="120" y="54" class="muted" text-anchor="end">uint16_t</text>
-  <path d="M132,64 L132,70 L184,70 L184,64" class="thin"/>
-  <text x="158" y="82" class="muted" text-anchor="middle">4 bits</text>
-  <path d="M184,64 L184,70 L210,70 L210,64" class="thin"/>
-  <text x="197" y="82" class="muted" text-anchor="middle">1</text>
-  <path d="M210,64 L210,70 L340,70 L340,64" class="thin"/>
-  <text x="275" y="82" class="muted" text-anchor="middle">11 bits, to the next key in this chain</text>
-  <text x="20" y="106" class="muted" text-anchor="start">The home bit says a key that belongs in this bucket is sitting here, which is exactly the</text>
-  <text x="20" y="122" class="muted" text-anchor="start">question a miss asks -- and it is exact, where an overflow counter is only a hint.</text>
-  <text x="20" y="156" class="hd" text-anchor="start">the chain: a lookup visits only buckets holding keys that belong to it</text>
-  <rect x="132" y="166" width="26" height="30" class="cell "/>
-  <rect x="158" y="166" width="26" height="30" class="cell fp"/>
-  <text x="171" y="185" class="mono" text-anchor="middle" font-size="9">home</text>
-  <rect x="184" y="166" width="26" height="30" class="cell "/>
-  <rect x="210" y="166" width="26" height="30" class="cell "/>
-  <rect x="236" y="166" width="26" height="30" class="cell fp"/>
-  <text x="249" y="185" class="mono" text-anchor="middle" font-size="11">+5</text>
-  <rect x="262" y="166" width="26" height="30" class="cell "/>
-  <rect x="288" y="166" width="26" height="30" class="cell "/>
-  <rect x="314" y="166" width="26" height="30" class="cell "/>
-  <rect x="340" y="166" width="26" height="30" class="cell fp"/>
-  <text x="353" y="185" class="mono" text-anchor="middle" font-size="11">end</text>
-  <rect x="366" y="166" width="26" height="30" class="cell "/>
-  <text x="120" y="186" class="muted" text-anchor="end">buckets</text>
-  <path d="M171.0,196 C171.0,222 249.0,222 249.0,198" class="arrow"/>
-  <path d="M249.0,196 C249.0,238 353.0,238 353.0,198" class="arrow"/>
-  <text x="20" y="272" class="muted" text-anchor="start">Fewest instructions of any map measured here, and twice the cycles of a group compare on a</text>
-  <text x="20" y="288" class="muted" text-anchor="start">miss: how long the chain is, and whether there is one at all, are decisions the branch</text>
-  <text x="20" y="304" class="muted" text-anchor="start">predictor cannot make. A group compare asks one question whatever the group holds.</text>
+  <text x="20" y="24" class="hd" text-anchor="start">one bucket's metadata: two bytes, used as sixteen bits</text>
+  <rect x="132" y="44" width="52" height="30" class="cell fp"/>
+  <text x="158" y="63" class="mono" text-anchor="middle" font-size="9">fragment</text>
+  <rect x="184" y="44" width="26" height="30" class="cell ovf"/>
+  <text x="197" y="63" class="mono" text-anchor="middle" font-size="9">home</text>
+  <rect x="210" y="44" width="130" height="30" class="cell dist"/>
+  <text x="275" y="63" class="mono" text-anchor="middle" font-size="11">displacement</text>
+  <text x="120" y="64" class="muted" text-anchor="end">uint16_t</text>
+  <text x="132" y="92" class="muted" text-anchor="start">4 bits</text>
+  <text x="184" y="92" class="muted" text-anchor="start">1</text>
+  <text x="210" y="92" class="muted" text-anchor="start">11 bits, the step to the next key in this bucket's chain</text>
+  <text x="20" y="130" class="hd" text-anchor="start">the chain: a lookup visits only buckets holding keys that belong to it</text>
+  <rect x="132" y="140" width="26" height="30" class="cell "/>
+  <rect x="158" y="140" width="26" height="30" class="cell fp"/>
+  <text x="171" y="159" class="mono" text-anchor="middle" font-size="9">home</text>
+  <rect x="184" y="140" width="26" height="30" class="cell "/>
+  <rect x="210" y="140" width="26" height="30" class="cell "/>
+  <rect x="236" y="140" width="26" height="30" class="cell fp"/>
+  <text x="249" y="159" class="mono" text-anchor="middle" font-size="11">+5</text>
+  <rect x="262" y="140" width="26" height="30" class="cell "/>
+  <rect x="288" y="140" width="26" height="30" class="cell "/>
+  <rect x="314" y="140" width="26" height="30" class="cell "/>
+  <rect x="340" y="140" width="26" height="30" class="cell fp"/>
+  <text x="353" y="159" class="mono" text-anchor="middle" font-size="11">end</text>
+  <rect x="366" y="140" width="26" height="30" class="cell "/>
+  <text x="120" y="160" class="muted" text-anchor="end">buckets</text>
+  <path d="M171.0,170 C171.0,196 249.0,196 249.0,172" class="arrow"/>
+  <path d="M249.0,170 C249.0,212 353.0,212 353.0,172" class="arrow"/>
 </svg>

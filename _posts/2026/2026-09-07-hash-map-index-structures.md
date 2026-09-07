@@ -188,6 +188,12 @@ Before the metadata, one decision splits the field: where the key and the value 
 
 [![Flat, dense and node maps, and what one lookup has to touch in each](/img/2026/hashmap-index/families.svg)](/img/2026/hashmap-index/families.svg)
 
+Flat has the shortest chain and pays for it with every cost scaling in `sizeof(value_type)`, because
+a hash-scattered slot is written whole. Dense writes four bytes there and appends the payload in
+order, so iteration is an array walk and a large value costs the vector rather than the table, for
+one more dependent load on every hit. Node maps keep references and iterators valid forever, and pay
+an allocation per insert and a cache miss per lookup for it.
+
 ## Keys in the slots: flat
 
 `absl::flat_hash_map`, `boost::unordered_flat_map`, `folly::F14ValueMap`, `indivi::flat_umap`,
@@ -203,9 +209,20 @@ references and iterators are invalidated by any growth, because the values move.
 ## Keys in a vector: dense
 
 `ankerl::unordered_dense`, `emhash8::HashMap`, `folly::F14VectorMap`, ihtab. The values live in a
-contiguous array in insertion order, and the hash table holds an *index* into it -- four bytes,
-whatever the value is. Iteration is a plain array walk over exactly the live entries. A 64 byte
-value costs the vector rather than the table. Growth rehashes indices, not values.
+contiguous array in insertion order, and the hash table holds an *index* into it rather than the
+value. Iteration is a plain array walk over exactly the live entries. A 64 byte value costs the
+vector rather than the table. Growth rehashes indices, not values.
+
+**Four bytes is the usual index, and it is a choice rather than a law.** `folly::F14VectorMap` and
+ihtab fix theirs at `uint32_t`. `unordered_dense` uses `uint32_t` and has a second bucket type,
+`group_big`, whose index is a `size_t` for tables past four billion entries.
+`emhash8::HashMap` is a `uint32_t` by default and a `uint16_t` or a `uint64_t` depending on how it
+is compiled, and it stores *two* of them per bucket, because one of them is the chain link. And
+[CPython's compact dict](https://mail.python.org/pipermail/python-dev/2012-December/123028.html),
+which is the same idea outside C++, sizes its index to the table: one byte, two, four or eight. That
+last one sounds like the obvious win and it is measured in [chapter 12](#group-index), where a 16 bit
+index reads 0.986 -- a table small enough to be indexed in 16 bits has an index of at most 128 KB,
+which is already in L2, so halving something that already fits buys nothing.
 
 The price is one more dependent load on every hit: metadata, then index, then value. On a table
 that fits in cache that is a few cycles; on a table that does not, it is a cache miss and a TLB
@@ -363,6 +380,9 @@ folly, indivi, emilib, ihtab and unordered_dense 5.0 are all answering questions
 ## Layout: one control byte per slot, sixteen at a time
 
 [![The hash split into H1 and H2, sixteen control bytes, and the slots](/img/2026/hashmap-index/swiss-group.svg)](/img/2026/hashmap-index/swiss-group.svg)
+
+0x80 is empty and 0xFE a tombstone, both with the top bit set, so one sign test finds either; an
+occupied byte is the tag with its top bit clear.
 
 ```cpp
 enum class ctrl_t : int8_t {
@@ -830,6 +850,9 @@ every lookup in order to avoid a value access on the 3% with a fingerprint colli
 is here for exactly that reason: it is the shortest way to see what the tricks are worth.
 
 [![emilib's state byte array and its slots](/img/2026/hashmap-index/emilib-state.svg)](/img/2026/hashmap-index/emilib-state.svg)
+
+The home slot is rounded down to a multiple of sixteen, so a compare is always an aligned group and
+a probe never straddles two of them.
 
 ```cpp
 enum State : int8_t {
@@ -1567,6 +1590,8 @@ The tables above are static. This is the same information as a picture of the *c
 has to wait for, in order, where every arrow is a load whose address the box before it produced.
 
 [![The dependent load chain of a hit, per design](/img/2026/hashmap-index/lookup-touches.svg)](/img/2026/hashmap-index/lookup-touches.svg)
+
+Every arrow is a load whose address the box before it produced, so nothing after it can start early.
 
 Three things are worth taking from it.
 

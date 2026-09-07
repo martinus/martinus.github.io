@@ -51,9 +51,4 @@
   <text x="132" y="256" class="muted" text-anchor="middle">2 loads, 1 region</text>
   <text x="380" y="256" class="muted" text-anchor="middle">3 loads, 2 regions</text>
   <text x="628" y="256" class="muted" text-anchor="middle">3 loads, a node each</text>
-  <text x="20" y="284" class="muted" text-anchor="start">Flat has the shortest chain and pays for it with every cost scaling in sizeof(value_type):</text>
-  <text x="20" y="300" class="muted" text-anchor="start">a hash-scattered slot is written whole. Dense writes four bytes there and appends the payload</text>
-  <text x="20" y="316" class="muted" text-anchor="start">in order, so iteration is an array walk and a large value costs the vector rather than the</text>
-  <text x="20" y="332" class="muted" text-anchor="start">table -- for one more dependent load on every hit. Node maps keep references and iterators</text>
-  <text x="20" y="348" class="muted" text-anchor="start">valid forever, and pay an allocation per insert and a cache miss per lookup for it.</text>
 </svg>

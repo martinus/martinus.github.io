@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 404" font-family="Inter, system-ui, sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 426" font-family="Inter, system-ui, sans-serif" font-size="13">
   <style>
     .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
     .muted{fill:#6b7280}
@@ -70,7 +70,22 @@
   <text x="120" y="306" class="muted" text-anchor="end">values</text>
   <path d="M132,316 L132,322 L444,322 L444,316" class="thin"/>
   <text x="288" y="334" class="muted" text-anchor="middle">a dense vector, in insertion order</text>
-  <text x="20" y="358" class="muted" text-anchor="start">Coalesced chaining: every key whose home is this bucket is on one list, and a key that</text>
-  <text x="20" y="374" class="muted" text-anchor="start">found the bucket taken by a stranger evicts the stranger. The values are dense, as here, so</text>
-  <text x="20" y="390" class="muted" text-anchor="start">iteration is an array walk -- and a lookup is index, then chain, then value.</text>
+  <text x="20" y="360" class="hd" text-anchor="start">the same bytes, to scale</text>
+  <rect x="132.0" y="372" width="280.0" height="16" class="cell dist"/>
+  <text x="272.0" y="384" class="mono" text-anchor="middle" font-size="9">next</text>
+  <rect x="412.0" y="372" width="280.0" height="16" class="cell idx"/>
+  <text x="552.0" y="384" class="mono" text-anchor="middle" font-size="9">slot</text>
+  <line x1="132.0" y1="388" x2="132.0" y2="396" stroke="#9ca3af" stroke-width="1"/>
+  <line x1="202.0" y1="388" x2="202.0" y2="393" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="272.0" y1="388" x2="272.0" y2="393" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="342.0" y1="388" x2="342.0" y2="393" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="412.0" y1="388" x2="412.0" y2="393" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="482.0" y1="388" x2="482.0" y2="393" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="552.0" y1="388" x2="552.0" y2="393" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="622.0" y1="388" x2="622.0" y2="393" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="692.0" y1="388" x2="692.0" y2="396" stroke="#9ca3af" stroke-width="1"/>
+  <text x="132.0" y="409" class="muted" text-anchor="start" font-size="10">0</text>
+  <text x="412.0" y="409" class="muted" text-anchor="middle" font-size="10">4</text>
+  <text x="692.0" y="409" class="muted" text-anchor="end" font-size="10">8</text>
+  <text x="702" y="385" class="muted" text-anchor="start">8 bytes</text>
 </svg>

@@ -104,9 +104,4 @@
   <rect x="432" y="356" width="116" height="30" class="cell payload"/>
   <text x="490.0" y="376" class="mono" text-anchor="middle" font-size="11">node</text>
   <text x="564" y="376" class="muted" text-anchor="start">+1 per chain step</text>
-  <text x="20" y="408" class="muted" text-anchor="start">Every arrow is a load whose address the box before it produced, so nothing after it can</text>
-  <text x="20" y="424" class="muted" text-anchor="start">start early. Boxes at the same depth are not the same cost: a group compare is one</text>
-  <text x="20" y="440" class="muted" text-anchor="start">instruction over sixteen slots, and a chain step is a branch the predictor has to guess.</text>
-  <text x="20" y="466" class="muted" text-anchor="start">The dense designs are the ones with four boxes; that fourth load is what they pay for</text>
-  <text x="20" y="482" class="muted" text-anchor="start">iteration, for large values and for a vector of keys in insertion order.</text>
 </svg>
