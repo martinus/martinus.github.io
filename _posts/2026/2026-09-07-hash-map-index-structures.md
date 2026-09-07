@@ -1197,15 +1197,40 @@ home that the original build had left away from it, so a table that is *used* is
 one that was only built. It converges rather than plateauing, because every displaced entry that is
 touched again goes home.
 
-What it is worth in time is much less than that suggests, because there was not much to take back:
-about a tenth off a miss and a few percent off a hit on an in-cache churned table (misses 5.16 to
-4.64 ns), nothing on the churn itself, nothing out of cache, and +2% instructions per writing hit.
-The branch misses say what the drift actually cost: 7.59M to 6.26M over the run, which is the
-stop-or-continue branch becoming predictable again once only a tenth of misses continue past home.
+What it is worth in time is the interesting part, because the drift it takes back is so small that I
+doubted it was worth anything at all. One map per binary, the same header with `move_home` turned
+into a no-op beside it, a table at load 0.80 churned through and then timed on its own. **The control
+is the row that matters**: with no writing lookups `move_home` never fires, so the two binaries have
+to measure the same, and whatever they differ by there is code layout to be subtracted.
 
-The first measurement of this said 1.49x on misses and was wrong -- a paired run of two headers in
-one binary, where the code layout of the losing side moved. It took three measurements to get right,
-and the rule it left is in [chapter 19](#how-measured).
+| entries | control, no writing hits | with one writing hit per round | on hits | on the churn round |
+|---|---|---|---|---|
+| 52,363 (in L2) | 0.951 | **1.107** | 1.041 | 1.012 |
+| 838,860 (L3) | 0.998 | **1.101** | 1.003 | -- |
+| 3,355,443 (past L3) | 0.997 | **1.099** | 0.991 | -- |
+
+So: **about a tenth of a miss, at every size**, nothing on a hit, and nothing paid on the writing
+path that earns it. I expected it to fade out of cache -- one step of displacement lands in the
+adjacent block, which the prefetcher already has -- and it does not.
+
+The counters say why it does not, and it is not the extra group visit. Per lookup at 52,363 entries,
+the same two binaries: with no writing hits, **27.59 cycles and 0.2118 branch misses against 27.52
+and 0.2116**, identical as the control demands; with one writing hit per round, **25.58 and 0.1591
+against 28.93 and 0.2177**, on instruction counts that barely move. A quarter of the branch misses
+go, on 0.04 fewer groups per miss. **Most of what drift costs is the stop-or-continue branch becoming
+unpredictable**, and a branch does not get cheaper because the table left the cache.
+
+What that does *not* say is that it helps everybody. `move_home` runs only on a hit inside a path
+that writes, so a program that only reads gets exactly nothing -- the control column *is* that
+program. And the gain is entirely on misses. The shape it pays for is a map that churns at a fixed
+size, is written to by key, and is asked about keys that are not there: a real shape, and not the
+shape of anything in my benchmark suite, which is why the score reads 1.000 on this change and always
+will.
+
+The first measurement of it said 1.49x on misses and was wrong -- a paired run of two headers in one
+binary, where the code layout of the losing side moved. Note that the control row above reads 0.951
+at 52,363 entries, which is that same effect, still there, measured rather than guessed at. The rule
+it leaves is in [chapter 19](#how-measured).
 
 ## Where the indices live: one array or two
 
@@ -2145,6 +2170,8 @@ scripts/ab/maps_one.sh hit 50000 30000000
 scripts/ab/probe_length.sh 0.799 200 0
 # bucketized against sliding-window placement, simulated, no map involved
 clang++ -O2 -std=c++17 scripts/ab/placement.cpp -o placement && ./placement 0.799
+# move_home on and off, one map per binary; the last argument 0 is the control
+scripts/ab/move_home.sh miss 838860 20 1 4000000
 ```
 
 `maps.sh` compiles in whatever it finds; the environment variables it reads for the other libraries'
