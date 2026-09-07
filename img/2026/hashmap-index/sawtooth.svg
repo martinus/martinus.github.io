@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 330" font-family="Inter, system-ui, sans-serif" font-size="12">
+  <style>
+    .ax{stroke:#d1d5db;stroke-width:1}
+    .ref{stroke:#6b7280;stroke-width:1;stroke-dasharray:3 3}
+    .t{fill:#374151}
+    .m{fill:#6b7280;font-size:11px}
+    .hd{fill:#1f2937;font-weight:600;font-size:13px}
+    @media (prefers-color-scheme: dark){
+      .t{fill:#d1d5db} .m{fill:#9ca3af} .hd{fill:#f3f4f6}
+      .ax{stroke:#4b5563} .ref{stroke:#9ca3af}
+    }
+  </style>
+  <text x="8" y="20" class="hd">one octave of table sizes, u64 keys</text>
+  <text x="8" y="38" class="m">the same five sizes for every map: the ramp is its load factor climbing to its maximum, and the drop is the doubling</text>
+  <line x1="56" y1="286.0" x2="592" y2="286.0" class="ax"/>
+  <text x="50" y="290.0" class="m" text-anchor="end">0</text>
+  <line x1="56" y1="233.5" x2="592" y2="233.5" class="ax"/>
+  <text x="50" y="237.5" class="m" text-anchor="end">2</text>
+  <line x1="56" y1="181.0" x2="592" y2="181.0" class="ax"/>
+  <text x="50" y="185.0" class="m" text-anchor="end">4</text>
+  <line x1="56" y1="128.5" x2="592" y2="128.5" class="ax"/>
+  <text x="50" y="132.5" class="m" text-anchor="end">6</text>
+  <line x1="56" y1="76.0" x2="592" y2="76.0" class="ax"/>
+  <text x="50" y="80.0" class="m" text-anchor="end">8</text>
+  <text x="56.0" y="302" class="m" text-anchor="middle">1,000</text>
+  <text x="162.7" y="302" class="m" text-anchor="middle">1,148</text>
+  <text x="270.1" y="302" class="m" text-anchor="middle">1,319</text>
+  <text x="377.3" y="302" class="m" text-anchor="middle">1,515</text>
+  <text x="484.8" y="302" class="m" text-anchor="middle">1,741</text>
+  <path d="M56.0,217.0 L162.7,215.4 L270.1,209.1 L377.3,198.1 L484.8,207.8" fill="none" stroke="#1baf7a" stroke-width="2"/>
+  <circle cx="56.0" cy="217.0" r="3.5" fill="#1baf7a"/>
+  <circle cx="162.7" cy="215.4" r="3.5" fill="#1baf7a"/>
+  <circle cx="270.1" cy="209.1" r="3.5" fill="#1baf7a"/>
+  <circle cx="377.3" cy="198.1" r="3.5" fill="#1baf7a"/>
+  <circle cx="484.8" cy="207.8" r="3.5" fill="#1baf7a"/>
+  <path d="M56.0,224.3 L162.7,225.1 L270.1,217.5 L377.3,205.4 L484.8,221.7" fill="none" stroke="#2a78d6" stroke-width="2"/>
+  <circle cx="56.0" cy="224.3" r="3.5" fill="#2a78d6"/>
+  <circle cx="162.7" cy="225.1" r="3.5" fill="#2a78d6"/>
+  <circle cx="270.1" cy="217.5" r="3.5" fill="#2a78d6"/>
+  <circle cx="377.3" cy="205.4" r="3.5" fill="#2a78d6"/>
+  <circle cx="484.8" cy="221.7" r="3.5" fill="#2a78d6"/>
+  <path d="M56.0,231.4 L162.7,230.9 L270.1,229.6 L377.3,224.6 L484.8,210.7" fill="none" stroke="#2a78d6" stroke-width="2"/>
+  <circle cx="56.0" cy="231.4" r="3.5" fill="#2a78d6"/>
+  <circle cx="162.7" cy="230.9" r="3.5" fill="#2a78d6"/>
+  <circle cx="270.1" cy="229.6" r="3.5" fill="#2a78d6"/>
+  <circle cx="377.3" cy="224.6" r="3.5" fill="#2a78d6"/>
+  <circle cx="484.8" cy="210.7" r="3.5" fill="#2a78d6"/>
+  <path d="M56.0,181.3 L162.7,177.3 L270.1,157.1 L377.3,132.7 L484.8,173.6" fill="none" stroke="#1baf7a" stroke-width="2"/>
+  <circle cx="56.0" cy="181.3" r="3.5" fill="#1baf7a"/>
+  <circle cx="162.7" cy="177.3" r="3.5" fill="#1baf7a"/>
+  <circle cx="270.1" cy="157.1" r="3.5" fill="#1baf7a"/>
+  <circle cx="377.3" cy="132.7" r="3.5" fill="#1baf7a"/>
+  <circle cx="484.8" cy="173.6" r="3.5" fill="#1baf7a"/>
+  <path d="M56.0,237.2 L162.7,236.9 L270.1,233.0 L377.3,228.0 L484.8,234.8" fill="none" stroke="#2a78d6" stroke-width="2"/>
+  <circle cx="56.0" cy="237.2" r="3.5" fill="#2a78d6"/>
+  <circle cx="162.7" cy="236.9" r="3.5" fill="#2a78d6"/>
+  <circle cx="270.1" cy="233.0" r="3.5" fill="#2a78d6"/>
+  <circle cx="377.3" cy="228.0" r="3.5" fill="#2a78d6"/>
+  <circle cx="484.8" cy="234.8" r="3.5" fill="#2a78d6"/>
+  <text x="493.8" y="177.6" class="m" fill="#1baf7a">unordered_dense 4.11</text>
+  <text x="493.8" y="211.8" class="m" fill="#1baf7a">unordered_dense 5.0</text>
+  <text x="493.8" y="226.8" class="m" fill="#2a78d6">absl flat</text>
+  <text x="493.8" y="241.8" class="m" fill="#2a78d6">boost flat</text>
+  <text x="493.8" y="256.8" class="m" fill="#2a78d6">indivi flat_wmap</text>
+  <text x="56" y="58" class="m">ns per operation</text>
+</svg>

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 370" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">one chunk: 14 tags, and two counters in two bytes</text>
+  <rect x="132" y="34" width="26" height="30" class="cell fp"/>
+  <text x="145" y="53" class="mono" text-anchor="middle" font-size="11">3A</text>
+  <rect x="158" y="34" width="26" height="30" class="cell fp"/>
+  <text x="171" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="184" y="34" width="26" height="30" class="cell fp"/>
+  <text x="197" y="53" class="mono" text-anchor="middle" font-size="11">91</text>
+  <rect x="210" y="34" width="26" height="30" class="cell fp"/>
+  <text x="223" y="53" class="mono" text-anchor="middle" font-size="11">3A</text>
+  <rect x="236" y="34" width="26" height="30" class="cell fp"/>
+  <text x="249" y="53" class="mono" text-anchor="middle" font-size="11">07</text>
+  <rect x="262" y="34" width="26" height="30" class="cell fp"/>
+  <text x="275" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="288" y="34" width="26" height="30" class="cell fp"/>
+  <text x="301" y="53" class="mono" text-anchor="middle" font-size="11">C4</text>
+  <rect x="314" y="34" width="26" height="30" class="cell fp"/>
+  <text x="327" y="53" class="mono" text-anchor="middle" font-size="11">5F</text>
+  <rect x="340" y="34" width="26" height="30" class="cell fp"/>
+  <text x="353" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="366" y="34" width="26" height="30" class="cell fp"/>
+  <text x="379" y="53" class="mono" text-anchor="middle" font-size="11">22</text>
+  <rect x="392" y="34" width="26" height="30" class="cell fp"/>
+  <text x="405" y="53" class="mono" text-anchor="middle" font-size="11">3A</text>
+  <rect x="418" y="34" width="26" height="30" class="cell fp"/>
+  <text x="431" y="53" class="mono" text-anchor="middle" font-size="11">8B</text>
+  <rect x="444" y="34" width="26" height="30" class="cell fp"/>
+  <text x="457" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="470" y="34" width="26" height="30" class="cell fp"/>
+  <text x="483" y="53" class="mono" text-anchor="middle" font-size="11">6E</text>
+  <rect x="496" y="34" width="26" height="30" class="cell ovf"/>
+  <text x="509" y="53" class="mono" text-anchor="middle" font-size="11">ctl</text>
+  <rect x="522" y="34" width="26" height="30" class="cell ovf"/>
+  <text x="535" y="53" class="mono" text-anchor="middle" font-size="11">out</text>
+  <text x="120" y="54" class="muted" text-anchor="end">F14Chunk</text>
+  <path d="M132,64 L132,70 L496,70 L496,64" class="thin"/>
+  <text x="314" y="82" class="muted" text-anchor="middle">tags_: 0 is empty, otherwise the top byte of the hash</text>
+  <rect x="132" y="122" width="104" height="30" class="cell dist"/>
+  <text x="184" y="141" class="mono" text-anchor="middle" font-size="11">scale</text>
+  <rect x="236" y="122" width="104" height="30" class="cell ovf"/>
+  <text x="288" y="141" class="mono" text-anchor="middle" font-size="11">hosted</text>
+  <text x="120" y="142" class="muted" text-anchor="end">control_</text>
+  <text x="354" y="135" class="muted" text-anchor="start">four bits of capacity scale, in chunk 0 only, and four</text>
+  <text x="354" y="151" class="muted" text-anchor="start">bits counting the keys hosted here that belong elsewhere</text>
+  <rect x="132" y="176" width="208" height="30" class="cell ovf"/>
+  <text x="236" y="195" class="mono" text-anchor="middle" font-size="11">saturating count</text>
+  <text x="120" y="196" class="muted" text-anchor="end">outbound</text>
+  <text x="354" y="189" class="muted" text-anchor="start">how many keys wanted this chunk and did not fit,</text>
+  <text x="354" y="205" class="muted" text-anchor="start">including those that had already passed a full one</text>
+  <rect x="132" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="158" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="184" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="210" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="236" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="262" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="288" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="314" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="340" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="366" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="392" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="418" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="444" y="236" width="26" height="30" class="cell payload"/>
+  <rect x="470" y="236" width="26" height="30" class="cell payload"/>
+  <text x="120" y="256" class="muted" text-anchor="end">items</text>
+  <path d="M132,266 L132,272 L496,272 L496,266" class="thin"/>
+  <text x="314" y="284" class="muted" text-anchor="middle">the key and the value, in the chunk</text>
+  <text x="20" y="308" class="muted" text-anchor="start">The outbound counter is decremented by an erase, so unlike an overflow bit it comes back</text>
+  <text x="20" y="324" class="muted" text-anchor="start">down and a table that churns at a fixed size does not degrade. One counter for the whole</text>
+  <text x="20" y="340" class="muted" text-anchor="start">chunk, though, so any overflow at all makes every later miss into it carry on.</text>
+  <text x="20" y="356" class="muted" text-anchor="start">Probing is double hashing -- the chunk index steps by 2*tag+1 -- not linear or quadratic.</text>
+</svg>

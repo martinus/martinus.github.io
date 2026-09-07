@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 404" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">one bucket: two 32 bit words, and no key</text>
+  <rect x="132" y="34" width="104" height="30" class="cell dist"/>
+  <text x="184" y="53" class="mono" text-anchor="middle" font-size="11">next</text>
+  <rect x="236" y="34" width="104" height="30" class="cell idx"/>
+  <text x="288" y="53" class="mono" text-anchor="middle" font-size="11">slot</text>
+  <text x="120" y="54" class="muted" text-anchor="end">Index</text>
+  <text x="354" y="47" class="muted" text-anchor="start">next: where this bucket's chain continues</text>
+  <text x="354" y="63" class="muted" text-anchor="start">slot: where the value is</text>
+  <text x="20" y="90" class="hd" text-anchor="start">the slot word, when the table has fewer than 2^32 slots</text>
+  <rect x="132" y="100" width="130" height="30" class="cell fp"/>
+  <text x="197" y="119" class="mono" text-anchor="middle" font-size="11">hash bits</text>
+  <rect x="262" y="100" width="78" height="30" class="cell idx"/>
+  <text x="301" y="119" class="mono" text-anchor="middle" font-size="11">slot</text>
+  <path d="M132,130 L132,136 L262,136 L262,130" class="thin"/>
+  <text x="197" y="148" class="muted" text-anchor="middle">everything above log2(bucket count)</text>
+  <text x="354" y="113" class="muted" text-anchor="start">a fingerprint that costs nothing, because</text>
+  <text x="354" y="129" class="muted" text-anchor="start">the word has to be loaded anyway</text>
+  <text x="20" y="180" class="hd" text-anchor="start">the chain, threaded through the index</text>
+  <rect x="132" y="190" width="52" height="30" class="cell "/>
+  <text x="158" y="209" class="mono" text-anchor="middle" font-size="11">0&gt;2</text>
+  <rect x="184" y="190" width="52" height="30" class="cell "/>
+  <text x="210" y="209" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="236" y="190" width="52" height="30" class="cell "/>
+  <text x="262" y="209" class="mono" text-anchor="middle" font-size="11">5&gt;7</text>
+  <rect x="288" y="190" width="52" height="30" class="cell "/>
+  <text x="314" y="209" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="340" y="190" width="52" height="30" class="cell "/>
+  <text x="366" y="209" class="mono" text-anchor="middle" font-size="11">end&gt;1</text>
+  <rect x="392" y="190" width="52" height="30" class="cell "/>
+  <text x="418" y="209" class="mono" text-anchor="middle" font-size="11">--</text>
+  <text x="120" y="210" class="muted" text-anchor="end">index[]</text>
+  <path d="M158,220 C158,246 262,246 262,222" class="arrow"/>
+  <path d="M262,220 C262,260 366,260 366,222" class="arrow"/>
+  <rect x="132" y="286" width="52" height="30" class="cell payload"/>
+  <text x="158" y="305" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="184" y="286" width="52" height="30" class="cell payload"/>
+  <text x="210" y="305" class="mono" text-anchor="middle" font-size="11">1</text>
+  <rect x="236" y="286" width="52" height="30" class="cell payload"/>
+  <text x="262" y="305" class="mono" text-anchor="middle" font-size="11">2</text>
+  <rect x="288" y="286" width="52" height="30" class="cell payload"/>
+  <text x="314" y="305" class="mono" text-anchor="middle" font-size="11">3</text>
+  <rect x="340" y="286" width="52" height="30" class="cell payload"/>
+  <text x="366" y="305" class="mono" text-anchor="middle" font-size="11">4</text>
+  <rect x="392" y="286" width="52" height="30" class="cell payload"/>
+  <text x="418" y="305" class="mono" text-anchor="middle" font-size="11">5</text>
+  <text x="120" y="306" class="muted" text-anchor="end">values</text>
+  <path d="M132,316 L132,322 L444,322 L444,316" class="thin"/>
+  <text x="288" y="334" class="muted" text-anchor="middle">a dense vector, in insertion order</text>
+  <text x="20" y="358" class="muted" text-anchor="start">Coalesced chaining: every key whose home is this bucket is on one list, and a key that</text>
+  <text x="20" y="374" class="muted" text-anchor="start">found the bucket taken by a stranger evicts the stranger. The values are dense, as here, so</text>
+  <text x="20" y="390" class="muted" text-anchor="start">iteration is an array walk -- and a lookup is index, then chain, then value.</text>
+</svg>

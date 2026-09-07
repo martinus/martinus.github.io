@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 328" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">the hash, split in two</text>
+  <rect x="132" y="34" width="26" height="30" class="cell fp"/>
+  <text x="145" y="53" class="mono" text-anchor="middle" font-size="11">H2</text>
+  <rect x="158" y="34" width="130" height="30" class="cell "/>
+  <rect x="288" y="34" width="52" height="30" class="cell dist"/>
+  <text x="314" y="53" class="mono" text-anchor="middle" font-size="11">H1</text>
+  <text x="120" y="54" class="muted" text-anchor="end">64 bit hash</text>
+  <text x="354" y="47" class="muted" text-anchor="start">H2: the top 7 bits, stored as the control byte</text>
+  <text x="354" y="63" class="muted" text-anchor="start">H1: the whole hash, masked, picks the group</text>
+  <text x="20" y="94" class="hd" text-anchor="start">the control bytes: one per slot, sixteen read at once</text>
+  <rect x="132" y="104" width="26" height="30" class="cell "/>
+  <text x="145" y="123" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="158" y="104" width="26" height="30" class="cell fp"/>
+  <text x="171" y="123" class="mono" text-anchor="middle" font-size="11">2C</text>
+  <rect x="184" y="104" width="26" height="30" class="cell "/>
+  <text x="197" y="123" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="210" y="104" width="26" height="30" class="cell fp"/>
+  <text x="223" y="123" class="mono" text-anchor="middle" font-size="11">7A</text>
+  <rect x="236" y="104" width="26" height="30" class="cell ovf"/>
+  <text x="249" y="123" class="mono" text-anchor="middle" font-size="11">FE</text>
+  <rect x="262" y="104" width="26" height="30" class="cell fp"/>
+  <text x="275" y="123" class="mono" text-anchor="middle" font-size="11">2C</text>
+  <rect x="288" y="104" width="26" height="30" class="cell fp"/>
+  <text x="301" y="123" class="mono" text-anchor="middle" font-size="11">11</text>
+  <rect x="314" y="104" width="26" height="30" class="cell "/>
+  <text x="327" y="123" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="340" y="104" width="26" height="30" class="cell fp"/>
+  <text x="353" y="123" class="mono" text-anchor="middle" font-size="11">4D</text>
+  <rect x="366" y="104" width="26" height="30" class="cell "/>
+  <text x="379" y="123" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="392" y="104" width="26" height="30" class="cell fp"/>
+  <text x="405" y="123" class="mono" text-anchor="middle" font-size="11">2C</text>
+  <rect x="418" y="104" width="26" height="30" class="cell ovf"/>
+  <text x="431" y="123" class="mono" text-anchor="middle" font-size="11">FE</text>
+  <rect x="444" y="104" width="26" height="30" class="cell fp"/>
+  <text x="457" y="123" class="mono" text-anchor="middle" font-size="11">63</text>
+  <rect x="470" y="104" width="26" height="30" class="cell "/>
+  <text x="483" y="123" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="496" y="104" width="26" height="30" class="cell fp"/>
+  <text x="509" y="123" class="mono" text-anchor="middle" font-size="11">09</text>
+  <rect x="522" y="104" width="26" height="30" class="cell fp"/>
+  <text x="535" y="123" class="mono" text-anchor="middle" font-size="11">5E</text>
+  <text x="120" y="124" class="muted" text-anchor="end">ctrl[]</text>
+  <path d="M132,134 L132,140 L548,140 L548,134" class="thin"/>
+  <text x="340" y="152" class="muted" text-anchor="middle">one 16 byte load, one compare, one movemask: sixteen verdicts</text>
+  <rect x="132" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="158" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="184" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="210" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="236" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="262" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="288" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="314" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="340" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="366" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="392" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="418" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="444" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="470" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="496" y="194" width="26" height="30" class="cell payload"/>
+  <rect x="522" y="194" width="26" height="30" class="cell payload"/>
+  <text x="120" y="214" class="muted" text-anchor="end">slots[]</text>
+  <path d="M132,224 L132,230 L548,230 L548,224" class="thin"/>
+  <text x="340" y="242" class="muted" text-anchor="middle">the key and the value, in the slot</text>
+  <text x="20" y="266" class="muted" text-anchor="start">0x80 is empty and 0xFE a tombstone, both with the top bit set, so one sign test finds</text>
+  <text x="20" y="282" class="muted" text-anchor="start">either; an occupied byte is the tag with its top bit clear. A miss stops at the first group</text>
+  <text x="20" y="298" class="muted" text-anchor="start">with an empty byte in it -- and a tombstone is not empty, which is why erasing without</text>
+  <text x="20" y="314" class="muted" text-anchor="start">rehashing lengthens later lookups.</text>
+</svg>

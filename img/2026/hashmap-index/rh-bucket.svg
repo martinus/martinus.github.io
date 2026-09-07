@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 350" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">one bucket, 8 bytes -- and no key in it</text>
+  <rect x="132" y="36" width="78" height="30" class="cell dist"/>
+  <text x="171" y="55" class="mono" text-anchor="middle" font-size="8">distance, 24 bits</text>
+  <rect x="210" y="36" width="26" height="30" class="cell fp"/>
+  <text x="223" y="55" class="mono" text-anchor="middle" font-size="11">fp</text>
+  <rect x="236" y="36" width="104" height="30" class="cell idx"/>
+  <text x="288" y="55" class="mono" text-anchor="middle" font-size="8">value index, 32 bits</text>
+  <text x="120" y="56" class="muted" text-anchor="end">one bucket</text>
+  <text x="354" y="49" class="muted" text-anchor="start">the low 32 bits are one uint32_t, so a compare orders</text>
+  <text x="354" y="65" class="muted" text-anchor="start">by distance first and by fingerprint second</text>
+  <path d="M132,66 L132,72 L236,72 L236,66" class="thin"/>
+  <text x="184" y="84" class="muted" text-anchor="middle">m_dist_and_fingerprint</text>
+  <text x="20" y="120" class="muted" text-anchor="start">0 means empty . 1 means at home . the fingerprint is the low byte of the hash, a cheap</text>
+  <text x="20" y="136" class="muted" text-anchor="start">pre-check that saves going to the values vector for a key that cannot be the right one.</text>
+  <text x="20" y="158" class="hd" text-anchor="start">a run of buckets, and what an insert does to it</text>
+  <rect x="132" y="168" width="52" height="30" class="cell "/>
+  <text x="158" y="187" class="mono" text-anchor="middle" font-size="11">1.9C&gt;3</text>
+  <rect x="184" y="168" width="52" height="30" class="cell "/>
+  <text x="210" y="187" class="mono" text-anchor="middle" font-size="11">2.5B&gt;0</text>
+  <rect x="236" y="168" width="52" height="30" class="cell "/>
+  <text x="262" y="187" class="mono" text-anchor="middle" font-size="11">3.11&gt;5</text>
+  <rect x="288" y="168" width="52" height="30" class="cell "/>
+  <text x="314" y="187" class="mono" text-anchor="middle" font-size="11">1.E0&gt;1</text>
+  <rect x="340" y="168" width="52" height="30" class="cell "/>
+  <text x="366" y="187" class="mono" text-anchor="middle" font-size="11">2.A7&gt;4</text>
+  <rect x="392" y="168" width="52" height="30" class="cell "/>
+  <text x="418" y="187" class="mono" text-anchor="middle" font-size="11">0</text>
+  <text x="120" y="188" class="muted" text-anchor="end">before</text>
+  <rect x="132" y="224" width="52" height="30" class="cell "/>
+  <text x="158" y="243" class="mono" text-anchor="middle" font-size="11">1.9C&gt;3</text>
+  <rect x="184" y="224" width="52" height="30" class="cell "/>
+  <text x="210" y="243" class="mono" text-anchor="middle" font-size="11">2.5B&gt;0</text>
+  <rect x="236" y="224" width="52" height="30" class="cell fp"/>
+  <text x="262" y="243" class="mono" text-anchor="middle" font-size="11">2.33&gt;6</text>
+  <rect x="288" y="224" width="52" height="30" class="cell "/>
+  <text x="314" y="243" class="mono" text-anchor="middle" font-size="11">4.11&gt;5</text>
+  <rect x="340" y="224" width="52" height="30" class="cell "/>
+  <text x="366" y="243" class="mono" text-anchor="middle" font-size="11">2.E0&gt;1</text>
+  <rect x="392" y="224" width="52" height="30" class="cell "/>
+  <text x="418" y="243" class="mono" text-anchor="middle" font-size="11">3.A7&gt;4</text>
+  <text x="120" y="244" class="muted" text-anchor="end">after</text>
+  <path d="M262,202 L262,220" class="arrow"/>
+  <text x="20" y="288" class="muted" text-anchor="start">The new key arrives at distance 2 and meets a bucket at distance 3: that one is further from</text>
+  <text x="20" y="304" class="muted" text-anchor="start">home, so the newcomer takes the slot and everything from there shifts up one, each gaining a</text>
+  <text x="20" y="320" class="muted" text-anchor="start">distance. Nothing is left behind -- an erase shifts the run back down, so a table that has</text>
+  <text x="20" y="336" class="muted" text-anchor="start">churned for hours is exactly the table a fresh build would have produced. No tombstones.</text>
+</svg>

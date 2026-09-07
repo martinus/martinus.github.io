@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 372" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">three ways to hold the keys, and what one lookup touches</text>
+  <text x="20" y="54" class="hd" text-anchor="start">flat</text>
+  <text x="20" y="72" class="muted" text-anchor="start">SwissTable, boost,</text>
+  <text x="20" y="87" class="muted" text-anchor="start">F14, indivi, emilib</text>
+  <text x="268" y="54" class="hd" text-anchor="start">dense</text>
+  <text x="268" y="72" class="muted" text-anchor="start">unordered_dense,</text>
+  <text x="268" y="87" class="muted" text-anchor="start">emhash8, F14Vector, ihtab</text>
+  <text x="516" y="54" class="hd" text-anchor="start">node</text>
+  <text x="516" y="72" class="muted" text-anchor="start">std::unordered_map,</text>
+  <text x="516" y="87" class="muted" text-anchor="start">the node maps</text>
+  <rect x="20" y="104" width="224" height="30" class="cell fp"/>
+  <text x="132" y="123" class="mono" text-anchor="middle">metadata bytes</text>
+  <rect x="20" y="148" width="224" height="44" class="cell payload"/>
+  <text x="132" y="174" class="mono" text-anchor="middle">key and value here</text>
+  <rect x="268" y="104" width="224" height="30" class="cell fp"/>
+  <text x="380" y="123" class="mono" text-anchor="middle">metadata bytes</text>
+  <rect x="268" y="148" width="224" height="30" class="cell idx"/>
+  <text x="380" y="167" class="mono" text-anchor="middle">index into the values</text>
+  <rect x="268" y="192" width="224" height="44" class="cell payload"/>
+  <text x="380" y="218" class="mono" text-anchor="middle">key and value, in a vector</text>
+  <rect x="516" y="104" width="224" height="30" class="cell fp"/>
+  <text x="628" y="123" class="mono" text-anchor="middle">metadata bytes</text>
+  <rect x="516" y="148" width="224" height="30" class="cell idx"/>
+  <text x="628" y="167" class="mono" text-anchor="middle">pointer to a node</text>
+  <rect x="516" y="192" width="224" height="44" class="cell payload"/>
+  <text x="628" y="218" class="mono" text-anchor="middle">key and value, on the heap</text>
+  <text x="132" y="256" class="muted" text-anchor="middle">2 loads, 1 region</text>
+  <text x="380" y="256" class="muted" text-anchor="middle">3 loads, 2 regions</text>
+  <text x="628" y="256" class="muted" text-anchor="middle">3 loads, a node each</text>
+  <text x="20" y="284" class="muted" text-anchor="start">Flat has the shortest chain and pays for it with every cost scaling in sizeof(value_type):</text>
+  <text x="20" y="300" class="muted" text-anchor="start">a hash-scattered slot is written whole. Dense writes four bytes there and appends the payload</text>
+  <text x="20" y="316" class="muted" text-anchor="start">in order, so iteration is an array walk and a large value costs the vector rather than the</text>
+  <text x="20" y="332" class="muted" text-anchor="start">table -- for one more dependent load on every hit. Node maps keep references and iterators</text>
+  <text x="20" y="358" class="muted" text-anchor="start">valid forever, and pay an allocation per insert and a cache miss per lookup for it.</text>
+</svg>

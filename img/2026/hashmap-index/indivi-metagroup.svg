@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 332" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">one metadata group: 32 bytes for 16 slots</text>
+  <rect x="132" y="34" width="26" height="30" class="cell fp"/>
+  <text x="145" y="53" class="mono" text-anchor="middle" font-size="11">9C</text>
+  <rect x="158" y="34" width="26" height="30" class="cell fp"/>
+  <text x="171" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="184" y="34" width="26" height="30" class="cell fp"/>
+  <text x="197" y="53" class="mono" text-anchor="middle" font-size="11">41</text>
+  <rect x="210" y="34" width="26" height="30" class="cell fp"/>
+  <text x="223" y="53" class="mono" text-anchor="middle" font-size="11">9C</text>
+  <rect x="236" y="34" width="26" height="30" class="cell fp"/>
+  <text x="249" y="53" class="mono" text-anchor="middle" font-size="11">07</text>
+  <rect x="262" y="34" width="26" height="30" class="cell fp"/>
+  <text x="275" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="288" y="34" width="26" height="30" class="cell fp"/>
+  <text x="301" y="53" class="mono" text-anchor="middle" font-size="11">B3</text>
+  <rect x="314" y="34" width="26" height="30" class="cell fp"/>
+  <text x="327" y="53" class="mono" text-anchor="middle" font-size="11">5A</text>
+  <rect x="340" y="34" width="26" height="30" class="cell fp"/>
+  <text x="353" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="366" y="34" width="26" height="30" class="cell fp"/>
+  <text x="379" y="53" class="mono" text-anchor="middle" font-size="11">22</text>
+  <rect x="392" y="34" width="26" height="30" class="cell fp"/>
+  <text x="405" y="53" class="mono" text-anchor="middle" font-size="11">9C</text>
+  <rect x="418" y="34" width="26" height="30" class="cell fp"/>
+  <text x="431" y="53" class="mono" text-anchor="middle" font-size="11">8E</text>
+  <rect x="444" y="34" width="26" height="30" class="cell fp"/>
+  <text x="457" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="470" y="34" width="26" height="30" class="cell fp"/>
+  <text x="483" y="53" class="mono" text-anchor="middle" font-size="11">6D</text>
+  <rect x="496" y="34" width="26" height="30" class="cell fp"/>
+  <text x="509" y="53" class="mono" text-anchor="middle" font-size="11">F1</text>
+  <rect x="522" y="34" width="26" height="30" class="cell fp"/>
+  <text x="535" y="53" class="mono" text-anchor="middle" font-size="11">--</text>
+  <text x="120" y="54" class="muted" text-anchor="end">hfrag</text>
+  <path d="M132,64 L132,70 L548,70 L548,64" class="thin"/>
+  <text x="340" y="82" class="muted" text-anchor="middle">16 one byte hash fragments, compared with one SIMD instruction</text>
+  <rect x="132" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="158" y="135" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="184" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="210" y="135" class="mono" text-anchor="middle" font-size="11">1</text>
+  <rect x="236" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="262" y="135" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="288" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="314" y="135" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="340" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="366" y="135" class="mono" text-anchor="middle" font-size="11">2</text>
+  <rect x="392" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="418" y="135" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="444" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="470" y="135" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="496" y="116" width="52" height="30" class="cell ovf"/>
+  <text x="522" y="135" class="mono" text-anchor="middle" font-size="11">0</text>
+  <text x="120" y="136" class="muted" text-anchor="end">overflow</text>
+  <path d="M132,146 L132,152 L548,152 L548,146" class="thin"/>
+  <text x="340" y="164" class="muted" text-anchor="middle">8 counters, one per hash class, incremented on the way past and decremented by an erase</text>
+  <rect x="132" y="198" width="26" height="30" class="cell dist"/>
+  <text x="145" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="158" y="198" width="26" height="30" class="cell dist"/>
+  <text x="171" y="217" class="mono" text-anchor="middle" font-size="11">1</text>
+  <rect x="184" y="198" width="26" height="30" class="cell dist"/>
+  <text x="197" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="210" y="198" width="26" height="30" class="cell dist"/>
+  <text x="223" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="236" y="198" width="26" height="30" class="cell dist"/>
+  <text x="249" y="217" class="mono" text-anchor="middle" font-size="11">2</text>
+  <rect x="262" y="198" width="26" height="30" class="cell dist"/>
+  <text x="275" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="288" y="198" width="26" height="30" class="cell dist"/>
+  <text x="301" y="217" class="mono" text-anchor="middle" font-size="11">1</text>
+  <rect x="314" y="198" width="26" height="30" class="cell dist"/>
+  <text x="327" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="340" y="198" width="26" height="30" class="cell dist"/>
+  <text x="353" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="366" y="198" width="26" height="30" class="cell dist"/>
+  <text x="379" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="392" y="198" width="26" height="30" class="cell dist"/>
+  <text x="405" y="217" class="mono" text-anchor="middle" font-size="11">3</text>
+  <rect x="418" y="198" width="26" height="30" class="cell dist"/>
+  <text x="431" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="444" y="198" width="26" height="30" class="cell dist"/>
+  <text x="457" y="217" class="mono" text-anchor="middle" font-size="11">1</text>
+  <rect x="470" y="198" width="26" height="30" class="cell dist"/>
+  <text x="483" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="496" y="198" width="26" height="30" class="cell dist"/>
+  <text x="509" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="522" y="198" width="26" height="30" class="cell dist"/>
+  <text x="535" y="217" class="mono" text-anchor="middle" font-size="11">0</text>
+  <text x="120" y="218" class="muted" text-anchor="end">distance</text>
+  <path d="M132,228 L132,234 L548,234 L548,228" class="thin"/>
+  <text x="340" y="246" class="muted" text-anchor="middle">8 bytes: a four bit distance from home per slot, so an erase by iterator needs no hash</text>
+  <text x="20" y="286" class="muted" text-anchor="start">Two bytes of metadata per slot, and no tombstones: the counter that an insert raised on its</text>
+  <text x="20" y="302" class="muted" text-anchor="start">way past a full group is lowered again when that key is erased, so a table that churns at a</text>
+  <text x="20" y="318" class="muted" text-anchor="start">fixed size stays as good as a fresh one. This is where the group index's counters come from.</text>
+</svg>

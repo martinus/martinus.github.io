@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 496" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">what a hit waits for: the chain of loads, left to right</text>
+  <text x="164" y="68" class="lbl" text-anchor="end">robin hood (4.11.0)</text>
+  <rect x="176" y="48" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="68" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,63.0 L304,63.0" class="arrow"/>
+  <rect x="304" y="48" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="68" class="mono" text-anchor="middle" font-size="11">bucket word</text>
+  <path d="M420,63.0 L432,63.0" class="arrow"/>
+  <rect x="432" y="48" width="116" height="30" class="cell payload"/>
+  <text x="490.0" y="68" class="mono" text-anchor="middle" font-size="11">value</text>
+  <text x="164" y="112" class="lbl" text-anchor="end">SwissTable, boost, F14</text>
+  <rect x="176" y="92" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="112" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,107.0 L304,107.0" class="arrow"/>
+  <rect x="304" y="92" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="112" class="mono" text-anchor="middle" font-size="11">control bytes</text>
+  <path d="M420,107.0 L432,107.0" class="arrow"/>
+  <rect x="432" y="92" width="116" height="30" class="cell payload"/>
+  <text x="490.0" y="112" class="mono" text-anchor="middle" font-size="11">key in the slot</text>
+  <text x="164" y="156" class="lbl" text-anchor="end">indivi, emilib</text>
+  <rect x="176" y="136" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="156" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,151.0 L304,151.0" class="arrow"/>
+  <rect x="304" y="136" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="156" class="mono" text-anchor="middle" font-size="11">metadata group</text>
+  <path d="M420,151.0 L432,151.0" class="arrow"/>
+  <rect x="432" y="136" width="116" height="30" class="cell payload"/>
+  <text x="490.0" y="156" class="mono" text-anchor="middle" font-size="11">key in the slot</text>
+  <text x="164" y="200" class="lbl" text-anchor="end">group index (5.0)</text>
+  <rect x="176" y="180" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="200" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,195.0 L304,195.0" class="arrow"/>
+  <rect x="304" y="180" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="200" class="mono" text-anchor="middle" font-size="11">16 fingerprints</text>
+  <path d="M420,195.0 L432,195.0" class="arrow"/>
+  <rect x="432" y="180" width="116" height="30" class="cell idx"/>
+  <text x="490.0" y="200" class="mono" text-anchor="middle" font-size="11">index, same block</text>
+  <path d="M548,195.0 L560,195.0" class="arrow"/>
+  <rect x="560" y="180" width="116" height="30" class="cell payload"/>
+  <text x="618.0" y="200" class="mono" text-anchor="middle" font-size="11">value</text>
+  <text x="164" y="244" class="lbl" text-anchor="end">ihtab</text>
+  <rect x="176" y="224" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="244" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,239.0 L304,239.0" class="arrow"/>
+  <rect x="304" y="224" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="244" class="mono" text-anchor="middle" font-size="11">8 tags</text>
+  <path d="M420,239.0 L432,239.0" class="arrow"/>
+  <rect x="432" y="224" width="116" height="30" class="cell idx"/>
+  <text x="490.0" y="244" class="mono" text-anchor="middle" font-size="11">index, same group</text>
+  <path d="M548,239.0 L560,239.0" class="arrow"/>
+  <rect x="560" y="224" width="116" height="30" class="cell payload"/>
+  <text x="618.0" y="244" class="mono" text-anchor="middle" font-size="11">element</text>
+  <text x="164" y="288" class="lbl" text-anchor="end">emhash8</text>
+  <rect x="176" y="268" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="288" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,283.0 L304,283.0" class="arrow"/>
+  <rect x="304" y="268" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="288" class="mono" text-anchor="middle" font-size="11">index word</text>
+  <path d="M420,283.0 L432,283.0" class="arrow"/>
+  <rect x="432" y="268" width="116" height="30" class="cell payload"/>
+  <text x="490.0" y="288" class="mono" text-anchor="middle" font-size="11">value</text>
+  <text x="564" y="288" class="muted" text-anchor="start">+1 per chain step</text>
+  <text x="164" y="332" class="lbl" text-anchor="end">Verstable</text>
+  <rect x="176" y="312" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="332" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,327.0 L304,327.0" class="arrow"/>
+  <rect x="304" y="312" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="332" class="mono" text-anchor="middle" font-size="11">16 bit word</text>
+  <path d="M420,327.0 L432,327.0" class="arrow"/>
+  <rect x="432" y="312" width="116" height="30" class="cell payload"/>
+  <text x="490.0" y="332" class="mono" text-anchor="middle" font-size="11">key in the bucket</text>
+  <text x="564" y="332" class="muted" text-anchor="start">+1 per chain step</text>
+  <text x="164" y="376" class="lbl" text-anchor="end">std::unordered_map</text>
+  <rect x="176" y="356" width="116" height="30" class="cell dist"/>
+  <text x="234.0" y="376" class="mono" text-anchor="middle" font-size="11">hash</text>
+  <path d="M292,371.0 L304,371.0" class="arrow"/>
+  <rect x="304" y="356" width="116" height="30" class="cell fp"/>
+  <text x="362.0" y="376" class="mono" text-anchor="middle" font-size="11">bucket pointer</text>
+  <path d="M420,371.0 L432,371.0" class="arrow"/>
+  <rect x="432" y="356" width="116" height="30" class="cell payload"/>
+  <text x="490.0" y="376" class="mono" text-anchor="middle" font-size="11">node</text>
+  <text x="564" y="376" class="muted" text-anchor="start">+1 per chain step</text>
+  <text x="20" y="408" class="muted" text-anchor="start">Every arrow is a load whose address the box before it produced, so nothing after it can</text>
+  <text x="20" y="424" class="muted" text-anchor="start">start early. Boxes at the same depth are not the same cost: a group compare is one</text>
+  <text x="20" y="440" class="muted" text-anchor="start">instruction over sixteen slots, and a chain step is a branch the predictor has to guess.</text>
+  <text x="20" y="466" class="muted" text-anchor="start">The dense designs are the ones with four boxes; that fourth load is what they pay for</text>
+  <text x="20" y="482" class="muted" text-anchor="start">iteration, for large values and for a vector of keys in insertion order.</text>
+</svg>
