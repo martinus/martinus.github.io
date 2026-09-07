@@ -205,9 +205,8 @@ of sixteen. The cost is that a byte is not much room, so anything else the desig
 information, a distance -- needs somewhere else to live.
 
 **One byte per slot, and no groups at all.** `indivi::flat_wmap` reads sixteen bytes *unaligned*
-starting at the home slot, so the home is always the first lane. It costs an unaligned load and
-gives up any notion of a group boundary, and it is the fastest map on a hit in
-[chapter 16](#same-workloads).
+starting at the home slot. It gives up any notion of a group boundary, which makes placement per
+slot rather than per group, and it is the fastest map on a hit in [chapter 16](#same-workloads).
 
 **More than a fingerprint per slot.** Robin hood's eight byte bucket carries a distance as well, so
 a single compare orders buckets and a miss can stop on an inequality. Verstable's sixteen bits carry
@@ -826,16 +825,36 @@ dependent load saved.
 `indivi::flat_wmap` is the sibling, and it is the surprise of the measurements. One metadata byte per
 slot, no counters, tombstones, a maximum load of 0.8 -- and, in its own words, *"It doesn't group
 buckets but still relies on SIMD operations for speed"*. There is no group alignment at all: the
-sixteen byte window is read **unaligned, starting at the home bucket**, so the home is always lane 0
-and a key at home is found by the first bit of the first mask. A grouped design pays for its
-alignment by putting the home somewhere in the middle of a group, where on average half the group is
-before it and useless.
+sixteen byte window is read **unaligned, starting at the home bucket**.
 
-That is worth a lot on a hit, and it is the fastest map here on all-hit lookups at every size I
-measured. What it pays is on the other columns: tombstones, and the widest load-factor sawtooth of
-anything in this post (at the 32,000 octave it swings 2.12x between its cheapest and dearest point,
-where the group designs swing 1.5 to 1.6x), because an unaligned window at high load has more
-occupied bytes in front of the home than an aligned group does.
+```cpp
+const uint8_t* group = &mGroups.data[index];   // index is the home *slot*, not a group
+auto hfrags = MetaWGroup::load_hfrags(group);  // _mm_loadu_si128
+int matchs = MetaWGroup::match_hfrag(hfrags, hash);
+```
+
+**It is the fastest map here on all-hit lookups at every size I measured** -- 0.71 at 32,000 entries
+and 0.62 at 500,000. The most useful comparison is not with my map, though, but with its own sibling:
+same author, same file layout, both flat, both SSE2, one grouped and one not.
+
+| | hit | miss | build | churn |
+|---|---|---|---|---|
+| `flat_umap`, grouped | 0.82 | 0.97 | 1.62 | 0.69 |
+| `flat_wmap`, ungrouped | **0.71** | **0.83** | 1.86 | 0.93 |
+
+The ungrouped window is **1.13 to 1.42x faster on lookups** across the three octaves and
+consistently slower on builds. Two things about the mechanism are worth being careful about. It is
+*not* that "half the group is behind the home and wasted" -- both designs find a key that is home in
+one compare. It is that placement is per slot rather than per group: a key takes the first free slot
+within sixteen of its home, and at a given load that is a shorter displacement distribution than
+"the first free slot in a group of sixteen, or else the next group", because a *group* being
+completely full is much more likely than *no* free slot existing in a sliding window. And it is not
+isolated either -- `flat_wmap` also has half the metadata per slot and a lower maximum load (0.8
+against 0.875), and both of those help a lookup on their own.
+
+What the ungrouped window pays is the other columns: tombstones, a slower build, and the widest
+load-factor sawtooth of anything in this post -- at the 32,000 octave it swings 2.12x between its
+cheapest and dearest point where the group designs swing 1.5 to 1.6x.
 
 ## Good at, pays for
 
