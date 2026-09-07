@@ -289,7 +289,7 @@ robin hood table I know of and because the trick at the centre of it is, as far 
 
 ## Layout: distance above fingerprint, so one compare orders both
 
-[![One 8 byte bucket: 24 bits of distance, 8 of fingerprint, 32 of value index](/img/2026/hashmap-index/rh-bucket.svg)](/img/2026/hashmap-index/rh-bucket.svg)
+[![One bucket to byte scale, 3 bytes of distance, 1 of fingerprint and 4 of value index, and a run of buckets before and after an insert](/img/2026/hashmap-index/rh-bucket.svg)](/img/2026/hashmap-index/rh-bucket.svg)
 
 ```cpp
 struct standard {
@@ -1040,7 +1040,7 @@ Most of this chapter is the alternatives.
 
 ## Layout: an 88 byte block
 
-[![The 88 byte block: 16 fingerprints, 8 counters, 16 value indices, and the values vector](/img/2026/hashmap-index/group-block.svg)](/img/2026/hashmap-index/group-block.svg)
+[![The 88 byte block to byte scale, then its 16 fingerprints, 8 counters and 16 value indices, and the values vector](/img/2026/hashmap-index/group-block.svg)](/img/2026/hashmap-index/group-block.svg)
 
 ```cpp
 template <typename ValueIdx>
@@ -1424,7 +1424,7 @@ bytes per bucket:
 #define VT_DISPLACEMENT_MASK   0x07FF // 0b0000011111111111, also denotes the displacement limit.
 ```
 
-[![Verstable's 16 bit metadatum and the chain it threads](/img/2026/hashmap-index/verstable-word.svg)](/img/2026/hashmap-index/verstable-word.svg)
+[![Verstable's two metadata bytes, to bit scale: a 4 bit fragment, an in-home bit and an 11 bit displacement, and the chain they thread](/img/2026/hashmap-index/verstable-word.svg)](/img/2026/hashmap-index/verstable-word.svg)
 
 Four bits of hash fragment taken from the *top* of the hash, because the bucket comes from the
 bottom -- the same independence every design here arranges some way. One bit saying "the key sitting

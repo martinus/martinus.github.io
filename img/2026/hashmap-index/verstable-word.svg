@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 236" font-family="Inter, system-ui, sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 246" font-family="Inter, system-ui, sans-serif" font-size="13">
   <style>
     .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
     .muted{fill:#6b7280}
@@ -22,32 +22,33 @@
       <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
     </marker>
   </defs>
-  <text x="20" y="24" class="hd" text-anchor="start">one bucket's metadata: two bytes, used as sixteen bits</text>
-  <rect x="132" y="44" width="52" height="30" class="cell fp"/>
-  <text x="158" y="63" class="mono" text-anchor="middle" font-size="9">fragment</text>
-  <rect x="184" y="44" width="26" height="30" class="cell ovf"/>
-  <text x="197" y="63" class="mono" text-anchor="middle" font-size="9">home</text>
-  <rect x="210" y="44" width="130" height="30" class="cell dist"/>
-  <text x="275" y="63" class="mono" text-anchor="middle" font-size="11">displacement</text>
+  <text x="20" y="24" class="hd" text-anchor="start">Verstable: two metadata bytes per bucket, used as sixteen bits</text>
+  <rect x="132" y="44" width="120" height="30" class="cell fp"/>
+  <text x="192" y="63" class="mono" text-anchor="middle" font-size="11">fragment</text>
+  <rect x="252" y="44" width="30" height="30" class="cell ovf"/>
+  <text x="267" y="63" class="mono" text-anchor="middle" font-size="11">home</text>
+  <rect x="282" y="44" width="330" height="30" class="cell dist"/>
+  <text x="447" y="63" class="mono" text-anchor="middle" font-size="11">displacement</text>
   <text x="120" y="64" class="muted" text-anchor="end">uint16_t</text>
+  <text x="622" y="64" class="muted" text-anchor="start">16 bits</text>
   <text x="132" y="92" class="muted" text-anchor="start">4 bits</text>
-  <text x="184" y="92" class="muted" text-anchor="start">1</text>
-  <text x="210" y="92" class="muted" text-anchor="start">11 bits, the step to the next key in this bucket's chain</text>
-  <text x="20" y="130" class="hd" text-anchor="start">the chain: a lookup visits only buckets holding keys that belong to it</text>
-  <rect x="132" y="140" width="26" height="30" class="cell "/>
-  <rect x="158" y="140" width="26" height="30" class="cell fp"/>
-  <text x="171" y="159" class="mono" text-anchor="middle" font-size="9">home</text>
-  <rect x="184" y="140" width="26" height="30" class="cell "/>
-  <rect x="210" y="140" width="26" height="30" class="cell "/>
-  <rect x="236" y="140" width="26" height="30" class="cell fp"/>
-  <text x="249" y="159" class="mono" text-anchor="middle" font-size="11">+5</text>
-  <rect x="262" y="140" width="26" height="30" class="cell "/>
-  <rect x="288" y="140" width="26" height="30" class="cell "/>
-  <rect x="314" y="140" width="26" height="30" class="cell "/>
-  <rect x="340" y="140" width="26" height="30" class="cell fp"/>
-  <text x="353" y="159" class="mono" text-anchor="middle" font-size="11">end</text>
-  <rect x="366" y="140" width="26" height="30" class="cell "/>
-  <text x="120" y="160" class="muted" text-anchor="end">buckets</text>
-  <path d="M171.0,170 C171.0,196 249.0,196 249.0,172" class="arrow"/>
-  <path d="M249.0,170 C249.0,212 353.0,212 353.0,172" class="arrow"/>
+  <text x="252" y="92" class="muted" text-anchor="start">1</text>
+  <text x="282" y="92" class="muted" text-anchor="start">11 bits</text>
+  <text x="20" y="138" class="hd" text-anchor="start">the chain: a lookup visits only buckets holding keys that belong to it</text>
+  <rect x="132" y="150" width="26" height="30" class="cell "/>
+  <rect x="158" y="150" width="26" height="30" class="cell fp"/>
+  <text x="171" y="169" class="mono" text-anchor="middle" font-size="9">home</text>
+  <rect x="184" y="150" width="26" height="30" class="cell "/>
+  <rect x="210" y="150" width="26" height="30" class="cell "/>
+  <rect x="236" y="150" width="26" height="30" class="cell fp"/>
+  <text x="249" y="169" class="mono" text-anchor="middle" font-size="11">+5</text>
+  <rect x="262" y="150" width="26" height="30" class="cell "/>
+  <rect x="288" y="150" width="26" height="30" class="cell "/>
+  <rect x="314" y="150" width="26" height="30" class="cell "/>
+  <rect x="340" y="150" width="26" height="30" class="cell fp"/>
+  <text x="353" y="169" class="mono" text-anchor="middle" font-size="11">end</text>
+  <rect x="366" y="150" width="26" height="30" class="cell "/>
+  <text x="120" y="170" class="muted" text-anchor="end">buckets</text>
+  <path d="M171.0,180 C171.0,206 249.0,206 249.0,182" class="arrow"/>
+  <path d="M249.0,180 C249.0,222 353.0,222 353.0,182" class="arrow"/>
 </svg>
