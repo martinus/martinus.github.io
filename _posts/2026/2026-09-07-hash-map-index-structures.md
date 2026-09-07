@@ -301,9 +301,11 @@ struct standard {
 };
 ```
 
-Eight bytes per slot, and no key in them. The low byte is a fingerprint; the upper three bytes are
-the distance from home, incremented by adding `dist_inc`, which is exactly `1 << 8`. Zero means the
-bucket is empty; distance 1 means the key is at home.
+Eight bytes per slot, and no key in them. Four of those eight are `m_dist_and_fingerprint`, and it
+is that `uint32_t` the rest of this section is about: **its** low byte is the fingerprint and **its**
+upper three bytes are the distance from home, incremented by adding `dist_inc`, which is exactly
+`1 << 8`. Zero means the bucket is empty; distance 1 means the key is at home. The other four bytes
+are `m_value_idx` and take no part in any of it.
 
 Because the distance sits *above* the fingerprint in the same `uint32_t`, one integer compare
 orders two buckets first by distance and then, as a tiebreak, by fingerprint. That is the whole
