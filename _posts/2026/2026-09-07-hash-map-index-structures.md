@@ -397,6 +397,28 @@ Pays for: tombstones. A table held at a constant size by erasing one and inserti
 workload where SwissTable's answer to "gone?" is the weakest of the field, and it is the workload
 [chapter 16](#same-workloads) measures on purpose.
 
+## Measured in the group index: a per-table seed, which is nearly free
+
+The seed is the one thing here aimed at an adversary rather than at a workload, and it is cheap
+enough to be worth reporting precisely. Implemented the same way -- `mixed_hash` returns
+`hash ^ m_seed`, with the seed scrambled from the table's own address, so two live tables differ and
+ASLR makes two processes differ -- it costs, one map per binary at 50,000 entries, **one instruction
+and zero cycles** per lookup: 21.4 cycles against 21.4 on a miss and 29.6 against 29.6 on a hit, ns
+per operation identical to two decimals. On a *build* it costs 3.5% (7.13 to 7.38 ns per element),
+because the pipelined rehash is latency-bound and the xor lands between the hash and the group
+address.
+
+What makes it a feature rather than a patch is the rest. The seed has to travel with the index it
+built, through both allocator-aware constructors, both branches of the move assignment, the copy
+assignment and `swap` -- six sites, and the test suite failed in 85 places until all six were right,
+which is a good sign for the suite and a fair statement of the surface area. Eleven tests then still
+fail because they assert that `mixed_hash` returns an avalanching hash *unchanged*, which a seed
+contradicts by design. And iteration order stops being reproducible between runs.
+
+So: worth having behind a switch, not worth making the default, because the cost is paid by everyone
+and the threat is not everyone's. abseil makes the opposite call, and it is defensible -- it is a
+library used at a scale where somebody is always feeding you keys.
+
 ## Measured in the group index: cache-line-aligned metadata
 
 abseil's and boost's groups are cache-line-aligned, which they get for free because their metadata
@@ -631,9 +653,37 @@ A shared counter does not know the fingerprint class, so *any* overflow past a g
 later miss into it carry on -- and in a churned table most groups have seen an overflow, so 60% of
 misses continue. Its geometric mean over the benchmark suite is 0.959 and its churn workload 0.83.
 
-The rest of that table is [chapter 12](#group-index)'s, and the short version is that eight
-one-byte counters is the point where the counter is still a single aligned load and already knows
-the class.
+The rest of that table is [chapter 12](#group-index)'s, and the short version is that eight one-byte
+counters is the point where the counter is still a single aligned load and already knows the class.
+
+## Measured in the group index: double hashing, which works and still loses
+
+The other transferable thing here is the probe sequence, and it is aimed at a real weakness. Under a
+triangular sequence every key homed in group *g* walks the same groups, so a **sibling** -- another
+key that belongs in *g* and did not fit -- sits exactly where a later miss for *g* will look. That is
+not a small share of the problem: about 80% of what the overflow counter fails to filter is siblings.
+
+Double hashing breaks it. Taking the step from bits 8 to 15 of the hash -- which neither the group
+(the top bits) nor the fingerprint (the low byte) uses -- and forcing it odd keeps the "visits every
+group exactly once" property that the miss bound needs, and gives two siblings different tours. It
+does exactly what it is supposed to. Groups visited per lookup, triangular against double hashed:
+
+| | fresh miss | churned miss | fresh hit |
+|---|---|---|---|
+| load 0.760 | 1.052 to **1.035** | 1.061 to 1.050 | 1.031 to 1.027 |
+| load 0.799 | 1.086 to **1.054** | 1.122 to 1.096 | 1.039 to 1.033 |
+
+**A third of the excess, gone -- and it is slower.** Paired on the benchmark suite, random integer
+misses read **0.915**, builds 0.950, big-value churn 0.970. One map per binary says why: **+4.6
+instructions per lookup** and one more live register in the probe, the placement and the counter
+walk, against 0.03 groups on a path five percent of misses reach. Branch misses actually improve
+slightly, 0.108 to 0.093, and it does not matter.
+
+It is the same answer as every other idea in this post that added work to a path that always runs.
+The group compare and the counter have already taken the probe to 1.03 groups, so **the shape of the
+sequence past home has nothing left to win.** Folly's comment is right about folly's map, where the
+tour matters precisely because there is no per-class counter stopping a miss at home in the first
+place.
 
 # 9. emhash8: chaining through the index, and a fingerprint for free {#emhash8}
 
@@ -843,16 +893,41 @@ same author, same file layout, both flat, both SSE2, one grouped and one not.
 | `flat_wmap`, ungrouped | **0.71** | **0.83** | 1.86 | 0.93 |
 
 The ungrouped window is **1.13 to 1.42x faster on lookups** across the three octaves and
-consistently slower on builds. Two things about the mechanism are worth being careful about. It is
-*not* that "half the group is behind the home and wasted" -- both designs find a key that is home in
-one compare. It is that placement is per slot rather than per group: a key takes the first free slot
-within sixteen of its home, and at a given load that is a shorter displacement distribution than
-"the first free slot in a group of sixteen, or else the next group", because a *group* being
-completely full is much more likely than *no* free slot existing in a sliding window. And it is not
-isolated either -- `flat_wmap` also has half the metadata per slot and a lower maximum load (0.8
-against 0.875), and both of those help a lookup on their own.
+consistently slower on builds. That is the biggest single index effect I found in anyone else's map,
+so it is worth knowing what causes it -- and the obvious answer is wrong.
 
-What the ungrouped window pays is the other columns: tombstones, a slower build, and the widest
+**The window is not it.** The intuitive story is that slot-level placement gives a shorter
+displacement distribution: a key takes the first free slot within sixteen of its home, where a
+grouped map takes the first free slot in the group of sixteen its home falls in, and a *group* being
+completely full is likelier than *no* free slot existing in a sliding window. That is true, and it is
+worth almost nothing. Simulated with the same keys at the same load, windows visited per placement:
+
+| load | bucketized | sliding |
+|---|---|---|
+| 0.760 | 1.0318 | 1.0238 |
+| 0.790 | 1.0436 | 1.0352 |
+| 0.799 | 1.0481 | **1.0396** |
+
+Slot-level placement removes about a fifth of an excess that is already under 5%. For calibration,
+that is a quarter of what moving displaced entries home is worth in
+[chapter 12](#group-index), and that is worth a tenth of an in-cache miss and nothing out of cache.
+
+**What causes it is instructions and metadata width.** One map per binary, all-hit lookups, the
+grouped sibling against the ungrouped one:
+
+| entries | `flat_umap` instructions | `flat_wmap` | `flat_umap` L1 misses | `flat_wmap` |
+|---|---|---|---|---|
+| 1,000 | 53.3 | **47.3** | 0.876 | **0.378** |
+| 50,000 | 54.6 | **48.3** | 3.744 | **3.297** |
+| 1,000,000 | 72.6 | **64.4** | 4.733 | **3.856** |
+
+Six fewer instructions per hit at every size, and fewer cache lines touched **even at a thousand
+entries, where the whole map is in L1** -- so it is not a footprint effect that shows up only when
+the metadata array gets big. One byte of metadata per slot against two, and no overflow counter to
+load on the way past. The alignment of the window is the most visible difference between the two
+designs and the least important one.
+
+What the ungrouped design pays is the other columns: tombstones, a slower build, and the widest
 load-factor sawtooth of anything in this post -- at the 32,000 octave it swings 2.12x between its
 cheapest and dearest point where the group designs swing 1.5 to 1.6x.
 
@@ -1023,7 +1098,10 @@ And the fifth point on the axis, an **exact** counter: a second set of eight per
 "entries of class *c* whose home **is** this group and which did not fit", which is Verstable's
 in-home bit generalised. Measured before writing any of it, on an instrumented header that rebuilds
 the exact answer offline by hashing every occupied slot: at load 0.79 after 200 turnovers it takes a
-churned miss from 1.242 groups to 1.201. That is a quarter of what moving displaced keys home is
+churned miss from 1.242 groups to 1.201. (That is the instrumentation whose churned baseline I later
+failed to reproduce -- see [drift](#group-index) below. What it says is the *difference* between two
+variants measured with one instrument, which is what matters here.) That is a quarter of what moving
+displaced keys home is
 worth, for eight more bytes per group and a second invariant to keep. **About 80% of what the
 approximate counter fails to filter is siblings** -- keys that genuinely home in that group and
 genuinely did not fit -- and both tests say "continue" for those, correctly. Being exact only
@@ -1071,12 +1149,30 @@ at an eight byte value.
 
 Because nothing moves after it is placed, an entry that landed away from home while its home group
 was full **stays there after the home empties again**. So a long-churned table probes further than a
-freshly built one with the same contents: at load 0.76, 1.14 groups per hit against a fresh 1.03,
-and 1.27 per miss against 1.05. It plateaus after about a dozen turnovers rather than growing.
+freshly built one with the same contents. Groups visited per lookup, counted inside the probe, on a
+reserved table churned 200 times through -- erasing a uniformly random live key and inserting one
+the map has never held, at a constant size:
+
+| | fresh | churned | + one writing hit per round | + four |
+|---|---|---|---|---|
+| load 0.760, per hit | 1.031 | 1.036 | 1.023 | **1.014** |
+| load 0.760, per miss | 1.052 | 1.061 | 1.036 | **1.025** |
+| load 0.799, per hit | 1.039 | 1.066 | 1.044 | **1.028** |
+| load 0.799, per miss | 1.086 | **1.122** | 1.081 | **1.052** |
+
+The drift is real, it saturates rather than growing (5, 20, 100 and 400 turnovers give 1.039, 1.036,
+1.035 and 1.035 per hit at load 0.76), and it is worth about 0.036 groups on a miss at the fullest
+point of the sawtooth and almost nothing at the emptiest.
 
 That is the honest difference from a tombstone design, and it is smaller than a tombstone's -- but
 it is not zero, and I had it written down as zero for a while, because "a churned table is identical
-to a fresh one" is true of backward shift deletion and I carried it over.
+to a fresh one" is true of backward shift deletion and I carried it over. **It is also smaller than
+I had it written down as second.** An earlier instrumentation of mine recorded 1.14 groups per hit
+and 1.27 per miss at load 0.76, and I quoted those for weeks. Re-instrumenting the probe to produce
+the table above reproduces its *fresh* figures to three digits and its churned ones nowhere near --
+1.036 and 1.061 against 1.14 and 1.27 -- so either that harness churned differently in a way that
+matters or the number was wrong. The two right-hand columns of the table are measured with the same
+instrument as the rest of it and are the ones to use.
 
 Two repairs were measured. **Pulling a displaced sibling home on erase**: when an erase frees a slot
 and any counter is nonzero, look one group along for an entry whose home is this one and move it
@@ -1093,9 +1189,15 @@ writes (`try_emplace`, `operator[]`, `insert`, `emplace`, `insert_or_assign`) an
 deliberately not in `find()`, const or not: callers treat a non-const `find` on a shared map as
 read-only, and writing there would make it a data race.
 
-With one writing hit per erase the drift goes from 1.143 to 1.091 groups per hit and 1.265 to 1.162
-per miss; with four, to 1.054 and 1.093, which is nearly a fresh table -- and it *converges* rather
-than plateauing, because every displaced entry that is touched again goes home. What it is worth:
+The two right-hand columns of the table above are what it does, and they say something better than
+"it takes the drift back": with four writing hits per round **the churned table probes better than a
+fresh one** -- 1.014 groups per hit against 1.031, and 1.025 per miss against 1.052, at load 0.76.
+`move_home` does not merely undo the displacement churn caused, it keeps pulling entries towards
+home that the original build had left away from it, so a table that is *used* is more compact than
+one that was only built. It converges rather than plateauing, because every displaced entry that is
+touched again goes home.
+
+What it is worth in time is much less than that suggests, because there was not much to take back:
 about a tenth off a miss and a few percent off a hit on an in-cache churned table (misses 5.16 to
 4.64 ns), nothing on the churn itself, nothing out of cache, and +2% instructions per writing hit.
 The branch misses say what the drift actually cost: 7.59M to 6.26M over the run, which is the
@@ -1205,7 +1307,7 @@ one multiply plus the finalizer for any length in that range. Paired on the suit
 ## Good at, pays for
 
 Good at: no tombstones and a counter that comes back down, so a table that churns at a fixed size
-degrades by about 10% in probe length and then stops; the dense value vector, so iteration is an
+degrades by 1 to 3% in probe length and then stops; the dense value vector, so iteration is an
 array walk and a 64 byte value costs the vector rather than the table; 5.5 bytes of metadata per
 slot; and a bound that makes a hostile hash slow rather than endless.
 
@@ -1882,8 +1984,9 @@ value vector -- and it is not the same guarantee, because the index still double
 **A hostile hash.** Every design here degrades to linear scanning of a probe sequence, which is fine.
 The question is whether it *terminates*: `indivi::flat_umap` does not, and neither did this library
 until a few days ago, and eight chosen keys are enough to hang either. abseil additionally salts each
-table with a per-table seed, which is the only defence here that is aimed at an adversary rather than
-at an accident.
+table with a per-table seed, which is the only defence here aimed at an adversary rather than at an
+accident -- and, measured in my map in [chapter 6](#swisstable), one that costs zero cycles on a
+lookup, so the argument against it is about reproducible iteration order and not about speed.
 
 **Erase by iterator.** indivi, because of the distance nibbles: no hash, no key access. Everything
 else re-derives the home from the key.
@@ -1907,6 +2010,17 @@ that gets to an answer faster than a table does.
 # 18. What is still on the table {#still-on-the-table}
 
 Things I know are worth something and have not done.
+
+**Twelve instructions per hit, and I do not know where they go.** This is the one new thing writing
+this post handed me, and it came from a map I had never heard of. At 50,000 entries, all hits, one
+map per binary: `indivi::flat_wmap` executes **48.3 instructions** and `ankerl::unordered_dense`
+**60.8**, and the gap is there at 1,000 entries (47.3 against 59.4) and at a million (64.4 against
+73.9) too. Some of it is structural and is not coming back -- the value index is a load a flat map
+does not do. The rest is not obviously structural: one byte of metadata per slot against 5.5, no
+counter load on the path, and slot addressing instead of group-and-lane arithmetic. Twelve
+instructions on a path that retires two per cycle is four or five cycles, which is 15% of a hit in
+cache. I went looking for the answer in the probe *sequence* and in the window *alignment* and both
+were dead ends; the answer, if there is one, is in the instruction stream.
 
 **Huge pages are worth 22% of a large lookup and nothing asks for them.** At 800000 entries and all
 hits, this library takes 1.48 dTLB misses and 7.03 L1 misses per lookup against boost's 0.89 and
@@ -1994,6 +2108,13 @@ being measured -- I have watched a same-code control read 0.92 in one run and 1.
 benchmark that never touches the map. `scripts/ab/maps_one.cpp` builds one binary per map per
 workload for that reason, and every "instructions per lookup" number in this post comes from it.
 
+The clearest instance of that I have is the per-table seed of [chapter 6](#swisstable). Paired, two
+headers in one binary, it read **0.936 on builds, 0.940 on random misses and 0.968 on random hits** --
+three workloads, all pointing the same way, which is exactly what a real regression looks like. One
+map per binary says it costs **zero cycles** on both lookup paths. The control in that same paired
+run, a hash benchmark that never touches a map, read 1.027. If I had stopped at the paired numbers I
+would have written up a 4% regression that does not exist.
+
 **No workload replays.** Every lookup rng lives in a state that outlives the epochs. A benchmark
 whose per-epoch batch is small enough to memorise will have its hit-or-miss sequence learned by a
 TAGE-style predictor, which flatters whichever design has the most branches: measured at **2.7x** on
@@ -2020,6 +2141,10 @@ scripts/ab/maps.sh check u64
 scripts/ab/maps.sh -s check u64     # ... and again under ASan and UBSan
 # one map per binary, under perf stat
 scripts/ab/maps_one.sh hit 50000 30000000
+# groups visited per lookup: load, turnovers, writing lookups per churn round
+scripts/ab/probe_length.sh 0.799 200 0
+# bucketized against sliding-window placement, simulated, no map involved
+clang++ -O2 -std=c++17 scripts/ab/placement.cpp -o placement && ./placement 0.799
 ```
 
 `maps.sh` compiles in whatever it finds; the environment variables it reads for the other libraries'
