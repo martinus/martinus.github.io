@@ -1252,6 +1252,29 @@ that group's homes probe first, so it is tombstoned and reused constantly, where
 lane is different for every home and is more often a slot that has never been used. Burning fresh
 slots is what drives a load factor counting live plus tombstones, so it buys an extra growth.
 
+**And a dense map built on this structure, measured against the shipped one.** Variant 1 above
+already is that map -- a sliding window, one metadata byte per slot, a `uint32` index in front of a
+dense value vector -- so I added a third variant that is `ankerl::unordered_dense` itself behind the
+same interface, running the identical workload code. It reproduces the production harness to within
+1% on a build, which is the check that the workloads are honest.
+
+*Per operation, median of three runs, lower is better; bold is the best of the three.*
+
+|  | grouped, tombstones | window, dense | unordered_dense 5.0 |
+|---|---|---|---|
+| build, 200,000 | 16.69 | 16.66 | **9.10** |
+| hit, 200,000 | 8.62 | 7.74 | **6.77** |
+| miss, 200,000 | 7.76 | 6.65 | **4.72** |
+| churn, 1M | 65.71 | 83.87 | **62.01** |
+| bytes per entry, 1M | 27.26 | **27.26** | 28.31 |
+{: .heat-low}
+
+**Read the third column as a prototype against a tuned library, not as a design comparison.** The
+build gap is 83 to 143% and almost none of it is the index -- the shipped map hashes sixteen
+elements ahead when it grows and the prototype rebuilds one at a time -- and the lookup gap is the
+merged block and the prefetches. The design question is the first column against the second, same
+author and same afternoon, and that is the comparison this section is built on.
+
 That is the answer to whether [the group index](#group-index) should adopt it, and the chain is what
 makes it no. A sliding window means no per-group counters, because there is no group to hang them
 on; no counters means the miss stops on an empty slot; and that means tombstones -- which is the
