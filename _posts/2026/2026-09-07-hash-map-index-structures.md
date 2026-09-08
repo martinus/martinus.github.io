@@ -36,9 +36,9 @@ should. [How the numbers were made](#how-measured) says why, and how to reproduc
 number about an *idea* comes from building that idea into unordered_dense 5.0 and measuring the
 header against itself; those say so, and where one says **on the suite** it means the geometric mean
 of the fifteen workloads of unordered_dense's own benchmark. The second kind says what an idea was
-worth in one map, which is a weaker claim than what it is worth in general. Three chapters are made
-of it: [the borrowed ideas](#borrowed), [building the group index](#building) and
-[what is still on the table](#still-on-the-table).
+worth in one map, which is a weaker claim than what it is worth in general. The three chapters made
+of it are gathered at the end: [what it took from the others](#borrowed),
+[how it was built](#building), and [what it has not answered](#still-on-the-table).
 
 # Contents {#contents}
 
@@ -100,7 +100,17 @@ are only the parts particular to that design.
     * [Memory](#memory)
     * [Counters](#counters)
     * [The probe loops, in assembly](#probe-assembly)
-15. [What unordered_dense 5.0 took from the others, and what each idea was worth](#borrowed)
+15. [Three ways to be fast](#three-ways)
+16. [Question by question](#question-by-question)
+    * [Which one, then](#which-one)
+
+**Standing on those shoulders**
+
+The three chapters about my own map rather than about the field: what it borrowed, how it was
+built, and what it has not answered.
+
+{:start="17"}
+17. [What unordered_dense 5.0 took from the others, and what each idea was worth](#borrowed)
     * [From boost: the fingerprint word table, and a probe that terminates](#from-boost)
     * [From folly F14, and then from Verstable: how wide should the counter be](#counter-width)
     * [From folly F14: double hashing instead of a triangular probe](#from-f14-probe)
@@ -109,18 +119,15 @@ are only the parts particular to that design.
     * [From abseil: a per-table seed](#from-abseil-seed)
     * [From abseil and boost: cache-line-aligned metadata](#from-aligned)
     * [From CPython: a value index narrower than 32 bits](#from-cpython)
-16. [Three ways to be fast](#three-ways)
-17. [Question by question](#question-by-question)
-    * [Which one, then](#which-one)
-
-**Loose ends, and how it was measured**
-
-{:start="18"}
 18. [Building the group index: growth, the compiler, the hash](#building)
     * [Growth: the pipelined rehash](#pipelined-rehash)
     * [What the compiler decides](#compiler)
     * [The hash it is given](#the-hash)
 19. [What is still on the table](#still-on-the-table)
+
+**How it was measured**
+
+{:start="20"}
 20. [How the numbers were made, and how to remake them](#how-measured)
 21. [Appendix: sources and versions](#appendix)
 
@@ -2049,7 +2056,102 @@ And **the match walk is the same three instructions everywhere** -- `tzcnt`, use
 `lea`/`and` to clear it -- which is worth noticing because it is the part everyone gets right. All
 the design difference is in the two instructions before and after it.
 
-# 15. What unordered_dense 5.0 took from the others, and what each idea was worth {#borrowed}
+# 15. Three ways to be fast {#three-ways}
+
+Put the counters of [the measurements](#same-workloads) beside their times and the field sorts into
+three strategies, none of which dominates.
+
+**Fewest instructions.** Verstable, and emhash8 close behind. A chain visits only keys that belong
+to this bucket, so in principle nothing is wasted -- and it loses, because every step is a branch.
+
+**Fewest regions touched.** The flat SwissTables. One allocation, one dependent load after the
+metadata, the key right there. This wins on a fresh hit at every size and wins by *more* the larger
+the table gets, which is the one trend in this post that does not reverse.
+
+**Fewest unpredictable branches.** The group designs. One question per sixteen slots, whatever the
+group holds, and the answer to "absent?" arranged so that a miss usually stops at home. This wins in
+cache and on anything that erases, and it is what the last five years of hash map work has mostly
+been about.
+
+The reason none of them dominates is that they are strong against different costs, and which cost
+dominates depends on the table size. In L1 and L2 the branch predictor is the bottleneck and the
+group designs win; past L3 the memory system is, and the map that touches one region wins. The
+dense maps are on the wrong side of that second one by construction, and on the right side of every
+column that involves iterating, growing, or a value bigger than a pointer.
+
+# 16. Question by question {#question-by-question}
+
+[The five questions](#five-questions), answered with the measurements, plus the
+workloads that are not questions about the index but decide which map you want.
+
+**A hit on a fresh table.** The flat SwissTables, and it is not close. One region, one dependent load
+after the metadata, and the key is in the group. abseil and boost trade places depending on the hash
+and the size; indivi is with them. The dense maps pay one more load and are 1.05 to 1.20x behind;
+that is the family cost and no index trick recovers it.
+
+**A miss on a fresh table.** Closer, and the counter designs do well, because a miss that stops at
+its home group never touches a key at all -- the metadata compare is the whole lookup, and boost's
+overflow bit, indivi's counter and unordered_dense's counter all stop there almost always. The chained
+designs are worst here for the opposite reason: a miss has to reach the end of a chain, and whether
+there is one is exactly the unpredictable question.
+
+**A table that only churns.** This is where the answers to "gone?" separate. The designs whose miss
+test comes back down -- F14's counter, indivi's, unordered_dense's -- hold their probe lengths. The
+designs that leave something behind -- abseil's tombstones, boost's overflow bits, emilib's and
+ihtab's tombstones -- get slower until a rehash, and pay for the rehash. Whether that shows in a
+benchmark depends entirely on whether the benchmark holds the size constant; most do not.
+
+**Iteration.** The dense maps, by an order of magnitude, and it is the single largest ratio anywhere
+in this post. A dense map walks exactly the live entries in a contiguous array; a flat map walks the
+whole slot array, and at load 0.5 that is twice the memory for the same elements. F14Vector and
+emhash8 are here with unordered_dense; ihtab is not, because its array is append-only and its
+iterator has to check a deleted bit per element.
+
+**Large values.** The dense maps again, for the same reason from the other side: a flat map writes
+`sizeof(value_type)` into a hash-scattered slot and copies all of it on every growth, where a dense
+map writes four bytes there and appends the payload in order.
+
+**Memory.** Nearly the reverse of the metadata-per-slot column of [the summary table](#summary-table). A
+flat map's cost per *live* entry is `sizeof(value_type) / load factor` plus a byte or two of
+metadata, so its footprint is dominated by empty slots at the width of the value; a dense map's is
+`sizeof(value_type)` exactly, plus its index at the width of a slot. That crosses over as the value
+grows, and where it crosses is measured in [the measurements](#same-workloads).
+
+**Pointer stability.** Only the node maps, and only they can. If you need a reference to survive an
+insert, nothing in the flat or dense families will do it and no amount of measurement changes that.
+`unordered_dense::segmented_map` is a partial answer -- it keeps references valid by segmenting the
+value vector -- and it is not the same guarantee, because the index still doubles beside itself.
+
+**A hostile hash.** Every design here degrades to linear scanning of a probe sequence, which is fine.
+The question is whether it *terminates*: `indivi::flat_umap` did not until
+[September 2026](https://github.com/gaujay/indivi_collection/issues/2), and neither did unordered_dense 5.0 until the review before its release; eight
+chosen keys were enough to hang either. abseil
+additionally salts each table with a per-table seed, which is the only defence here aimed at an
+adversary rather than at an accident -- and, [measured in unordered_dense](#borrowed), one that costs
+zero cycles on a lookup, so the argument against it is about reproducible iteration order and not
+about speed.
+
+**Erase by iterator.** indivi, because of the distance nibbles: no hash, no key access. Everything
+else re-derives the home from the key.
+
+**Small, short-lived maps.** The maps that allocate nothing until the first insert, and abseil's
+[single-element mode](#swisstable), which makes an empty or one-entry map allocate nothing at all.
+Worth measuring if that is your workload, because the ranking there is
+not the ranking anywhere else.
+
+## Which one, then {#which-one}
+
+If the values are small and the table is mostly read: a flat SwissTable, and
+`boost::unordered_flat_map` or `absl::flat_hash_map` are both excellent. If you iterate, or the
+values are large, or you want the memory of a dense layout: a dense map, and
+`ankerl::unordered_dense` is mine so take the recommendation accordingly. If you need references to
+stay valid: a node map, and prefer `boost::unordered_node_map` or `absl::node_hash_map` over
+`std::unordered_map`, which is slow for reasons the standard requires.
+
+I wrote [a quiz](/which-hash-map/) about this, which asks the questions in an order that gets to an
+answer faster than a table does.
+
+# 17. What unordered_dense 5.0 took from the others, and what each idea was worth {#borrowed}
 
 **This is the narrowest chapter in the post, and the one where I am not a reporter.** Every design
 above was read with one question in mind: is there something in it that belongs in
@@ -2268,107 +2370,12 @@ enough to be indexed in 16 bits has an index of at most 128 KB, which is already
 something that already fits buys nothing, the narrow loads cost a zero-extension on every use, and
 the maps whose index footprint actually hurts are exactly the ones that need more than 16 bits.
 
-# 16. Three ways to be fast {#three-ways}
-
-Put the counters of [the measurements](#same-workloads) beside their times and the field sorts into
-three strategies, none of which dominates.
-
-**Fewest instructions.** Verstable, and emhash8 close behind. A chain visits only keys that belong
-to this bucket, so in principle nothing is wasted -- and it loses, because every step is a branch.
-
-**Fewest regions touched.** The flat SwissTables. One allocation, one dependent load after the
-metadata, the key right there. This wins on a fresh hit at every size and wins by *more* the larger
-the table gets, which is the one trend in this post that does not reverse.
-
-**Fewest unpredictable branches.** The group designs. One question per sixteen slots, whatever the
-group holds, and the answer to "absent?" arranged so that a miss usually stops at home. This wins in
-cache and on anything that erases, and it is what the last five years of hash map work has mostly
-been about.
-
-The reason none of them dominates is that they are strong against different costs, and which cost
-dominates depends on the table size. In L1 and L2 the branch predictor is the bottleneck and the
-group designs win; past L3 the memory system is, and the map that touches one region wins. The
-dense maps are on the wrong side of that second one by construction, and on the right side of every
-column that involves iterating, growing, or a value bigger than a pointer.
-
-# 17. Question by question {#question-by-question}
-
-[The five questions](#five-questions), answered with the measurements, plus the
-workloads that are not questions about the index but decide which map you want.
-
-**A hit on a fresh table.** The flat SwissTables, and it is not close. One region, one dependent load
-after the metadata, and the key is in the group. abseil and boost trade places depending on the hash
-and the size; indivi is with them. The dense maps pay one more load and are 1.05 to 1.20x behind;
-that is the family cost and no index trick recovers it.
-
-**A miss on a fresh table.** Closer, and the counter designs do well, because a miss that stops at
-its home group never touches a key at all -- the metadata compare is the whole lookup, and boost's
-overflow bit, indivi's counter and unordered_dense's counter all stop there almost always. The chained
-designs are worst here for the opposite reason: a miss has to reach the end of a chain, and whether
-there is one is exactly the unpredictable question.
-
-**A table that only churns.** This is where the answers to "gone?" separate. The designs whose miss
-test comes back down -- F14's counter, indivi's, unordered_dense's -- hold their probe lengths. The
-designs that leave something behind -- abseil's tombstones, boost's overflow bits, emilib's and
-ihtab's tombstones -- get slower until a rehash, and pay for the rehash. Whether that shows in a
-benchmark depends entirely on whether the benchmark holds the size constant; most do not.
-
-**Iteration.** The dense maps, by an order of magnitude, and it is the single largest ratio anywhere
-in this post. A dense map walks exactly the live entries in a contiguous array; a flat map walks the
-whole slot array, and at load 0.5 that is twice the memory for the same elements. F14Vector and
-emhash8 are here with unordered_dense; ihtab is not, because its array is append-only and its
-iterator has to check a deleted bit per element.
-
-**Large values.** The dense maps again, for the same reason from the other side: a flat map writes
-`sizeof(value_type)` into a hash-scattered slot and copies all of it on every growth, where a dense
-map writes four bytes there and appends the payload in order.
-
-**Memory.** Nearly the reverse of the metadata-per-slot column of [the summary table](#summary-table). A
-flat map's cost per *live* entry is `sizeof(value_type) / load factor` plus a byte or two of
-metadata, so its footprint is dominated by empty slots at the width of the value; a dense map's is
-`sizeof(value_type)` exactly, plus its index at the width of a slot. That crosses over as the value
-grows, and where it crosses is measured in [the measurements](#same-workloads).
-
-**Pointer stability.** Only the node maps, and only they can. If you need a reference to survive an
-insert, nothing in the flat or dense families will do it and no amount of measurement changes that.
-`unordered_dense::segmented_map` is a partial answer -- it keeps references valid by segmenting the
-value vector -- and it is not the same guarantee, because the index still doubles beside itself.
-
-**A hostile hash.** Every design here degrades to linear scanning of a probe sequence, which is fine.
-The question is whether it *terminates*: `indivi::flat_umap` did not until
-[September 2026](https://github.com/gaujay/indivi_collection/issues/2), and neither did unordered_dense 5.0 until the review before its release; eight
-chosen keys were enough to hang either. abseil
-additionally salts each table with a per-table seed, which is the only defence here aimed at an
-adversary rather than at an accident -- and, [measured in unordered_dense](#borrowed), one that costs
-zero cycles on a lookup, so the argument against it is about reproducible iteration order and not
-about speed.
-
-**Erase by iterator.** indivi, because of the distance nibbles: no hash, no key access. Everything
-else re-derives the home from the key.
-
-**Small, short-lived maps.** The maps that allocate nothing until the first insert, and abseil's
-[single-element mode](#swisstable), which makes an empty or one-entry map allocate nothing at all.
-Worth measuring if that is your workload, because the ranking there is
-not the ranking anywhere else.
-
-## Which one, then {#which-one}
-
-If the values are small and the table is mostly read: a flat SwissTable, and
-`boost::unordered_flat_map` or `absl::flat_hash_map` are both excellent. If you iterate, or the
-values are large, or you want the memory of a dense layout: a dense map, and
-`ankerl::unordered_dense` is mine so take the recommendation accordingly. If you need references to
-stay valid: a node map, and prefer `boost::unordered_node_map` or `absl::node_hash_map` over
-`std::unordered_map`, which is slow for reasons the standard requires.
-
-I wrote [a quiz](/which-hash-map/) about this, which asks the questions in an order that gets to an
-answer faster than a table does.
-
 # 18. Building the group index: growth, the compiler, the hash {#building}
 
-The three sections here are about unordered_dense 5.0 and not about its index: how it grows, what
-the two compilers do to it, and what hash it is handed. They are here rather than in
-[the group index chapter](#group-index) because a reader of the reference does not need them, and a reader who
-wants to know where the group index's build and lookup times actually come from does.
+The three sections here are about unordered_dense 5.0 and not about its index either: how it grows,
+what the two compilers do to it, and what hash it is handed. They are here rather than in
+[the group index chapter](#group-index) because a reader of the reference does not need them, and a
+reader who wants to know where the group index's build and lookup times actually come from does.
 
 ## Growth: the pipelined rehash {#pipelined-rehash}
 
