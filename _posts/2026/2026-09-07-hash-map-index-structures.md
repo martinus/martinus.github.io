@@ -2322,7 +2322,11 @@ Two things around it are worth recording. A database-style **radix partition** o
 the top bits of their group cuts the dTLB misses to 0.24 and halves the isolated loop from 4M
 entries up -- and end to end it is indistinguishable, because the scratch array is fresh memory
 every time and faulting it in costs about a microsecond a page, and a rehash is a minority of a
-large build anyway. And the loop used to index the value container, `m_values[value_idx]`, which
+large build anyway. Ported into boost, where growth is three quarters of a build rather than a
+quarter, it fails the same way and further: 1.7 to 2x slower at every size with a fresh scratch, a
+19% win on the isolated rehash at four million integer entries once the scratch is kept warm across
+rehashes, and a 5 to 10% *slower* build, because a build doubles twenty-odd times and the scratch
+grows with it. And the loop used to index the value container, `m_values[value_idx]`, which
 cost clang **a memory latency per element**: placing an entry stores a `std::uint8_t` fingerprint,
 that store may alias any object including the container's own data pointer, so the next iteration
 had to reload the pointer before it could form the address of the next key -- and the random group
