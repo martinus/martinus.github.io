@@ -8,6 +8,14 @@ subtitle: "What SwissTable, Boost, F14, emhash8, emilib, indivi, Verstable and u
 /* Eighteen maps by seven workloads does not fit a phone; let the wide ones scroll sideways
    instead of being clipped. */
 .blog-post table { display: block; width: fit-content; max-width: 100%; overflow-x: auto; }
+
+/* Every chapter heading carries a link back to the contents. Floated, so it sits at the right
+   of the heading's first line and a long title neither wraps around it nor is pushed by it;
+   0.85rem in the muted ink rather than a shrunken h1, and #4b5563 is 7.6:1 on the page. */
+.blog-post h1 > a.up { float: right; margin-left: 1.5rem; font-size: 0.85rem; font-weight: 400;
+                       line-height: 1.9; color: #4b5563; text-decoration: none; white-space: nowrap; }
+.blog-post h1 > a.up:hover, .blog-post h1 > a.up:focus { color: #008AFF; text-decoration: underline; }
+@media (max-width: 480px) { .blog-post h1 > a.up { margin-left: 0.75rem; } }
 </style>
 
 Every fast hash map is decided by a few bytes you never see. Before it touches a key it reads
@@ -131,7 +139,7 @@ built, and what it has not answered.
 20. [How the numbers were made, and how to remake them](#how-measured)
 21. [Appendix: sources and versions](#appendix)
 
-# 1. Five questions every hash map index answers {#five-questions}
+# 1. Five questions every hash map index answers [&#8593; contents](#contents){:.up} {#five-questions}
 
 Every map in this post is an [open addressing](https://en.wikipedia.org/wiki/Open_addressing) hash
 table: the entries live in one flat array of slots, and a key that finds its slot taken looks for
@@ -195,7 +203,7 @@ compares in one instruction, usually 14, 15 or 16; a slot's **home** is the grou
 hashes to; **displacement** or **distance** is how far from home it ended up; the **load factor**
 is how full the table is, and every map here has a maximum after which it doubles.
 
-# 2. What a lookup is made of {#what-a-lookup-is-made-of}
+# 2. What a lookup is made of [&#8593; contents](#contents){:.up} {#what-a-lookup-is-made-of}
 
 Three things cost time in a hash map lookup, and it helps to know which one a design is spending.
 
@@ -243,7 +251,7 @@ rather than a measurement at one of them. It is not a refinement; it changes ans
 unordered_dense 5.0 against boost, churn at a fixed size read 19% in unordered_dense's favour
 sampled at one size and **22% in boost's** averaged over the octave. The sign reversed.
 
-# 3. Three families: flat, dense, node {#three-families}
+# 3. Three families: flat, dense, node [&#8593; contents](#contents){:.up} {#three-families}
 
 Before the metadata, one decision splits the field: where the key and the value actually live.
 
@@ -314,7 +322,7 @@ implementation has one. The modern node maps keep a fast index (a SwissTable in 
 chapters below applies to them as well; they simply add one pointer chase and one allocation. In the
 [measurements](#same-workloads) that is worth a lot on lookups and almost nothing on iteration.
 
-# 4. Per-slot metadata or per-group metadata {#per-slot-or-per-group}
+# 4. Per-slot metadata or per-group metadata [&#8593; contents](#contents){:.up} {#per-slot-or-per-group}
 
 Within open addressing, the second decision is how much the map is willing to store per slot, and
 whether the metadata is read one slot at a time or a group at a time.
@@ -352,7 +360,7 @@ Where a design has an idea worth stealing, its chapter says so and
 [the borrowed ideas](#borrowed) say what happened when I stole it: twelve of them, implemented in
 unordered_dense 5.0 and measured, four kept, one optional, seven not.
 
-# 5. Robin hood with an ordered word: unordered_dense 4.11.0 {#robin-hood}
+# 5. Robin hood with an ordered word: unordered_dense 4.11.0 [&#8593; contents](#contents){:.up} {#robin-hood}
 
 This is my own map as it stood up to 4.11.0, and the design I have written about
 [twice](/2016/09/15/very-fast-hashmap-in-c-part-1/)
@@ -448,7 +456,7 @@ independent; the dense value vector; the 8 bit fingerprint width.
 Dropped: the ordering, the shifts, and the sentinel padding at the end of the bucket array. What
 replaced them is [the group index](#group-index).
 
-# 6. SwissTable: abseil's flat_hash_map {#swisstable}
+# 6. SwissTable: abseil's flat_hash_map [&#8593; contents](#contents){:.up} {#swisstable}
 
 The design everything else in this post is measured against, whether or not it says so.
 [abseil](https://abseil.io/about/design/swisstables)'s `raw_hash_set` is where the shape comes from:
@@ -597,7 +605,7 @@ Two things from this chapter were tried inside unordered_dense 5.0 and are measu
 others in [the borrowed ideas](#borrowed): the per-table seed, which costs nothing on a lookup, and
 cache-line-aligning the metadata, which costs 0.7%.
 
-# 7. Boost's unordered_flat_map: fifteen slots and an overflow byte {#boost}
+# 7. Boost's unordered_flat_map: fifteen slots and an overflow byte [&#8593; contents](#contents){:.up} {#boost}
 
 [boost::unordered_flat_map](https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered/structures.html)
 is a SwissTable descendant with one change that turns out to matter a great deal: it spends its
@@ -750,7 +758,7 @@ Pays for: a churning table, and the fact that an erase leaves work for a future 
 Two of boost's ideas ended up in unordered_dense 5.0, its terminating prober and its
 pre-broadcast fingerprint word table; [the borrowed ideas](#borrowed) say what each was worth.
 
-# 8. Folly F14: one counter per chunk {#f14}
+# 8. Folly F14: one counter per chunk [&#8593; contents](#contents){:.up} {#f14}
 
 [folly](https://github.com/facebook/folly)'s F14 is the first design I know of that made a
 SwissTable derivative tombstone-free, and it did it with a counter rather than with a bit.
@@ -870,7 +878,7 @@ so chunk 0 is special.
 Two of F14's ideas were tried in unordered_dense 5.0 and neither survived, the single counter
 and the double hashing; [the borrowed ideas](#borrowed) have both, with the numbers.
 
-# 9. indivi: counters an erase can undo, and distance nibbles {#indivi}
+# 9. indivi: counters an erase can undo, and distance nibbles [&#8593; contents](#contents){:.up} {#indivi}
 
 [indivi_collection](https://github.com/gaujay/indivi_collection) by Guillaume Aujay is where
 unordered_dense 5.0's overflow counters come from, and it is the least known map in this post by a
@@ -1007,7 +1015,7 @@ distances, an erase undoes both.
 unordered_dense 5.0's counters are indivi's, and its distance nibbles were tried there and
 dropped; [the borrowed ideas](#borrowed) have both.
 
-# 10. The group index: unordered_dense 5.0 {#group-index}
+# 10. The group index: unordered_dense 5.0 [&#8593; contents](#contents){:.up} {#group-index}
 
 This is what replaced [robin hood](#robin-hood) in my own map in 5.0, and it is the design I
 know best because I built it by measuring every alternative I could think of and keeping what won.
@@ -1299,7 +1307,7 @@ Pays for: one more dependent load on every hit than a flat map, which is the fam
 not go away; a rehash that has to move values as well as indices; and an erase that hashes the moved
 element's key, which is free for an integer and about 50 ns for a string.
 
-# 11. Chains instead of probes: emhash8 and Verstable {#chains}
+# 11. Chains instead of probes: emhash8 and Verstable [&#8593; contents](#contents){:.up} {#chains}
 
 Two designs answer "absent?" without a probe sequence at all. They thread a **chain** through the
 metadata, so a lookup visits only keys that belong to its own bucket and a miss ends where the
@@ -1447,7 +1455,7 @@ at 2.398 branch misses per element against 0.132.
 Memory is where it does well: 18 bytes per slot at a 0.9 maximum load puts it with abseil and emilib
 at the lean end of [the memory table](#memory), ahead of boost and every dense map.
 
-# 12. The plain SwissTables: emilib and ihtab {#plain}
+# 12. The plain SwissTables: emilib and ihtab [&#8593; contents](#contents){:.up} {#plain}
 
 Two implementations of the standard design, with fewer moving parts than anything else in the post.
 They are here because a clean version of the standard design is the baseline every trick above has
@@ -1547,7 +1555,7 @@ transferable part is not the bug, it is the test: **a workload that holds the el
 constant while churning is the only one that can see this class of fault**, and it is the workload
 most hash map benchmarks do not have.
 
-# 13. The summary table {#summary-table}
+# 13. The summary table [&#8593; contents](#contents){:.up} {#summary-table}
 
 Everything above, in two tables. The first is what the index *is*; the second is how it behaves. The
 bold cell in each row is the choice that makes that design what it is.
@@ -1638,7 +1646,7 @@ the average. emhash8's chains are short -- close to one at load 0.8 -- and Verst
 What costs is that "is there a chain" and "is it over" are decisions, and at load 0.9 about 59% of
 Verstable's misses land on a chain head.
 
-# 14. The same workloads on every map {#same-workloads}
+# 14. The same workloads on every map [&#8593; contents](#contents){:.up} {#same-workloads}
 
 Eighteen maps for an integer key and sixteen for a string, seven workloads, three key and value
 shapes, all in one process with the alternatives interleaved. Everything below is **time relative to
@@ -2056,7 +2064,7 @@ And **the match walk is the same three instructions everywhere** -- `tzcnt`, use
 `lea`/`and` to clear it -- which is worth noticing because it is the part everyone gets right. All
 the design difference is in the two instructions before and after it.
 
-# 15. Three ways to be fast {#three-ways}
+# 15. Three ways to be fast [&#8593; contents](#contents){:.up} {#three-ways}
 
 Put the counters of [the measurements](#same-workloads) beside their times and the field sorts into
 three strategies, none of which dominates.
@@ -2079,7 +2087,7 @@ group designs win; past L3 the memory system is, and the map that touches one re
 dense maps are on the wrong side of that second one by construction, and on the right side of every
 column that involves iterating, growing, or a value bigger than a pointer.
 
-# 16. Question by question {#question-by-question}
+# 16. Question by question [&#8593; contents](#contents){:.up} {#question-by-question}
 
 [The five questions](#five-questions), answered with the measurements, plus the
 workloads that are not questions about the index but decide which map you want.
@@ -2151,7 +2159,7 @@ stay valid: a node map, and prefer `boost::unordered_node_map` or `absl::node_ha
 I wrote [a quiz](/which-hash-map/) about this, which asks the questions in an order that gets to an
 answer faster than a table does.
 
-# 17. What unordered_dense 5.0 took from the others, and what each idea was worth {#borrowed}
+# 17. What unordered_dense 5.0 took from the others, and what each idea was worth [&#8593; contents](#contents){:.up} {#borrowed}
 
 **This is the narrowest chapter in the post, and the one where I am not a reporter.** Every design
 above was read with one question in mind: is there something in it that belongs in
@@ -2370,7 +2378,7 @@ enough to be indexed in 16 bits has an index of at most 128 KB, which is already
 something that already fits buys nothing, the narrow loads cost a zero-extension on every use, and
 the maps whose index footprint actually hurts are exactly the ones that need more than 16 bits.
 
-# 18. Building the group index: growth, the compiler, the hash {#building}
+# 18. Building the group index: growth, the compiler, the hash [&#8593; contents](#contents){:.up} {#building}
 
 The three sections here are about unordered_dense 5.0 and not about its index either: how it grows,
 what the two compilers do to it, and what hash it is handed. They are here rather than in
@@ -2490,7 +2498,7 @@ independently and folded into one finalizer, instead of chaining blocks through 
 one multiply plus the finalizer for any length in that range. Paired on the suite that is
 13% faster in a hashing loop, 8% on string misses, 9% on string insert-erase, 7% on string builds.
 
-# 19. What is still on the table {#still-on-the-table}
+# 19. What is still on the table [&#8593; contents](#contents){:.up} {#still-on-the-table}
 
 Things I know are worth something and have not done. They are all about my own map, with one
 exception: huge pages, where boost gains as much as unordered_dense does and the entry says so.
@@ -2563,7 +2571,7 @@ library. The fix is a back-pointer per value and it loses on the suite as a whol
 narrower -- a back-pointer only when the key is expensive to hash, decided at compile time -- has not
 been tried.
 
-# 20. How the numbers were made, and how to remake them {#how-measured}
+# 20. How the numbers were made, and how to remake them [&#8593; contents](#contents){:.up} {#how-measured}
 
 Everything above was measured on one machine: a Ryzen 9 7950X, Fedora, clang 22.1.8 at `-O3
 -DNDEBUG -std=c++20`, **default `-march`** -- so plain x86-64, SSE2 and nothing newer. (C++20 is the
@@ -2657,7 +2665,7 @@ over 400,000 mixed operations before any timing is believed, which is what caugh
 `vt_insert` being `insert_or_assign` rather than `try_emplace`; the honest counterpart is
 `vt_get_or_insert`.
 
-# Appendix: sources and versions {#appendix}
+# Appendix: sources and versions [&#8593; contents](#contents){:.up} {#appendix}
 
 Every code block above is quoted verbatim from one of these, at the commit given. Line numbers move;
 the file and the symbol do not.
