@@ -31,6 +31,15 @@ one desktop, every map is handed the same hash, and every ratio is a geometric m
 table sizes rather than a measurement at one size -- which matters more than it sounds like it
 should. [How the numbers were made](#how-measured) says why, and how to reproduce all of it.
 
+**They come in two kinds, and it is worth knowing which one you are reading.** A number about a
+*design* comes from running every map on the same workload, and it names the maps it compares. A
+number about an *idea* comes from building that idea into unordered_dense 5.0 and measuring the
+header against itself; those say so, and where one says **on the suite** it means the geometric mean
+of the fifteen workloads of unordered_dense's own benchmark. The second kind says what an idea was
+worth in one map, which is a weaker claim than what it is worth in general. Three chapters are made
+of it: [the borrowed ideas](#borrowed), [building the group index](#building) and
+[what is still on the table](#still-on-the-table).
+
 # Contents {#contents}
 
 **What an index has to do**
@@ -265,9 +274,10 @@ ihtab fix theirs at `uint32_t`. unordered_dense uses `uint32_t` and has a second
 is compiled, and it stores *two* of them per bucket, because one of them is the chain link. And
 [CPython's compact dict](https://mail.python.org/pipermail/python-dev/2012-December/123028.html),
 which is the same idea outside C++, sizes its index to the table: one byte, two, four or eight. That
-last one sounds like the obvious win and it is measured in [the borrowed ideas](#borrowed), where a 16 bit
-index is 1.4% slower on the suite -- a table small enough to be indexed in 16 bits has an index of at most 128 KB,
-which is already in L2, so halving something that already fits buys nothing.
+last one sounds like the obvious win, and building it into unordered_dense 5.0 measures **1.4%
+slower** ([the borrowed ideas](#borrowed) has it): a table small enough to be indexed in 16 bits has
+an index of at most 128 KB, which is already in L2, so halving something that already fits buys
+nothing.
 
 The price is one more dependent load on every hit: metadata, then index, then value. On a table
 that fits in cache that is a few cycles; on a table that does not, it is a cache miss and a TLB
@@ -276,8 +286,8 @@ a fresh lookup, and it is not going away.
 
 The other price is subtler: erasing from the middle of a dense vector leaves a hole, so the usual
 fix is to move the last element into it -- which means finding the *slot* that points at the moved
-element, which means hashing its key again. For an integer key that is free (see
-[the group index's erase](#group-index)); for a string key it costs about 50 ns.
+element, which means hashing its key again. For an integer key that is free and for a string key it
+costs about 50 ns -- both measured in unordered_dense 5.0, in [its erase](#group-erase).
 
 ## Keys behind a pointer: node-based {#node-family}
 
@@ -1257,8 +1267,8 @@ verdict came from a regime that no longer describes where the cost is, so it was
 byte block, `struct block : Group` so every existing use of the metadata reads unchanged, no padding,
 the same bytes in one allocation instead of two.
 
-Memory is unchanged to the byte. The score moves 1.5-2.2% and finds move 4.4-5.3%, and the reason to
-believe it is not the score but the counters -- one map per binary, all-hits lookups at 200,000,
+Memory is unchanged to the byte. The suite moves 1.5-2.2% and its finds 4.4-5.3%, and the reason to
+believe it is not the suite but the counters -- one map per binary, all-hits lookups at 200,000,
 800,000 and 4M entries, split against merged: **7% fewer instructions** (66.9 to 62.0 per lookup),
 because the index is at a fixed offset from the group rather than a second address to compute;
 **12-14% fewer L1 misses**; and **28% fewer dTLB misses at 4M** (5.30 to 3.79), because a lookup
@@ -1858,7 +1868,7 @@ plus the doubling overhang of a `std::vector`, which is what most of the gap act
 part is a knob rather than a property: the value container is a template parameter, and one that
 grows by 1.5x instead of 2 measures **29.8 bytes per entry against 33.2, for 14% of the build** (and
 98.9 against 113.3 at a 64 byte value, for 19%). Level with boost on memory, at the cost of the
-column this map is furthest ahead on -- which is why 2 is still the default, and why the trade is
+column unordered_dense is furthest ahead on -- which is why 2 is still the default, and why the trade is
 available to anyone whose scarce resource is the other one. Every map here doubles, incidentally:
 folly's much-quoted 1.406 growth factor binds only on an explicit `reserve`, never on insertion.
 
@@ -2365,8 +2375,8 @@ element at 200,000 integer entries and 10.6 to 11.1 at a million, under gcc 10.2
 source and the restructuring taking it to clang's floor.
 
 The reason is that the two loops are not bound by the same thing. Per element rehashed at a million
-`uint64_t` entries, `perf stat`: **boost 97.5 instructions and 110.9 cycles, this map 51.9 and
-46.7**, on the same 3.7 to 3.8 L1 load misses. A flat map's rehash *moves the `value_type`* into a
+`uint64_t` entries, `perf stat`: **boost 97.5 instructions and 110.9 cycles, unordered_dense 51.9
+and 46.7**, on the same 3.7 to 3.8 L1 load misses. A flat map's rehash *moves the `value_type`* into a
 hash-scattered slot -- that is where the extra instructions go, and the random writes that follow
 are write-allocate misses a load prefetch does not help -- where a dense map's moves a four byte
 index and leaves the values where they are. The lookahead hides a load's latency behind a hash
@@ -2438,15 +2448,15 @@ leaves is [in chapter 20](#how-measured), with the other instance of it.
 
 A hash for a map is chosen on **latency**, not throughput, because its result is the address of the
 group to probe and nothing after it can start. That sounds obvious and it orders candidates by more
-than 2x. An AES-NI hash is a quarter faster in a hashing loop and, in the map, 9 to 37% slower on
-every single workload -- worst (37%) on the one that cannot overlap anything, a random hit, and
+than 2x. An AES-NI hash is a quarter faster in a hashing loop and, inside unordered_dense, 9 to 37%
+slower on every single workload -- worst (37%) on the one that cannot overlap anything, a random hit, and
 least bad (9%) on a build, whose rehash hashes sixteen ahead. One hasher per binary, 30M
 all-hits lookups: AES executes **fewer instructions** (5.15G against 5.35G) and takes **59% more
 cycles**, IPC 1.30 down to 0.79. That is a dependency chain, not extra work.
 
 Four further latency tunings of the string hash -- fewer length branches, the length out of the
 finalizer, both -- looked decisive in a standalone harness (1.40x, clang and gcc agreeing to 0.02 ns)
-and are worth exactly nothing in the map. The harness lied in a way worth naming: to make lengths
+and are worth exactly nothing inside unordered_dense. The harness lied in a way worth naming: to make lengths
 unpredictable it chained through key selection, `x = hash(keys[x & mask])`, which puts the key's
 *length* on the dependency chain. A real lookup has no such edge -- the caller already holds the key,
 so its length is known before the hash starts and only the bytes are loaded.
@@ -2458,7 +2468,8 @@ one multiply plus the finalizer for any length in that range. Paired on the suit
 
 # 19. What is still on the table {#still-on-the-table}
 
-Things I know are worth something and have not done.
+Things I know are worth something and have not done. They are all about my own map, with one
+exception: huge pages, where boost gains as much as unordered_dense does and the entry says so.
 
 **Twelve instructions per hit, and I do not know where they go.** This is the one new thing writing
 this post handed me, and it came from a map I had never heard of. At 50,000 entries, all hits, one
@@ -2485,11 +2496,11 @@ hits, unordered_dense 5.0 takes 1.48 dTLB misses and 7.03 L1 misses per lookup a
 5.15, while executing only 14% more instructions for 33% more cycles. A third of that gap is address
 translation -- a dense map touches two regions per lookup where a flat map touches one.
 `/sys/kernel/mm/transparent_hugepage/enabled` is `madvise` on this machine, which is a common
-default, and neither the map nor the benchmark ever madvises, so all of it runs on 4 KB pages.
+default, and neither map nor the benchmark ever madvises, so all of it runs on 4 KB pages.
 Handing both maps an allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s: at 800,000
 entries unordered_dense goes 17.10 to 13.32 ns per hit and boost 9.75 to 7.58, both about 22%. At
-200,000 entries it is nothing. So it is free speed exactly in the regime a benchmark suite that builds
-200,000 entries cannot see, it does not change the ranking, and it belongs in an opt-in allocator
+200,000 entries it is nothing. So it is free speed exactly in the regime unordered_dense's own
+suite, whose largest table is 200,000 entries, cannot see, it does not change the ranking, and it belongs in an opt-in allocator
 rather than in the container.
 
 **Prefetching should probably be tuned per architecture and is not.** Boost tunes it and says so in
