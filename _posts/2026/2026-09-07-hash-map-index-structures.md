@@ -2658,9 +2658,19 @@ runs, and I would not defend any single one of them to better than 5%.
 
 **Anything under 10% is decided with one map per binary, and hardware counters.** A binary holding
 several maps has a code layout that moves every time any of them changes, by more than the effect
-being measured -- I have watched a same-code control read 8% slower in one run and 13% faster in the next, in a
-benchmark that never touches the map. `scripts/ab/maps_one.cpp` builds one binary per map per
-workload for that reason, and every "instructions per lookup" number in this post comes from it.
+being measured -- I have watched a same-code control read 8% slower in one run and 13% faster in the
+next, in a benchmark that never touches the map. `scripts/ab/maps_one.cpp` builds one binary per map
+per workload for that reason, and every "instructions per lookup" number in this post comes from it.
+
+**And the size of the translation unit is itself a variable, which I learned the hard way.** The
+tables above put eighteen maps in one unit; the benchmark that scores my own map is ninety files of
+test suite; a caller's is one map and their own code. Those are three different inlining budgets,
+and a function sitting near the compiler's threshold compiles differently in each -- measured on
+[one `always_inline` in this map](#compiler), the same change is 15% faster on a build in the
+ninety-file unit and 14 to 20% *slower* in the one-map unit, on 17 to 20% more instructions retired.
+So the build column of [the workload tables](#same-workloads) is not quite what a caller gets from
+any of these maps, mine included, and where a number here decides something I have taken the
+instruction count rather than the time, because a translation unit cannot move that.
 
 The clearest instance of that I have is [abseil's per-table seed](#borrowed). Paired, two
 headers in one binary, it read **6% slower on builds, 6% on random misses and 3% on random hits** --
