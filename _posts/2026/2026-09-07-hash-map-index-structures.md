@@ -1229,9 +1229,19 @@ Per operation at 200,000 entries, aligned groups against the sliding window:
 
 16% fewer branch misses on both, three to four fewer cycles -- and **more** L1 misses, because an
 unaligned sixteen byte load straddles two cache lines where an aligned one does not. In time, over
-three sizes and three runs: hits 1 to 5% faster, misses 13% faster at 200,000 and 4% at a million.
-So the window is worth more than the placement simulation above implied, and for a reason that
-simulation could not see.
+three sizes and three runs: hits 1 to 5% faster, and a miss 13% faster at 200,000 entries.
+
+**The miss number is against the wrong baseline, though, and it is worth saying so rather than
+banking it.** Neither variant has overflow counters, because there is no group in the ungrouped one
+to hang them on -- so both stop a miss on an *empty slot*, and the grouped variant is
+[the group index](#group-index) with the counters taken out, which is precisely the path they exist
+for. Windows visited per miss: at 200,000 entries and load 0.76, **1.2962 grouped against 1.2246
+window**; at a million and load 0.48, 1.0060 against 1.0027. The shipped index visits **1.046** on a
+fresh miss at any load, because a counter stops it at home. So the 13% is the window leaving the
+first window slightly less often *when the miss test is an empty slot*, and where a miss already
+stops at home it evaporates -- at a million entries the window is 2% *slower* on a miss. The hit
+advantage is the robust one: 1 to 5%, and still 7% at a million where both variants visit 1.000
+windows, so that part is addressing and instructions rather than probe length.
 
 **And it loses churn, for a reason worth having.** At a million entries the window variant ends a
 churn run with **4,194,304 slots against 2,097,152** -- one extra doubling -- and 24% slower churn.
@@ -1253,6 +1263,15 @@ miss at one size does not buy all of that.
 What I am keeping is the mechanism, because it is the part I did not know: an aligned group's lane 0
 is probed first by all sixteen of its homes, and that single fact is worth 16% of the branch misses
 in one direction and half the tombstone recycling in the other.
+
+**And none of this explains why `flat_wmap` is fast**, which is worth being clear about because the
+prototype invites the conclusion that it should. Both of its variants are dense -- a value index
+between the metadata and the key -- and carry the same metadata width, on purpose, so that the
+window is the only thing varying. `flat_wmap` is *flat*, with the key in the slot the window found,
+and it carries **one** metadata byte per slot where this map carries 5.5 and its own grouped sibling
+carries two. Those are the differences [the counters](#counters) already attribute it to: 48.0
+instructions per hit against `flat_umap`'s 54.3 and unordered_dense's 60.5. The window is the
+smallest of the three, and it is the only one this map could have taken.
 
 # 11. The group index: unordered_dense 5.0 [&#8593; contents](#contents){:.up} {#group-index}
 
