@@ -2370,8 +2370,22 @@ net of the loop:
 
 Forcing the inline takes the miss path to 100 instructions and 32 cycles and raises `operator[]` on
 a *present* key from 74 to 88, because the merged function pays the placement code's register
-pressure on the path that never places. Net 1.2% faster on the geometric mean, every interval excluding parity, so it is
-applied -- with the trade written above the attribute so it can be reversed knowingly.
+pressure on the path that never places. Paired on the benchmark suite that came out 1.2% faster with
+every interval excluding parity, so the attribute went in.
+
+**And then it came out again, which is the sharpest thing I have measured about measuring.** The
+paired harness compiles the baseline header and the candidate into *one translation unit* -- and
+that is exactly the condition under which a compiler runs out of inlining budget, so making one
+header smaller changes what gets inlined in **both** and the ratio reports that instead of the
+change. It cannot see this class of change at all, and it gets the sign wrong. Re-measured with one
+header per binary, which is what a caller's build actually looks like, three rounds each and 0.1%
+spread: the suite is **1.7% faster under clang and 3.9% faster under gcc without the attribute**,
+where the paired run had it 2.1% faster *with* it under clang, on a clean control. The counters say
+the same: on a reserved insert the attribute takes clang from 106.8 instructions and 27.2 cycles to
+97.8 and **31.3** -- fewer instructions, more cycles -- and gcc from 68.9 and 23.9 to 124.9 and
+38.0, and it takes a `try_emplace` on a key that is already there from 48.4 instructions to 73.2. So
+it was never the no-op for gcc I had written down. It is not in the header any more, and the rule it
+leaves is [in chapter 20](#how-measured), with the other instance of it.
 
 ## The hash it is given
 
@@ -2409,6 +2423,15 @@ counter load on the path, and slot addressing instead of group-and-lane arithmet
 instructions on a path that retires two per cycle is four or five cycles, which is 15% of a hit in
 cache. I went looking for the answer in the probe *sequence* and in the window *alignment* and both
 were dead ends; the answer, if there is one, is in the instruction stream.
+
+**It is not inlining**, which is the first guess and the one thing here that has been measured
+twice: force-inlining the lookup moves cycles and leaves the instruction count exactly where it was,
+both on the string path in the bullet above and on an insert. What is left is the register
+allocator. On identical source clang executes 106.8 instructions per reserved insert where gcc
+executes 68.9, and 142 against 110 on a string miss, because clang spills the probe's loop state at
+function entry where gcc sinks the same spills into the fingerprint-match branch that a miss never
+takes. That is the same order as the twelve, and the cheap experiment -- both maps under gcc, one
+per binary -- is one I have not run.
 
 **Huge pages are worth 22% of a large lookup and nothing asks for them.** At 800,000 entries and all
 hits, unordered_dense 5.0 takes 1.48 dTLB misses and 7.03 L1 misses per lookup against boost's 0.89 and
