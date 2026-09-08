@@ -198,9 +198,10 @@ are only the parts particular to that design.
     * [String keys](#string-keys)
     * [A 64 byte mapped value](#big-value)
     * [Memory](#memory)
+15. [Where the time actually goes](#where-the-time-goes)
     * [Counters](#counters)
     * [The probe loops, in assembly](#probe-assembly)
-15. [Three ways to be fast](#three-ways)
+    * [Three ways to be fast](#three-ways)
 16. [Question by question](#question-by-question)
     * [Which one, then](#which-one)
 
@@ -1515,7 +1516,7 @@ free fingerprint. Short chains, because a chain holds only keys that share a hom
 
 Pays for: **branches**. Every step of the loop is a data-dependent branch, and so is "is there a
 chain at all". That is fine when the answer is nearly always no, and it is the reason emhash8's
-misses are its weakest column in [the measurements](#same-workloads) -- a miss has to reach the end of the
+misses are its weakest column in [the measurements](#same-workloads), and [the counters](#counters) say why -- a miss has to reach the end of the
 chain, and whether there is one is exactly the unpredictable question. And the eviction machinery
 means an insert can move an existing key, which the group designs never do.
 
@@ -1554,7 +1555,7 @@ an approximate counter gets wrong is mostly keys that really do belong to the gr
 and an exact test has to follow those too.
 
 **What it costs is branches, and that is the whole result.** One map per binary, 30M lookups at
-50,000 entries, from the counter table in [the measurements](#same-workloads):
+50,000 entries, from [the counter table](#counters):
 
 *Per miss at 50,000 entries, lower is better; bold is the best in each column.*
 
@@ -2639,6 +2640,14 @@ one dead element for every live one until it rebuilds. That is a design choice r
 bin-splitting test that compares a table-wide count against a per-bin size, and the memory does not
 stop growing at all.
 
+# 15. Where the time actually goes [&#8593; contents](#contents){:.up} {#where-the-time-goes}
+
+The tables above are ratios, and a ratio can only tell you which map was quicker. These are the
+counters underneath them -- instructions, cycles, branch misses, cache lines -- one map per binary
+so that nothing in the measurement depends on what else was compiled beside it, and then the three
+instructions that separate the three answers to "absent?", read out of the binaries. It is the same
+field as the chapter before, asked why instead of how much.
+
 ## Counters {#counters}
 
 Times are ratios; counters are not. One map per binary, `perf stat`, 30 million lookups on a table
@@ -2799,10 +2808,10 @@ And **the match walk is the same three instructions everywhere** -- `tzcnt`, use
 `lea`/`and` to clear it -- which is worth noticing because it is the part everyone gets right. All
 the design difference is in the two instructions before and after it.
 
-# 15. Three ways to be fast [&#8593; contents](#contents){:.up} {#three-ways}
+## Three ways to be fast {#three-ways}
 
-Put the counters of [the measurements](#same-workloads) beside their times and the field sorts into
-three strategies, none of which dominates.
+Put those counters beside the times from [the chapter before](#same-workloads) and the field sorts
+into three strategies, none of which dominates.
 
 **Fewest instructions.** Verstable, and emhash8 close behind. A chain visits only keys that belong
 to this bucket, so in principle nothing is wasted -- and it loses, because every step is a branch.
