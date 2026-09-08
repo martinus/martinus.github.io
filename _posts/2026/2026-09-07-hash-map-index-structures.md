@@ -56,7 +56,11 @@ share-img: /img/2026/hashmap-index/share.png
 /* The markdown tables get the same tinting the generated grids carry as classes: distance from a
    reference, four steps, blue nearer / amber further. `.heat-par` measures every cell against 1.00,
    which is parity with unordered_dense; `.heat-low` measures each column against its own best value,
-   so the leanest cell is untinted and the rest deepen away from it. `data-invert` names the columns
+   so the leanest cell is untinted and the rest deepen away from it; `.heat-row` does the same along a
+   row instead, for tables whose rows are conditions and whose columns are the alternatives being
+   compared. Getting that axis wrong is worse than no colour at all: a column holding a build time, a
+   churn time and a byte count has no common scale, and tinting it claims there is one.
+   `data-invert` names the columns
    where larger is better (IPC). A row whose only filled cell is its label starts a new section, so
    the two halves of the counter table are scaled separately rather than against each other -- hits
    and misses are not comparable quantities and tinting them on one scale would say they were.
@@ -77,8 +81,9 @@ share-img: /img/2026/hashmap-index/share.png
   var filled = function (tr) {
     return [].filter.call(tr.children, function (c) { return c.textContent.trim() !== ''; }).length;
   };
-  [].forEach.call(document.querySelectorAll('table.heat-par, table.heat-low'), function (t) {
+  [].forEach.call(document.querySelectorAll('table.heat-par, table.heat-low, table.heat-row'), function (t) {
     var par = t.classList.contains('heat-par');
+    var byRow = t.classList.contains('heat-row');
     var inv = (t.getAttribute('data-invert') || '').split(',').map(function (s) { return s.trim(); });
     var head = [].map.call(t.querySelectorAll('thead th'), function (th) { return th.textContent.trim(); });
     var sections = [[]];
@@ -86,6 +91,24 @@ share-img: /img/2026/hashmap-index/share.png
       if (filled(tr) <= 1 && sections[sections.length - 1].length) { sections.push([]); }
       if (filled(tr) > 1) { sections[sections.length - 1].push(tr); }
     });
+    var paint = function (cells, vals, ref) {
+      cells.forEach(function (td, i) {
+        var d = Math.abs(Math.log(vals[i] / ref) / Math.LN2), b = -1;
+        if (d >= EDGE[0]) { b = 3; for (var k = 1; k < EDGE.length; k++) { if (d < EDGE[k]) { b = k - 1; break; } } }
+        if (b >= 0) { td.className = (par && vals[i] < 1 ? FAST : SLOW)[b]; }
+      });
+    };
+    if (byRow) {
+      [].forEach.call(t.querySelectorAll('tbody tr'), function (tr) {
+        var cells = [], vals = [];
+        for (var c = 1; c < tr.children.length; c++) {
+          var v = num(tr.children[c]);
+          if (v !== null && v > 0) { cells.push(tr.children[c]); vals.push(v); }
+        }
+        if (vals.length >= 2) { paint(cells, vals, Math.min.apply(null, vals)); }
+      });
+      return;
+    }
     sections.forEach(function (rows) {
       if (rows.length < 2) { return; }
       var cols = Math.max.apply(null, rows.map(function (r) { return r.children.length; }));
@@ -100,11 +123,7 @@ share-img: /img/2026/hashmap-index/share.png
         if (vals.length < 2) { continue; }
         var ref = par ? 1 : (inv.indexOf(head[c]) >= 0 ? Math.max.apply(null, vals)
                                                        : Math.min.apply(null, vals));
-        cells.forEach(function (td, i) {
-          var d = Math.abs(Math.log(vals[i] / ref) / Math.LN2), b = -1;
-          if (d >= EDGE[0]) { b = 3; for (var k = 1; k < EDGE.length; k++) { if (d < EDGE[k]) { b = k - 1; break; } } }
-          if (b >= 0) { td.className = (par && vals[i] < 1 ? FAST : SLOW)[b]; }
-        });
+        paint(cells, vals, ref);
       }
     });
   });
@@ -179,7 +198,8 @@ are only the parts particular to that design.
     * [Layout: one byte per slot, and a window rather than a group](#wmap-layout)
     * [One lookup](#wmap-lookup)
     * [Why it is faster, and it is not the window](#wmap-why)
-    * [What it would take to steal this](#wmap-steal)
+    * [Both layouts, built](#wmap-built)
+    * [What it would cost the group index](#wmap-steal)
 11. [The group index: unordered_dense 5.0](#group-index)
     * [Eight counters, by fingerprint class](#counters-by-class)
     * [The miss bound](#miss-bound)
@@ -1077,8 +1097,8 @@ the groups themselves -- and is faster on every lookup than this one. That is th
 The fastest map in this post on an integer hit is not a SwissTable, does not group its slots, and is
 by the same author as the one in the chapter before. `indivi::flat_wmap` is `flat_umap`'s sibling --
 same repository, same file structure, same SSE2 -- with the groups taken out, and it beats it by
-1.13 to 1.42x on lookups. It is the largest single index effect I found in anyone else's code, so it
-gets its own chapter, and the answer to *why* is not the one the design advertises.
+1.13 to 1.42x on lookups. That is the largest single index effect I found in anyone else's code, and
+the answer to *why* is not the one the design advertises.
 
 ## Layout: one byte per slot, and a window rather than a group {#wmap-layout}
 
@@ -1139,10 +1159,13 @@ first ended rather than at the next aligned group.
 
 Placement is the mirror of it. `unchecked_insert` takes `match_available` on the same unaligned
 window and puts the key in the **first free slot within sixteen of its home**, where a grouped map
-must take the first free slot in the one group its home falls in. That is the difference the design
-is *for*, and it is measurable, and it turns out not to be where the speed comes from.
+must take the first free slot in the one group its home falls in. That is the difference the design exists
+for. It is measurable, and it is not where the speed comes from.
 
 ## Why it is faster, and it is not the window {#wmap-why}
+
+The two siblings are the cleanest comparison available in someone else's code: one author, one
+repository, one set of intrinsics, and the groups present in one and absent in the other.
 
 *Time relative to unordered_dense 5.0, lower is faster; bold is the better of the two.*
 
@@ -1152,9 +1175,8 @@ is *for*, and it is measurable, and it turns out not to be where the speed comes
 | `flat_wmap`, ungrouped | **0.71** | **0.83** | 1.86 | 0.93 |
 {: .heat-par}
 
-The ungrouped window is **1.13 to 1.42x faster on lookups** across the three octaves and
-consistently slower on builds. That is the biggest single index effect I found in anyone else's map,
-so it is worth knowing what causes it -- and the obvious answer is wrong.
+Faster on every lookup column and slower on every column that writes. The obvious explanation is
+the wrong one.
 
 **The window is not it.** The intuitive story is that slot-level placement gives a shorter
 displacement distribution: a key takes the first free slot within sixteen of its home, where a
@@ -1162,14 +1184,13 @@ grouped map takes the first free slot in the group of sixteen its home falls in,
 completely full is likelier than *no* free slot existing in a sliding window. That is true, and it is
 worth almost nothing. Simulated with the same keys at the same load, windows visited per placement:
 
-*Sixteen-slot windows visited per placement, lower is better; bold is the better of the two.*
+*Sixteen-slot windows visited per placement, lower is better; bold is the better of the two. No tint: every difference here is under 5%, which is the finding.*
 
 | load | bucketized | sliding |
 |---|---|---|
 | 0.760 | 1.0318 | **1.0238** |
 | 0.790 | 1.0436 | **1.0352** |
 | 0.799 | 1.0481 | **1.0396** |
-{: .heat-low}
 
 Slot-level placement removes about a fifth of an excess that is already under 5%. For calibration,
 that is a quarter of what moving displaced entries home is worth in
@@ -1178,14 +1199,15 @@ that is a quarter of what moving displaced entries home is worth in
 **What causes it is instructions and metadata width.** One map per binary, all-hit lookups, the
 grouped sibling against the ungrouped one:
 
-*Per hit, lower is better; bold is the better of each pair.*
+*Per hit, one map per binary, lower is better; bold is the better of each pair. No tint: a row here
+holds two instruction counts and two cache-miss counts, and a column holds three table sizes, so
+neither axis is a common scale.*
 
 | entries | `flat_umap` instructions | `flat_wmap` | `flat_umap` L1 misses | `flat_wmap` |
 |---|---|---|---|---|
 | 1,000 | 53.3 | **47.3** | 0.876 | **0.378** |
 | 50,000 | 54.6 | **48.3** | 3.744 | **3.297** |
 | 1,000,000 | 72.6 | **64.4** | 4.733 | **3.856** |
-{: .heat-low}
 
 Six fewer instructions per hit at every size, and fewer cache lines touched **even at a thousand
 entries, where the whole map is in L1** -- so it is not a footprint effect that shows up only when
@@ -1206,7 +1228,7 @@ octave a hit swings 2.12x between the cheapest and dearest point of the octave, 
 designs swing 1.5 to 1.6x, so a number quoted for it at one size is worth less than for anything
 else here.
 
-## What it would take to steal this {#wmap-steal}
+## Both layouts, built {#wmap-built}
 
 The measurements above compare two people's maps, which cannot separate the window from everything
 else that differs between them. So I built both layouts over one implementation -- same value
@@ -1221,10 +1243,12 @@ Per operation at 200,000 entries, aligned groups against the sliding window:
 
 |  | instructions | cycles | branch misses | L1 misses |
 |---|---|---|---|---|
-| hit, aligned groups | 71.9 | 56.8 | 0.198 | **4.615** |
-| hit, sliding window | **70.5** | **53.6** | **0.167** | 4.852 |
-| miss, aligned groups | 70.1 | 47.9 | 0.518 | **2.810** |
-| miss, sliding window | **67.4** | **44.0** | **0.436** | 3.018 |
+| **on a hit** |  |  |  |  |
+| aligned groups | 71.9 | 56.8 | 0.198 | **4.615** |
+| sliding window | **70.5** | **53.6** | **0.167** | 4.852 |
+| **on a miss** |  |  |  |  |
+| aligned groups | 70.1 | 47.9 | 0.518 | **2.810** |
+| sliding window | **67.4** | **44.0** | **0.436** | 3.018 |
 {: .heat-low}
 
 16% fewer branch misses on both, three to four fewer cycles -- and **more** L1 misses, because an
@@ -1252,7 +1276,9 @@ that group's homes probe first, so it is tombstoned and reused constantly, where
 lane is different for every home and is more often a slot that has never been used. Burning fresh
 slots is what drives a load factor counting live plus tombstones, so it buys an extra growth.
 
-**And a dense map built on this structure, measured against the shipped one.** Variant 1 above
+## What it would cost the group index {#wmap-steal}
+
+**First, a dense map built on this structure against the shipped one.** Variant 1 above
 already is that map -- a sliding window, one metadata byte per slot, a `uint32` index in front of a
 dense value vector -- so I added a third variant that is `ankerl::unordered_dense` itself behind the
 same interface, running the identical workload code. It reproduces the production harness to within
@@ -1267,7 +1293,7 @@ same interface, running the identical workload code. It reproduces the productio
 | miss, 200,000 | 7.76 | 6.65 | **4.72** |
 | churn, 1M | 65.71 | 83.87 | **62.01** |
 | bytes per entry, 1M | 27.26 | **27.26** | 28.31 |
-{: .heat-low}
+{: .heat-row}
 
 **Read the third column as a prototype against a tuned library, not as a design comparison.** The
 build gap is 83 to 143% and almost none of it is the index -- the shipped map hashes sixteen
@@ -1275,15 +1301,14 @@ elements ahead when it grows and the prototype rebuilds one at a time -- and the
 merged block and the prefetches. The design question is the first column against the second, same
 author and same afternoon, and that is the comparison this section is built on.
 
-That is the answer to whether [the group index](#group-index) should adopt it, and the chain is what
-makes it no. A sliding window means no per-group counters, because there is no group to hang them
+**And the answer is no, with the chain that makes it no.** A sliding window means no per-group counters, because there is no group to hang them
 on; no counters means the miss stops on an empty slot; and that means tombstones -- which is the
 property [churn](#same-workloads) exists to protect. It also means giving up the merged 88 byte
 block, worth 7% of a lookup's instructions and 28% of its dTLB misses at four million entries, since
 sixteen fingerprints starting at an arbitrary slot are not contiguous in it. Thirteen percent of a
 miss at one size does not buy all of that.
 
-**The mechanism is the part worth keeping, and it is testable on its own.** The claim was that `ctz`
+**One thing is worth keeping whatever happens to the layout, and it is testable on its own.** The claim was that `ctz`
 takes the lowest free lane -- which for a window is the home slot, different for every key, and for
 an aligned group is lane 0, shared by all sixteen of that group's homes. So transplant exactly that
 one property: give the *grouped* variant a per-key starting lane from bits 8 to 11 of the hash,
@@ -1295,10 +1320,10 @@ starting lane changed.*
 
 |  | grouped | grouped, per-key start lane | sliding window |
 |---|---|---|---|
-| tombstones recycled | **33.8%** | 16.3% | 15.8% |
+| tombstones recycled, % | **33.8** | 16.3 | 15.8 |
 | slots after the run | **2,097,152** | 4,194,304 | 4,194,304 |
-| churn | **67.2 ns** | 87.5 ns | 83.9 ns |
-{: .heat-low}
+| churn, ns per operation | **67.2** | 87.5 | 83.9 |
+{: .heat-row}
 
 One property moved and the whole behaviour moved with it, onto the window's numbers. **And the
 direction is the opposite of the intuition:** spreading the preferred lane does not relieve
@@ -1500,7 +1525,7 @@ freshly built one with the same contents. Groups visited per lookup, counted ins
 reserved table churned 200 times through -- erasing a uniformly random live key and inserting one
 the map has never held, at a constant size:
 
-*Groups visited per lookup, lower is better; bold is the best in each row.*
+*Groups visited per lookup, lower is better; bold is the best in each row. No tint: the whole table spans 11%, and a scale that fine says more than the measurement does.*
 
 |  | fresh | churned | + one writing hit per round | + four |
 |---|---|---|---|---|
@@ -1510,7 +1535,6 @@ the map has never held, at a constant size:
 | **per miss** |  |  |  |  |
 | load 0.760 | 1.052 | 1.061 | 1.036 | **1.025** |
 | load 0.799 | 1.086 | 1.122 | 1.081 | **1.052** |
-{: .heat-low}
 
 The drift is real, it saturates rather than growing (5, 20, 100 and 400 turnovers give 1.039, 1.036,
 1.035 and 1.035 per hit at load 0.76), and it is worth about 0.036 groups on a miss at the fullest
@@ -3183,7 +3207,7 @@ design asks the obvious question: is one enough? It is measurable, and so are th
 off the shipped design. Every division of a group's eight counter bytes was built, on a table at
 load 0.76 after 200 turnovers:
 
-*Groups visited per miss, the share of misses that leave home, and time on the suite relative to the shipped design: lower is better throughout, bold is the best in each column. The churned column here is the older instrumentation, the one whose absolute figures [the drift section](#drift) retracts -- it reads 1.26 groups where the instrument used everywhere else reads 1.06. The four rows are measured against each other on one instrument and are comparable to each other; do not read them against a number from another section.*
+*Groups visited per miss, the share of misses that leave home, and time on the suite relative to the shipped design: lower is better throughout, bold is the best in each column. No tint: two of these cells are words rather than numbers, and a column half coloured and half not says less than none. The churned column here is the older instrumentation, the one whose absolute figures [the drift section](#drift) retracts -- it reads 1.26 groups where the instrument used everywhere else reads 1.06. The four rows are measured against each other on one instrument and are comparable to each other; do not read them against a number from another section.*
 
 | counters per group | fresh miss | churned miss | misses continuing past home | time on the suite |
 |---|---|---|---|---|
@@ -3191,7 +3215,6 @@ load 0.76 after 200 turnovers:
 | 8, one byte each | 1.06 | 1.26 | 17.5% | **1.000** |
 | 16 nibbles | 1.03 | **1.13** | **9.7%** | 1.014 |
 | 32 two-bit | **1.02** | 1.15 and rising | rising | 1.012 |
-{: .heat-low}
 
 A shared counter does not know the fingerprint class, so *any* overflow past a group makes every
 later miss into it carry on -- and in a churned table most groups have seen an overflow, so 60% of
