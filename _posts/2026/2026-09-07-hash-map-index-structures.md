@@ -1217,13 +1217,13 @@ into a no-op beside it, a table at load 0.80 churned through and then timed on i
 is the row that matters**: with no writing lookups `move_home` never fires, so the two binaries have
 to measure the same, and whatever they differ by there is code layout to be subtracted.
 
-*Speed with `move_home` relative to without it, positive is faster. The control column has to read zero, and what it reads instead is code layout to be subtracted. Bold is the best in each row.*
+*Time with `move_home` relative to time without it, lower is faster -- the same convention as every other ratio in this post. The control column has to read 1.00, and what it reads instead is code layout to be subtracted. Bold is the best in each row.*
 
 | entries | control, no writing hits | with one writing hit per round | on hits | on the churn round |
 |---|---|---|---|---|
-| 52,363 (in L2) | -4.9% | **+10.7%** | +4.1% | +1.2% |
-| 838,860 (L3) | -0.2% | **+10.1%** | +0.3% | -- |
-| 3,355,443 (past L3) | -0.3% | **+9.9%** | -0.9% | -- |
+| 52,363 (in L2) | 1.052 | **0.903** | 0.961 | 0.988 |
+| 838,860 (L3) | 1.002 | **0.908** | 0.997 | -- |
+| 3,355,443 (past L3) | 1.003 | **0.910** | 1.009 | -- |
 
 So: **about a tenth of a miss, at every size**, nothing on a hit, and nothing paid on the writing
 path that earns it. I expected it to fade out of cache -- one step of displacement lands in the
@@ -1244,8 +1244,9 @@ shape of anything in my benchmark suite, which is why the suite reads exactly le
 and always will.
 
 The first measurement of it said 1.49x on misses and was wrong -- a paired run of two headers in one
-binary, where the code layout of the losing side moved. Note that the control column above reads -4.9%
-at 52,363 entries, which is that same effect, still there, measured rather than guessed at. The rule
+binary, where the code layout of the losing side moved. Note that the control column above reads
+1.052 at 52,363 entries where it has to read 1.00, which is that same effect, still there, measured
+rather than guessed at. The rule
 it leaves is in [how the numbers were made](#how-measured).
 
 ## Where the indices live: one array or two {#one-array-or-two}
