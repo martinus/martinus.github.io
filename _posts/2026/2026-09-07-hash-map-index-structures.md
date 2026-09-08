@@ -2,6 +2,8 @@
 layout: post
 title: The Index Structures of Fast C++ Hash Maps
 subtitle: "What SwissTable, Boost, F14, emhash8, emilib, indivi, Verstable, ihtab and unordered_dense put in front of their keys: every design read from its source, drawn to one scale, and measured on one machine"
+cover-img: /img/2026/hashmap-index/cover.png
+share-img: /img/2026/hashmap-index/share.png
 ---
 
 <style>
