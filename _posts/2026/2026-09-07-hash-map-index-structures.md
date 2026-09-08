@@ -3179,7 +3179,7 @@ theirs.
 each row measured paired against the same header with that one change taken out. Where a number
 needs more than a row, it is below.
 
-**Read the small rows with the caveat this post spends [chapter 20](#how-measured) earning.** A
+**Read the small rows with the caveat this post spends [its last chapter](#how-measured) earning.** A
 paired harness cannot resolve a few percent, and six of these rows are a few percent. Most of them
 do not rest on it: the terminating probe is settled by instruction counts, the seed and double
 hashing by one map per binary, the counter widths and the exact in-home test by probe lengths
