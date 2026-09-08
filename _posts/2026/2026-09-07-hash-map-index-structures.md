@@ -9,6 +9,27 @@ subtitle: "What SwissTable, Boost, F14, emhash8, emilib, indivi, Verstable and u
    instead of being clipped. */
 .blog-post table { display: block; width: fit-content; max-width: 100%; overflow-x: auto; }
 
+/* The workload grids tint each cell by how far it is from parity: a diverging ramp, four steps
+   either side, blue where a map beats unordered_dense and amber where it does not. Every tint is
+   light enough that the ink on top stays at 7.4:1 or better -- that constraint is what decides how
+   dark the ramp may get -- and blue against amber is the pair that survives every kind of colour
+   blindness, separating by 25 to 130 units under deuteranopia, protanopia and tritanopia alike.
+   Lightness carries the magnitude, hue the direction, and the number is in the cell, so nothing is
+   encoded by colour alone. */
+.blog-post table.grid { border-collapse: separate; border-spacing: 2px; }
+.blog-post table.grid th { font-weight: 400; padding: 3px 9px; white-space: nowrap; }
+.blog-post table.grid thead th { font-weight: 600; }
+.blog-post table.grid td { text-align: right; font-variant-numeric: tabular-nums; padding: 3px 9px; }
+.blog-post table.grid td.na { color: #6b7280; }
+.blog-post table.grid .f1 { background: #e8f1fd; }
+.blog-post table.grid .f2 { background: #cfe3fb; }
+.blog-post table.grid .f3 { background: #aed1f7; }
+.blog-post table.grid .f4 { background: #8bbdf2; }
+.blog-post table.grid .s1 { background: #fdf0e3; }
+.blog-post table.grid .s2 { background: #fbdfc2; }
+.blog-post table.grid .s3 { background: #f7c99b; }
+.blog-post table.grid .s4 { background: #f2b273; }
+
 /* Every chapter heading carries a link back to the contents. Floated, so it sits at the right
    of the heading's first line and a long title neither wraps around it nor is pushed by it;
    0.85rem in the muted ink rather than a shrunken h1, and #4b5563 is 7.6:1 on the page. */
@@ -1666,28 +1687,183 @@ held; and **insert/erase**, a mix of `operator[]` and `erase` on a table that gr
 `map<uint64_t, size_t>`, octave from 32,000 entries -- so the index is comfortably in L2 and the
 values in L3, which is where most maps in most programs live:
 
-*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column. The tint says the same thing again -- blue where a map beats unordered_dense, amber where it does not, deeper the further from parity -- so the colour is never carrying anything the number does not.*
 
-| map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
-|---|---|---|---|---|---|---|---|
-| unordered_dense 5.0 | **1.00** | 1.00 | 1.00 | 1.00 | **1.00** | 1.00 | 1.00 |
-| unordered_dense 4.11 | 2.32 | 1.52 | 1.57 | 1.42 | 1.04 | 1.46 | 1.38 |
-| boost flat | 1.66 | 0.79 | **0.83** | 0.87 | 12.52 | 0.76 | 0.87 |
-| boost flat, own hash | 1.68 | 0.80 | **0.83** | 0.87 | 10.67 | 0.75 | 0.89 |
-| absl flat | 1.61 | 0.73 | 1.38 | 0.99 | 13.68 | 1.19 | 1.23 |
-| absl flat, own hash | 1.12 | 0.76 | 1.43 | 0.94 | 14.68 | 1.19 | 1.23 |
-| F14Value | 1.69 | 0.91 | 1.47 | 1.08 | 8.65 | 1.22 | 1.27 |
-| F14Vector | 1.76 | 1.06 | 1.10 | 1.06 | 1.56 | 1.34 | 1.36 |
-| emhash8 | 2.87 | 1.19 | 2.13 | 1.50 | 1.07 | 1.22 | 1.23 |
-| emilib | 1.89 | 1.09 | 1.13 | 1.11 | 6.15 | 0.94 | 1.08 |
-| indivi flat_umap | 1.62 | 0.82 | 0.97 | 0.89 | 6.25 | **0.69** | **0.86** |
-| indivi flat_wmap | 1.86 | **0.71** | **0.83** | **0.82** | 9.68 | 0.93 | 0.94 |
-| Verstable | 3.12 | 1.07 | 2.10 | 1.36 | 11.64 | 1.10 | 1.13 |
-| ihtab | 1.08 | 0.99 | 1.08 | 1.03 | 7.32 | 1.13 | 1.11 |
-| std::unordered_map | 5.54 | 1.91 | 3.97 | 2.23 | 34.16 | 2.08 | 2.08 |
-| boost node | 4.45 | 1.15 | 0.86 | 1.14 | 14.28 | 1.35 | 1.39 |
-| absl node | 3.95 | 1.06 | 1.38 | 1.12 | 15.54 | 1.90 | 1.68 |
-| F14Node | 4.15 | 1.14 | 1.33 | 1.22 | 12.47 | 2.06 | 1.84 |
+<table class="grid">
+<thead><tr><th scope="col">map</th>
+<th scope="col">build</th>
+<th scope="col">hit</th>
+<th scope="col">miss</th>
+<th scope="col">50% hits</th>
+<th scope="col">iterate</th>
+<th scope="col">churn</th>
+<th scope="col">insert/erase</th>
+</tr></thead>
+<tbody>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
+</tr>
+<tr><th scope="row">unordered_dense 4.11</th>
+<td class="s4">2.32</td>
+<td class="s3">1.52</td>
+<td class="s3">1.57</td>
+<td class="s3">1.42</td>
+<td>1.04</td>
+<td class="s3">1.46</td>
+<td class="s2">1.38</td>
+</tr>
+<tr><th scope="row">boost flat</th>
+<td class="s3">1.66</td>
+<td class="f2">0.79</td>
+<td class="f2"><b>0.83</b></td>
+<td class="f1">0.87</td>
+<td class="s4">12.52</td>
+<td class="f2">0.76</td>
+<td class="f1">0.87</td>
+</tr>
+<tr><th scope="row">boost flat, own hash</th>
+<td class="s3">1.68</td>
+<td class="f2">0.80</td>
+<td class="f2">0.83</td>
+<td class="f1">0.87</td>
+<td class="s4">10.67</td>
+<td class="f2">0.75</td>
+<td class="f1">0.89</td>
+</tr>
+<tr><th scope="row">absl flat</th>
+<td class="s3">1.61</td>
+<td class="f2">0.73</td>
+<td class="s2">1.38</td>
+<td>0.99</td>
+<td class="s4">13.68</td>
+<td class="s2">1.19</td>
+<td class="s2">1.23</td>
+</tr>
+<tr><th scope="row">absl flat, own hash</th>
+<td class="s1">1.12</td>
+<td class="f2">0.76</td>
+<td class="s3">1.43</td>
+<td class="f1">0.94</td>
+<td class="s4">14.68</td>
+<td class="s2">1.19</td>
+<td class="s2">1.23</td>
+</tr>
+<tr><th scope="row">F14Value</th>
+<td class="s3">1.69</td>
+<td class="f1">0.91</td>
+<td class="s3">1.47</td>
+<td class="s1">1.08</td>
+<td class="s4">8.65</td>
+<td class="s2">1.22</td>
+<td class="s2">1.27</td>
+</tr>
+<tr><th scope="row">F14Vector</th>
+<td class="s3">1.76</td>
+<td class="s1">1.06</td>
+<td class="s1">1.10</td>
+<td class="s1">1.06</td>
+<td class="s3">1.56</td>
+<td class="s2">1.34</td>
+<td class="s2">1.36</td>
+</tr>
+<tr><th scope="row">emhash8</th>
+<td class="s4">2.87</td>
+<td class="s2">1.19</td>
+<td class="s4">2.13</td>
+<td class="s3">1.50</td>
+<td class="s1">1.07</td>
+<td class="s2">1.22</td>
+<td class="s2">1.23</td>
+</tr>
+<tr><th scope="row">emilib</th>
+<td class="s3">1.89</td>
+<td class="s1">1.09</td>
+<td class="s1">1.13</td>
+<td class="s1">1.11</td>
+<td class="s4">6.15</td>
+<td class="f1">0.94</td>
+<td class="s1">1.08</td>
+</tr>
+<tr><th scope="row">indivi flat_umap</th>
+<td class="s3">1.62</td>
+<td class="f2">0.82</td>
+<td>0.97</td>
+<td class="f1">0.89</td>
+<td class="s4">6.25</td>
+<td class="f3"><b>0.69</b></td>
+<td class="f1"><b>0.86</b></td>
+</tr>
+<tr><th scope="row">indivi flat_wmap</th>
+<td class="s3">1.86</td>
+<td class="f2"><b>0.71</b></td>
+<td class="f2">0.83</td>
+<td class="f2"><b>0.82</b></td>
+<td class="s4">9.68</td>
+<td class="f1">0.93</td>
+<td class="f1">0.94</td>
+</tr>
+<tr><th scope="row">Verstable</th>
+<td class="s4">3.12</td>
+<td class="s1">1.07</td>
+<td class="s4">2.10</td>
+<td class="s2">1.36</td>
+<td class="s4">11.64</td>
+<td class="s1">1.10</td>
+<td class="s1">1.13</td>
+</tr>
+<tr><th scope="row">ihtab</th>
+<td class="s1">1.08</td>
+<td>0.99</td>
+<td class="s1">1.08</td>
+<td>1.03</td>
+<td class="s4">7.32</td>
+<td class="s1">1.13</td>
+<td class="s1">1.11</td>
+</tr>
+<tr><th scope="row">std::unordered_map</th>
+<td class="s4">5.54</td>
+<td class="s3">1.91</td>
+<td class="s4">3.97</td>
+<td class="s4">2.23</td>
+<td class="s4">34.16</td>
+<td class="s4">2.08</td>
+<td class="s4">2.08</td>
+</tr>
+<tr><th scope="row">boost node</th>
+<td class="s4">4.45</td>
+<td class="s1">1.15</td>
+<td class="f1">0.86</td>
+<td class="s1">1.14</td>
+<td class="s4">14.28</td>
+<td class="s2">1.35</td>
+<td class="s2">1.39</td>
+</tr>
+<tr><th scope="row">absl node</th>
+<td class="s4">3.95</td>
+<td class="s1">1.06</td>
+<td class="s2">1.38</td>
+<td class="s1">1.12</td>
+<td class="s4">15.54</td>
+<td class="s3">1.90</td>
+<td class="s3">1.68</td>
+</tr>
+<tr><th scope="row">F14Node</th>
+<td class="s4">4.15</td>
+<td class="s1">1.14</td>
+<td class="s2">1.33</td>
+<td class="s2">1.22</td>
+<td class="s4">12.47</td>
+<td class="s4">2.06</td>
+<td class="s3">1.84</td>
+</tr>
+</tbody>
+</table>
 
 Read it by column and the chapters fall out of it.
 
@@ -1720,28 +1896,183 @@ it.
 
 At an octave from 500,000 entries -- the index out of L2, the values out of L3 -- the picture tilts:
 
-*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column. The tint says the same thing again -- blue where a map beats unordered_dense, amber where it does not, deeper the further from parity -- so the colour is never carrying anything the number does not.*
 
-| map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
-|---|---|---|---|---|---|---|---|
-| unordered_dense 5.0 | **1.00** | 1.00 | 1.00 | 1.00 | **1.00** | 1.00 | 1.00 |
-| unordered_dense 4.11 | 2.05 | 1.46 | 1.51 | 1.47 | **1.00** | 1.27 | 1.21 |
-| boost flat | 1.38 | 0.76 | 0.65 | 0.76 | 6.04 | **0.53** | 0.66 |
-| boost flat, own hash | 1.37 | 0.77 | 0.65 | 0.75 | 5.74 | **0.53** | 0.66 |
-| absl flat | 1.42 | 0.70 | 0.73 | 0.72 | 8.15 | 0.64 | 0.78 |
-| absl flat, own hash | 1.08 | 0.70 | 0.75 | 0.71 | 8.33 | 0.64 | 0.77 |
-| F14Value | 1.95 | 0.86 | 1.18 | 0.96 | 4.31 | 0.99 | 1.01 |
-| F14Vector | 1.93 | 1.15 | 1.09 | 1.13 | 1.02 | 1.04 | 1.11 |
-| emhash8 | 2.55 | 1.03 | 1.14 | 1.07 | **1.00** | 0.92 | 0.92 |
-| emilib | 1.61 | 1.00 | 0.74 | 0.95 | 3.52 | 0.71 | 0.77 |
-| indivi flat_umap | 1.39 | 0.81 | 0.85 | 0.83 | 3.60 | 0.55 | 0.70 |
-| indivi flat_wmap | 1.75 | **0.64** | **0.60** | **0.63** | 4.65 | 0.63 | **0.58** |
-| Verstable | 2.59 | 0.74 | 0.92 | 0.78 | 5.37 | 0.67 | 0.69 |
-| ihtab | 1.28 | 1.00 | 1.11 | 1.05 | 2.92 | 0.70 | 0.78 |
-| std::unordered_map | 5.99 | 1.72 | 3.47 | 2.08 | 60.40 | 1.84 | 1.89 |
-| boost node | 4.83 | 1.15 | 0.80 | 1.11 | 29.51 | 0.96 | 1.12 |
-| absl node | 4.48 | 1.05 | 0.93 | 1.04 | 15.91 | 1.12 | 1.19 |
-| F14Node | 5.10 | 1.07 | 1.20 | 1.13 | 22.46 | 1.49 | 1.44 |
+<table class="grid">
+<thead><tr><th scope="col">map</th>
+<th scope="col">build</th>
+<th scope="col">hit</th>
+<th scope="col">miss</th>
+<th scope="col">50% hits</th>
+<th scope="col">iterate</th>
+<th scope="col">churn</th>
+<th scope="col">insert/erase</th>
+</tr></thead>
+<tbody>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+</tr>
+<tr><th scope="row">unordered_dense 4.11</th>
+<td class="s4">2.05</td>
+<td class="s3">1.46</td>
+<td class="s3">1.51</td>
+<td class="s3">1.47</td>
+<td><b>1.00</b></td>
+<td class="s2">1.27</td>
+<td class="s2">1.21</td>
+</tr>
+<tr><th scope="row">boost flat</th>
+<td class="s2">1.38</td>
+<td class="f2">0.76</td>
+<td class="f3">0.65</td>
+<td class="f2">0.76</td>
+<td class="s4">6.04</td>
+<td class="f3"><b>0.53</b></td>
+<td class="f3">0.66</td>
+</tr>
+<tr><th scope="row">boost flat, own hash</th>
+<td class="s2">1.37</td>
+<td class="f2">0.77</td>
+<td class="f3">0.65</td>
+<td class="f2">0.75</td>
+<td class="s4">5.74</td>
+<td class="f3">0.53</td>
+<td class="f3">0.66</td>
+</tr>
+<tr><th scope="row">absl flat</th>
+<td class="s3">1.42</td>
+<td class="f3">0.70</td>
+<td class="f2">0.73</td>
+<td class="f2">0.72</td>
+<td class="s4">8.15</td>
+<td class="f3">0.64</td>
+<td class="f2">0.78</td>
+</tr>
+<tr><th scope="row">absl flat, own hash</th>
+<td class="s1">1.08</td>
+<td class="f3">0.70</td>
+<td class="f2">0.75</td>
+<td class="f2">0.71</td>
+<td class="s4">8.33</td>
+<td class="f3">0.64</td>
+<td class="f2">0.77</td>
+</tr>
+<tr><th scope="row">F14Value</th>
+<td class="s3">1.95</td>
+<td class="f1">0.86</td>
+<td class="s2">1.18</td>
+<td>0.96</td>
+<td class="s4">4.31</td>
+<td>0.99</td>
+<td>1.01</td>
+</tr>
+<tr><th scope="row">F14Vector</th>
+<td class="s3">1.93</td>
+<td class="s1">1.15</td>
+<td class="s1">1.09</td>
+<td class="s1">1.13</td>
+<td>1.02</td>
+<td>1.04</td>
+<td class="s1">1.11</td>
+</tr>
+<tr><th scope="row">emhash8</th>
+<td class="s4">2.55</td>
+<td>1.03</td>
+<td class="s1">1.14</td>
+<td class="s1">1.07</td>
+<td>1.00</td>
+<td class="f1">0.92</td>
+<td class="f1">0.92</td>
+</tr>
+<tr><th scope="row">emilib</th>
+<td class="s3">1.61</td>
+<td>1.00</td>
+<td class="f2">0.74</td>
+<td class="f1">0.95</td>
+<td class="s4">3.52</td>
+<td class="f2">0.71</td>
+<td class="f2">0.77</td>
+</tr>
+<tr><th scope="row">indivi flat_umap</th>
+<td class="s2">1.39</td>
+<td class="f2">0.81</td>
+<td class="f2">0.85</td>
+<td class="f2">0.83</td>
+<td class="s4">3.60</td>
+<td class="f3">0.55</td>
+<td class="f3">0.70</td>
+</tr>
+<tr><th scope="row">indivi flat_wmap</th>
+<td class="s3">1.75</td>
+<td class="f3"><b>0.64</b></td>
+<td class="f3"><b>0.60</b></td>
+<td class="f3"><b>0.63</b></td>
+<td class="s4">4.65</td>
+<td class="f3">0.63</td>
+<td class="f3"><b>0.58</b></td>
+</tr>
+<tr><th scope="row">Verstable</th>
+<td class="s4">2.59</td>
+<td class="f2">0.74</td>
+<td class="f1">0.92</td>
+<td class="f2">0.78</td>
+<td class="s4">5.37</td>
+<td class="f3">0.67</td>
+<td class="f3">0.69</td>
+</tr>
+<tr><th scope="row">ihtab</th>
+<td class="s2">1.28</td>
+<td>1.00</td>
+<td class="s1">1.11</td>
+<td class="s1">1.05</td>
+<td class="s4">2.92</td>
+<td class="f3">0.70</td>
+<td class="f2">0.78</td>
+</tr>
+<tr><th scope="row">std::unordered_map</th>
+<td class="s4">5.99</td>
+<td class="s3">1.72</td>
+<td class="s4">3.47</td>
+<td class="s4">2.08</td>
+<td class="s4">60.40</td>
+<td class="s3">1.84</td>
+<td class="s3">1.89</td>
+</tr>
+<tr><th scope="row">boost node</th>
+<td class="s4">4.83</td>
+<td class="s1">1.15</td>
+<td class="f2">0.80</td>
+<td class="s1">1.11</td>
+<td class="s4">29.51</td>
+<td>0.96</td>
+<td class="s1">1.12</td>
+</tr>
+<tr><th scope="row">absl node</th>
+<td class="s4">4.48</td>
+<td>1.05</td>
+<td class="f1">0.93</td>
+<td>1.04</td>
+<td class="s4">15.91</td>
+<td class="s1">1.12</td>
+<td class="s2">1.19</td>
+</tr>
+<tr><th scope="row">F14Node</th>
+<td class="s4">5.10</td>
+<td class="s1">1.07</td>
+<td class="s2">1.20</td>
+<td class="s1">1.13</td>
+<td class="s4">22.46</td>
+<td class="s3">1.49</td>
+<td class="s3">1.44</td>
+</tr>
+</tbody>
+</table>
 
 **The dense penalty grows with the table.** boost goes from 0.79 to 0.76 on a hit and from 0.83 to
 **0.65** on a miss; abseil from 0.73 to 0.70 and from 1.38 to 0.73. That is the extra dependent load
@@ -1761,26 +2092,165 @@ worth very little.
 
 `map<std::string, size_t>`, keys 8 to 135 bytes skewed towards short, octave from 32,000:
 
-*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column. The tint says the same thing again -- blue where a map beats unordered_dense, amber where it does not, deeper the further from parity -- so the colour is never carrying anything the number does not.*
 
-| map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
-|---|---|---|---|---|---|---|---|
-| unordered_dense 5.0 | **1.00** | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| unordered_dense 4.11 | 1.21 | 1.12 | 0.97 | 1.07 | 1.01 | 1.03 | 1.05 |
-| boost flat | 1.41 | 0.87 | **0.84** | 0.88 | 4.08 | 0.87 | **0.87** |
-| boost flat, own hash | 1.60 | 1.14 | 1.25 | 1.10 | 3.86 | 0.92 | 1.00 |
-| absl flat | 1.25 | 0.92 | 0.98 | 0.88 | 5.08 | 0.93 | 0.96 |
-| absl flat, own hash | 1.24 | 0.95 | 0.99 | 0.90 | 5.31 | 0.93 | 0.96 |
-| F14Value | 1.36 | 0.98 | 0.99 | 0.95 | 3.48 | 0.93 | 1.00 |
-| F14Vector | 1.24 | 0.97 | 0.88 | 0.96 | 0.99 | 1.01 | 1.01 |
-| emhash8 | 1.73 | 0.96 | 1.12 | 0.98 | **0.96** | 1.09 | 1.10 |
-| emilib | 1.55 | 0.94 | 0.92 | 0.96 | 3.39 | 0.91 | 0.98 |
-| indivi flat_umap | 1.45 | 0.96 | 1.02 | 0.95 | 2.77 | **0.80** | 0.99 |
-| indivi flat_wmap | 1.38 | 0.89 | 0.90 | 0.90 | 3.64 | 0.95 | 0.95 |
-| std::unordered_map | 2.62 | 1.13 | 2.39 | 1.38 | 45.36 | 1.64 | 1.54 |
-| boost node | 1.90 | **0.83** | 0.89 | **0.85** | 10.42 | 1.10 | 1.02 |
-| absl node | 1.92 | 0.87 | 1.02 | **0.85** | 7.80 | 1.12 | 1.08 |
-| F14Node | 1.70 | 0.87 | 0.97 | **0.85** | 8.42 | 1.08 | 1.09 |
+<table class="grid">
+<thead><tr><th scope="col">map</th>
+<th scope="col">build</th>
+<th scope="col">hit</th>
+<th scope="col">miss</th>
+<th scope="col">50% hits</th>
+<th scope="col">iterate</th>
+<th scope="col">churn</th>
+<th scope="col">insert/erase</th>
+</tr></thead>
+<tbody>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+</tr>
+<tr><th scope="row">unordered_dense 4.11</th>
+<td class="s2">1.21</td>
+<td class="s1">1.12</td>
+<td>0.97</td>
+<td class="s1">1.07</td>
+<td>1.01</td>
+<td>1.03</td>
+<td>1.05</td>
+</tr>
+<tr><th scope="row">boost flat</th>
+<td class="s2">1.41</td>
+<td class="f1">0.87</td>
+<td class="f2"><b>0.84</b></td>
+<td class="f1">0.88</td>
+<td class="s4">4.08</td>
+<td class="f1">0.87</td>
+<td class="f1"><b>0.87</b></td>
+</tr>
+<tr><th scope="row">boost flat, own hash</th>
+<td class="s3">1.60</td>
+<td class="s1">1.14</td>
+<td class="s2">1.25</td>
+<td class="s1">1.10</td>
+<td class="s4">3.86</td>
+<td class="f1">0.92</td>
+<td>1.00</td>
+</tr>
+<tr><th scope="row">absl flat</th>
+<td class="s2">1.25</td>
+<td class="f1">0.92</td>
+<td>0.98</td>
+<td class="f1">0.88</td>
+<td class="s4">5.08</td>
+<td class="f1">0.93</td>
+<td>0.96</td>
+</tr>
+<tr><th scope="row">absl flat, own hash</th>
+<td class="s2">1.24</td>
+<td class="f1">0.95</td>
+<td>0.99</td>
+<td class="f1">0.90</td>
+<td class="s4">5.31</td>
+<td class="f1">0.93</td>
+<td>0.96</td>
+</tr>
+<tr><th scope="row">F14Value</th>
+<td class="s2">1.36</td>
+<td>0.98</td>
+<td>0.99</td>
+<td class="f1">0.95</td>
+<td class="s4">3.48</td>
+<td class="f1">0.93</td>
+<td>1.00</td>
+</tr>
+<tr><th scope="row">F14Vector</th>
+<td class="s2">1.24</td>
+<td>0.97</td>
+<td class="f1">0.88</td>
+<td>0.96</td>
+<td>0.99</td>
+<td>1.01</td>
+<td>1.01</td>
+</tr>
+<tr><th scope="row">emhash8</th>
+<td class="s3">1.73</td>
+<td>0.96</td>
+<td class="s1">1.12</td>
+<td>0.98</td>
+<td><b>0.96</b></td>
+<td class="s1">1.09</td>
+<td class="s1">1.10</td>
+</tr>
+<tr><th scope="row">emilib</th>
+<td class="s3">1.55</td>
+<td class="f1">0.94</td>
+<td class="f1">0.92</td>
+<td>0.96</td>
+<td class="s4">3.39</td>
+<td class="f1">0.91</td>
+<td>0.98</td>
+</tr>
+<tr><th scope="row">indivi flat_umap</th>
+<td class="s3">1.45</td>
+<td>0.96</td>
+<td>1.02</td>
+<td class="f1">0.95</td>
+<td class="s4">2.77</td>
+<td class="f2"><b>0.80</b></td>
+<td>0.99</td>
+</tr>
+<tr><th scope="row">indivi flat_wmap</th>
+<td class="s2">1.38</td>
+<td class="f1">0.89</td>
+<td class="f1">0.90</td>
+<td class="f1">0.90</td>
+<td class="s4">3.64</td>
+<td class="f1">0.95</td>
+<td class="f1">0.95</td>
+</tr>
+<tr><th scope="row">std::unordered_map</th>
+<td class="s4">2.62</td>
+<td class="s1">1.13</td>
+<td class="s4">2.39</td>
+<td class="s2">1.38</td>
+<td class="s4">45.36</td>
+<td class="s3">1.64</td>
+<td class="s3">1.54</td>
+</tr>
+<tr><th scope="row">boost node</th>
+<td class="s3">1.90</td>
+<td class="f2"><b>0.83</b></td>
+<td class="f1">0.89</td>
+<td class="f2"><b>0.85</b></td>
+<td class="s4">10.42</td>
+<td class="s1">1.10</td>
+<td>1.02</td>
+</tr>
+<tr><th scope="row">absl node</th>
+<td class="s3">1.92</td>
+<td class="f1">0.87</td>
+<td>1.02</td>
+<td class="f2">0.85</td>
+<td class="s4">7.80</td>
+<td class="s1">1.12</td>
+<td class="s1">1.08</td>
+</tr>
+<tr><th scope="row">F14Node</th>
+<td class="s3">1.70</td>
+<td class="f1">0.87</td>
+<td>0.97</td>
+<td class="f2">0.85</td>
+<td class="s4">8.42</td>
+<td class="s1">1.08</td>
+<td class="s1">1.09</td>
+</tr>
+</tbody>
+</table>
 
 **On every lookup and churn column, nearly everything is within 15% of everything else**, because the
 hash and the key comparison are most of the work and every map is being handed the same hash. That
@@ -1813,26 +2283,165 @@ abseil's is 1.4x cheaper on a build.
 `map<uint64_t, some_64_byte_struct>`, octave from 32,000. This is the axis that separates flat from
 dense and nothing else changes:
 
-*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column. The tint says the same thing again -- blue where a map beats unordered_dense, amber where it does not, deeper the further from parity -- so the colour is never carrying anything the number does not.*
 
-| map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
-|---|---|---|---|---|---|---|---|
-| unordered_dense 5.0 | 1.00 | 1.00 | 1.00 | 1.00 | **1.00** | 1.00 | 1.00 |
-| unordered_dense 4.11 | 1.95 | 1.39 | 1.56 | 1.35 | **1.00** | 1.39 | 1.26 |
-| boost flat | 1.73 | 0.90 | **0.83** | 0.94 | 4.07 | 0.75 | 0.84 |
-| boost flat, own hash | 1.72 | 0.90 | **0.83** | 0.93 | 3.87 | 0.75 | 0.83 |
-| absl flat | 1.22 | 0.81 | 1.40 | 0.83 | 3.07 | 0.88 | 0.95 |
-| absl flat, own hash | **0.94** | 0.83 | 1.42 | **0.82** | 3.12 | 0.88 | 0.95 |
-| F14Value | 1.76 | 1.05 | 1.56 | 1.07 | 3.35 | 1.13 | 1.17 |
-| F14Vector | 1.78 | 1.08 | 1.10 | 1.08 | 1.02 | 1.17 | 1.19 |
-| emhash8 | 2.53 | 1.04 | 2.16 | 1.13 | 1.05 | 1.09 | 1.02 |
-| emilib | 1.76 | 1.10 | 1.14 | 1.14 | 2.81 | 0.89 | 1.00 |
-| indivi flat_umap | 1.61 | 0.89 | 0.95 | 0.94 | 2.80 | **0.72** | 0.88 |
-| indivi flat_wmap | 1.80 | **0.76** | 0.84 | 0.85 | 3.21 | 0.89 | **0.81** |
-| std::unordered_map | 5.26 | 1.44 | 4.21 | 1.55 | 25.41 | 1.84 | 1.77 |
-| boost node | 3.91 | 1.08 | 0.88 | 1.08 | 5.89 | 1.12 | 1.17 |
-| absl node | 3.49 | 1.01 | 1.36 | 1.05 | 4.71 | 1.40 | 1.24 |
-| F14Node | 3.55 | 1.05 | 1.33 | 1.10 | 4.82 | 1.67 | 1.42 |
+<table class="grid">
+<thead><tr><th scope="col">map</th>
+<th scope="col">build</th>
+<th scope="col">hit</th>
+<th scope="col">miss</th>
+<th scope="col">50% hits</th>
+<th scope="col">iterate</th>
+<th scope="col">churn</th>
+<th scope="col">insert/erase</th>
+</tr></thead>
+<tbody>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+</tr>
+<tr><th scope="row">unordered_dense 4.11</th>
+<td class="s3">1.95</td>
+<td class="s2">1.39</td>
+<td class="s3">1.56</td>
+<td class="s2">1.35</td>
+<td><b>1.00</b></td>
+<td class="s2">1.39</td>
+<td class="s2">1.26</td>
+</tr>
+<tr><th scope="row">boost flat</th>
+<td class="s3">1.73</td>
+<td class="f1">0.90</td>
+<td class="f2"><b>0.83</b></td>
+<td class="f1">0.94</td>
+<td class="s4">4.07</td>
+<td class="f2">0.75</td>
+<td class="f2">0.84</td>
+</tr>
+<tr><th scope="row">boost flat, own hash</th>
+<td class="s3">1.72</td>
+<td class="f1">0.90</td>
+<td class="f2">0.83</td>
+<td class="f1">0.93</td>
+<td class="s4">3.87</td>
+<td class="f2">0.75</td>
+<td class="f2">0.83</td>
+</tr>
+<tr><th scope="row">absl flat</th>
+<td class="s2">1.22</td>
+<td class="f2">0.81</td>
+<td class="s2">1.40</td>
+<td class="f2">0.83</td>
+<td class="s4">3.07</td>
+<td class="f1">0.88</td>
+<td class="f1">0.95</td>
+</tr>
+<tr><th scope="row">absl flat, own hash</th>
+<td class="f1"><b>0.94</b></td>
+<td class="f2">0.83</td>
+<td class="s3">1.42</td>
+<td class="f2"><b>0.82</b></td>
+<td class="s4">3.12</td>
+<td class="f1">0.88</td>
+<td class="f1">0.95</td>
+</tr>
+<tr><th scope="row">F14Value</th>
+<td class="s3">1.76</td>
+<td>1.05</td>
+<td class="s3">1.56</td>
+<td class="s1">1.07</td>
+<td class="s4">3.35</td>
+<td class="s1">1.13</td>
+<td class="s2">1.17</td>
+</tr>
+<tr><th scope="row">F14Vector</th>
+<td class="s3">1.78</td>
+<td class="s1">1.08</td>
+<td class="s1">1.10</td>
+<td class="s1">1.08</td>
+<td>1.02</td>
+<td class="s2">1.17</td>
+<td class="s2">1.19</td>
+</tr>
+<tr><th scope="row">emhash8</th>
+<td class="s4">2.53</td>
+<td>1.04</td>
+<td class="s4">2.16</td>
+<td class="s1">1.13</td>
+<td>1.05</td>
+<td class="s1">1.09</td>
+<td>1.02</td>
+</tr>
+<tr><th scope="row">emilib</th>
+<td class="s3">1.76</td>
+<td class="s1">1.10</td>
+<td class="s1">1.14</td>
+<td class="s1">1.14</td>
+<td class="s4">2.81</td>
+<td class="f1">0.89</td>
+<td>1.00</td>
+</tr>
+<tr><th scope="row">indivi flat_umap</th>
+<td class="s3">1.61</td>
+<td class="f1">0.89</td>
+<td class="f1">0.95</td>
+<td class="f1">0.94</td>
+<td class="s4">2.80</td>
+<td class="f2"><b>0.72</b></td>
+<td class="f1">0.88</td>
+</tr>
+<tr><th scope="row">indivi flat_wmap</th>
+<td class="s3">1.80</td>
+<td class="f2"><b>0.76</b></td>
+<td class="f2">0.84</td>
+<td class="f2">0.85</td>
+<td class="s4">3.21</td>
+<td class="f1">0.89</td>
+<td class="f2"><b>0.81</b></td>
+</tr>
+<tr><th scope="row">std::unordered_map</th>
+<td class="s4">5.26</td>
+<td class="s3">1.44</td>
+<td class="s4">4.21</td>
+<td class="s3">1.55</td>
+<td class="s4">25.41</td>
+<td class="s3">1.84</td>
+<td class="s3">1.77</td>
+</tr>
+<tr><th scope="row">boost node</th>
+<td class="s4">3.91</td>
+<td class="s1">1.08</td>
+<td class="f1">0.88</td>
+<td class="s1">1.08</td>
+<td class="s4">5.89</td>
+<td class="s1">1.12</td>
+<td class="s2">1.17</td>
+</tr>
+<tr><th scope="row">absl node</th>
+<td class="s4">3.49</td>
+<td>1.01</td>
+<td class="s2">1.36</td>
+<td class="s1">1.05</td>
+<td class="s4">4.71</td>
+<td class="s2">1.40</td>
+<td class="s2">1.24</td>
+</tr>
+<tr><th scope="row">F14Node</th>
+<td class="s4">3.55</td>
+<td class="s1">1.05</td>
+<td class="s2">1.33</td>
+<td class="s1">1.10</td>
+<td class="s4">4.82</td>
+<td class="s3">1.67</td>
+<td class="s3">1.42</td>
+</tr>
+</tbody>
+</table>
 
 **Building is 1.6 to 1.8x faster dense** than boost, F14Value, emilib and indivi given the same hash,
 because growth copies four byte indices rather than 72 byte slots, and **iteration is 2.8 to 4.1x
