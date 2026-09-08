@@ -19,9 +19,14 @@ share-img: /img/2026/hashmap-index/share.png
    Lightness carries the magnitude, hue the direction, and the number is in the cell, so nothing is
    encoded by colour alone. */
 .blog-post table.grid { border-collapse: separate; border-spacing: 2px; }
-.blog-post table.grid th { font-weight: 400; padding: 3px 9px; white-space: nowrap; }
+.blog-post table.grid th { font-weight: 400; white-space: nowrap; }
 .blog-post table.grid thead th { font-weight: 600; }
-.blog-post table.grid td { text-align: right; font-variant-numeric: tabular-nums; padding: 3px 9px; }
+.blog-post table.grid td { text-align: right; }
+.blog-post table.grid thead th { text-align: right; }
+.blog-post table.grid thead th:first-child, .blog-post table.grid tbody th { text-align: left; }
+/* Digits line up column-wise in every table, generated or written by hand, and a numeric column is
+   right-aligned by the markdown itself so it stays that way with scripting off. */
+.blog-post table td, .blog-post table th { font-variant-numeric: tabular-nums; }
 .blog-post table.grid td.na { color: #6b7280; }
 .blog-post table.grid .f1 { background: #e8f1fd; }
 .blog-post table.grid .f2 { background: #cfe3fb; }
@@ -31,9 +36,9 @@ share-img: /img/2026/hashmap-index/share.png
 .blog-post table.grid .s2 { background: #fbdfc2; }
 .blog-post table.grid .s3 { background: #f7c99b; }
 .blog-post table.grid .s4 { background: #f2b273; }
-.blog-post table .f1, .blog-post table .f2, .blog-post table .f3, .blog-post table .f4,
-.blog-post table .s1, .blog-post table .s2, .blog-post table .s3, .blog-post table .s4 {
-  padding-left: 6px; padding-right: 6px; }
+/* One padding for every table cell, generated or written by hand. Tinted cells used to be the only
+   ones with any, which made a table look like two tables. */
+.blog-post table td, .blog-post table th { padding: 3px 9px; }
 .blog-post table .f1 { background: #e8f1fd; }
 .blog-post table .f2 { background: #cfe3fb; }
 .blog-post table .f3 { background: #aed1f7; }
@@ -828,7 +833,7 @@ them is a rehash. Measured with boost's own statistics facility, a table of 200,
 *Groups visited per miss; 1.00 would be a miss that never leaves its home group. The turnover points straddle the in-place rehash rather than being evenly spaced, because the shape is the saw and not the average. Tinted cells, here and below, are coloured by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense; a table with no tint is one where no axis is a common scale or where every difference is too small to be worth a colour.*
 
 | erase-insert pairs, in turnovers of the table | groups visited per miss |
-|---|---|
+|---|---:|
 | 0.00, freshly built | 1.104 |
 | 0.25 | 1.206 |
 | 0.50 | 1.269 |
@@ -855,7 +860,7 @@ table, worst point over one turnover of erase-and-insert:
 *Time per miss; the multiplier is the worst point over the fresh table.*
 
 |  | miss, freshly built | worst over one turnover | bucket count |
-|---|---|---|---|
+|---|---:|---:|---:|
 | `boost::unordered_flat_map` | 3.91 ns | 5.71 ns (1.46x) | 245,759, unchanged |
 | `absl::flat_hash_map` | 6.26 ns | 14.62 ns (2.34x) | 262,143, unchanged |
 
@@ -1169,7 +1174,7 @@ repository, one set of intrinsics, and the groups present in one and absent in t
 *Time relative to unordered_dense 5.0, lower is faster; bold is the better of the two.*
 
 |  | hit | miss | build | churn |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | `flat_umap`, grouped | 0.82 | 0.97 | **1.62** | **0.69** |
 | `flat_wmap`, ungrouped | **0.71** | **0.83** | 1.86 | 0.93 |
 {: .heat-par}
@@ -1186,7 +1191,7 @@ worth almost nothing. Simulated with the same keys at the same load, windows vis
 *Sixteen-slot windows visited per placement, lower is better; bold is the better of the two.*
 
 | load | bucketized | sliding |
-|---|---|---|
+|---:|---:|---:|
 | 0.760 | 1.0318 | **1.0238** |
 | 0.790 | 1.0436 | **1.0352** |
 | 0.799 | 1.0481 | **1.0396** |
@@ -1201,7 +1206,7 @@ grouped sibling against the ungrouped one:
 *Per hit, one map per binary, lower is better; bold is the better of each pair.*
 
 | entries | `flat_umap` instructions | `flat_wmap` | `flat_umap` L1 misses | `flat_wmap` |
-|---|---|---|---|---|
+|---:|---:|---:|---:|---:|
 | 1,000 | 53.3 | **47.3** | 0.876 | **0.378** |
 | 50,000 | 54.6 | **48.3** | 3.744 | **3.297** |
 | 1,000,000 | 72.6 | **64.4** | 4.733 | **3.856** |
@@ -1420,7 +1425,7 @@ plus an insert against a sequence with the same two cold probes and no move at a
 *Time per erase-and-insert.*
 
 |  | with the move | without |
-|---|---|---|
+|---|---:|---:|
 | `uint64_t` keys | 57.0 ns | 56.2 ns |
 | `std::string` keys | 410.4 ns | 377.7 ns |
 
@@ -1445,7 +1450,7 @@ the map has never held, at a constant size:
 *Groups visited per lookup, lower is better; bold is the best in each row.*
 
 |  | fresh | churned | + one writing hit per round | + four |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | **per hit** |  |  |  |  |
 | load 0.760 | 1.031 | 1.036 | 1.023 | **1.014** |
 | load 0.799 | 1.039 | 1.066 | 1.044 | **1.028** |
@@ -1485,7 +1490,7 @@ to measure the same, and whatever they differ by there is code layout to be subt
 *Time with `move_home` relative to time without it, lower is faster -- the same convention as every other ratio in this post. The control column has to read 1.00, and what it reads instead is code layout to be subtracted. Bold is the best in each row.*
 
 | entries | control, no writing hits | on misses, one writing hit per round | on hits | on the churn round |
-|---|---|---|---|---|
+|---|---:|---:|---:|---|
 | 52,363 (in L2) | 1.052 | **0.903** | 0.961 | 0.988 |
 | 838,860 (L3) | 1.002 | **0.908** | 0.997 | -- |
 | 3,355,443 (past L3) | 1.003 | **0.910** | 1.009 | -- |
@@ -1671,7 +1676,7 @@ and an exact test has to follow those too.
 *Per miss at 50,000 entries, lower is better; bold is the best in each column.*
 
 |  | instructions | cycles | branch misses | L1 misses |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | miss, group index | 57.2 | 20.7 | **0.108** | 3.41 |
 | miss, boost | 54.2 | **20.4** | 0.164 | **1.90** |
 | miss, Verstable | **44.6** | 40.8 | 0.806 | 1.96 |
@@ -1802,7 +1807,7 @@ bold cell in each row is the choice that makes that design what it is.
 **What the metadata is**
 
 | map | keys live | metadata per slot | compared at once | fingerprint | empty / deleted |
-|---|---|---|---|---|---|
+|---|---|---:|---|---|---|
 | unordered_dense 4.11.0 | dense | 8 B | 1, or 4 with SSE2 | 8 bits, low byte | **distance 0 / none** |
 | abseil `flat_hash_map` | flat | **1 B** | 16 | 7 bits, top | −128 / −2 |
 | boost `unordered_flat_map` | flat | 1.07 B | 15 | ~8 bits (2..255), low byte | 0 / **none** |
@@ -1820,7 +1825,7 @@ bold cell in each row is the choice that makes that design what it is.
 **How it behaves**
 
 | map | probe | a miss stops on | tombstones | moves after placement | max load | bounded on a hostile hash |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---:|---|
 | unordered_dense 4.11.0 | linear | **the distance ordering** | no | **shifts on insert and erase** | 0.80 | yes |
 | abseil `flat_hash_map` | triangular over groups | an empty byte in the group | **yes** | no | 0.875 | yes |
 | boost `unordered_flat_map` | triangular over groups | **an overflow bit for its hash class** | no | no | 0.875 | yes |
@@ -2495,7 +2500,7 @@ by writing the type name and nothing else:
 *Time relative to unordered_dense 5.0, lower is faster; bold is the best in each row.*
 
 |  | boost, this wyhash | boost, its own hash | abseil, this wyhash | abseil, its own hash |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | hit | **0.87** | 1.14 | 0.92 | 0.95 |
 | miss | **0.84** | 1.25 | 0.98 | 0.99 |
 | build | 1.41 | 1.60 | 1.25 | **1.24** |
@@ -2699,7 +2704,7 @@ whatever an erase leaves behind.
 *Bytes of heap per live entry, lower is better; bold is the leanest in each column. Rows are grouped by family -- flat, then dense, then node -- and sorted within each group, so a number out of order down the page is a family boundary rather than a mistake.*
 
 | map | 8 byte value, steady | after churn | 64 byte value, steady | after churn |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | absl flat | **27.0** | 31.0 | 113.3 | 130.2 |
 | emilib | **27.0** | **27.0** | 130.2 | 130.2 |
 | indivi `flat_umap` | 28.6 | 28.6 | 114.9 | 114.9 |
@@ -2773,7 +2778,7 @@ system. Per lookup:
 *Per lookup, lower is better except IPC; bold is the best in each column of each half. The ns column of the upper half is quantised to a third of a nanosecond by the harness's timer, which is why several maps read exactly level there; the cycle counts are the ones with the resolution to separate them.*
 
 |  | ns | instructions | cycles | branch misses | L1 misses | IPC |
-|---|---|---|---|---|---|---|
+|---|---:|---:|---:|---:|---:|---:|
 | **all hits** |  |  |  |  |  |  |
 | indivi `flat_wmap` | **3.67** | 48.0 | **19.8** | 0.035 | 3.29 | 2.42 |
 | absl flat | 4.00 | 56.1 | 21.4 | 0.044 | 3.52 | **2.62** |
@@ -2822,7 +2827,7 @@ lookup:
 *Per lookup at a million entries, lower is better; bold is the best in each column.*
 
 |  | ns | cycles | dTLB misses | L1 misses |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | indivi `flat_wmap` | **16.60** | 91.9 | 1.369 | 3.844 |
 | boost flat | 17.03 | **87.4** | 1.335 | 4.388 |
 | absl flat | 17.57 | 97.8 | 1.340 | 4.250 |
@@ -3098,7 +3103,7 @@ load 0.76 after 200 turnovers:
 *Groups visited per miss, the share of misses that leave home, and time on the suite relative to the shipped design: lower is better throughout, bold is the best in each column. The churned column is the older instrumentation, which reads 1.26 groups where the instrument used everywhere else reads 1.06: the four rows are comparable to each other and not to a number from another section.*
 
 | counters per group | fresh miss | churned miss | misses continuing past home | time on the suite |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | 1, F14 style | 1.21 groups | 2.79 | 60% | 1.043 |
 | 8, one byte each | 1.06 | 1.26 | 17.5% | **1.000** |
 | 16 nibbles | 1.03 | **1.13** | **9.7%** | 1.014 |
@@ -3150,7 +3155,7 @@ does exactly what it is supposed to. Groups visited per lookup, triangular again
 *Groups visited per lookup, lower is better; the second number of each pair is double hashing.*
 
 |  | fresh miss | churned miss | fresh hit |
-|---|---|---|---|
+|---|---:|---:|---:|
 | load 0.760 | 1.052 to **1.035** | 1.061 to 1.050 | 1.031 to 1.027 |
 | load 0.799 | 1.086 to **1.054** | 1.122 to 1.096 | 1.039 to 1.033 |
 
@@ -3330,7 +3335,7 @@ columns are an insert that places; the third is `operator[]` on a key that is al
 never places.*
 
 | compiler | unordered_dense, insert | boost, insert | unordered_dense, `operator[]` on a present key |
-|---|---|---|---|
+|---|---:|---:|---:|
 | clang 22 | 128 instructions, 39 cycles | 64, 26.5 | 74 instructions |
 | gcc 16 | 82 instructions, 26 cycles | 55, 23 | 68 instructions |
 
@@ -3348,7 +3353,7 @@ with the attribute against without:
 *One map per binary, building from empty, lower is better.*
 
 | entries | with the attribute | without | instructions with | without |
-|---|---|---|---|---|
+|---:|---:|---:|---:|---:|
 | 32,000 | **251,633 ns** | 287,833 | **5.08M** | 5.98M |
 | 200,000 | **1,749,840 ns** | 2,087,600 | **28.09M** | 33.71M |
 | 1,000,000 | **13,064,800 ns** | 15,670,600 | **162.3M** | 190.4M |
