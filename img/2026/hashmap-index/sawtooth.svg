@@ -67,8 +67,12 @@
   <circle cx="287.4" cy="305.9" r="5" fill="#a53393" stroke="#ffffff" stroke-width="1.6"/>
   <circle cx="399.1" cy="306.8" r="5" fill="#a53393" stroke="#ffffff" stroke-width="1.6"/>
   <circle cx="510.9" cy="304.2" r="5" fill="#a53393" stroke="#ffffff" stroke-width="1.6"/>
-  <text x="700.0" y="244.1" class="m" fill="#2563c9">unordered_dense 4.11</text>
-  <text x="700.0" y="286.7" class="m" fill="#0e8f60">unordered_dense 5.0</text>
-  <text x="700.0" y="302.7" class="m" fill="#b45309">boost flat</text>
-  <text x="700.0" y="318.7" class="m" fill="#a53393">absl flat</text>
+  <line x1="698.0" y1="240.1" x2="712.0" y2="240.1" stroke="#2563c9" stroke-width="2.4" stroke-linecap="round"/>
+  <text x="718.0" y="244.1" class="m">unordered_dense 4.11</text>
+  <line x1="698.0" y1="282.7" x2="712.0" y2="282.7" stroke="#0e8f60" stroke-width="2.4" stroke-linecap="round"/>
+  <text x="718.0" y="286.7" class="m">unordered_dense 5.0</text>
+  <line x1="698.0" y1="298.7" x2="712.0" y2="298.7" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/>
+  <text x="718.0" y="302.7" class="m">boost flat</text>
+  <line x1="698.0" y1="314.7" x2="712.0" y2="314.7" stroke="#a53393" stroke-width="2.4" stroke-linecap="round"/>
+  <text x="718.0" y="318.7" class="m">absl flat</text>
 </svg>
