@@ -1208,14 +1208,51 @@ else here.
 
 ## What it would take to steal this {#wmap-steal}
 
-The window is the one idea in this post I would still like to have and cannot simply take. Sixteen
-fingerprints starting at an arbitrary slot are not contiguous in [the group index](#group-index)'s
-88 byte block, so a sliding window means giving up the merged block -- worth 7% of a lookup's
-instructions and 28% of its dTLB misses at four million entries -- and it means giving up per-group
-overflow counters, which are worth 1.4 to 1.7x of a miss against an otherwise identical SwissTable.
-The prize, by the measurements above, is instructions and metadata width rather than the window
-itself. That is a bad trade as stated, and [what is still on the table](#still-on-the-table) is
-where the unexplained part of it sits.
+The measurements above compare two people's maps, which cannot separate the window from everything
+else that differs between them. So I built both layouts over one implementation -- same value
+vector, same hash, same fingerprint encoding, same load factor, same tombstones, same growth, same
+erase, same SSE2 helpers -- differing in the home unit and the probe step and nothing else, one
+variant per binary, both cross-checked against `std::unordered_map` before anything was timed.
+
+**The window wins the lookup, and it wins it at the branch predictor rather than in the cache.**
+Per operation at 200,000 entries, aligned groups against the sliding window:
+
+*One index per binary, per operation, lower is better; bold is the better of the two.*
+
+|  | instructions | cycles | branch misses | L1 misses |
+|---|---|---|---|---|
+| hit, aligned groups | 71.9 | 56.8 | 0.198 | **4.615** |
+| hit, sliding window | **70.5** | **53.6** | **0.167** | 4.852 |
+| miss, aligned groups | 70.1 | 47.9 | 0.518 | **2.810** |
+| miss, sliding window | **67.4** | **44.0** | **0.436** | 3.018 |
+{: .heat-low}
+
+16% fewer branch misses on both, three to four fewer cycles -- and **more** L1 misses, because an
+unaligned sixteen byte load straddles two cache lines where an aligned one does not. In time, over
+three sizes and three runs: hits 1 to 5% faster, misses 13% faster at 200,000 and 4% at a million.
+So the window is worth more than the placement simulation above implied, and for a reason that
+simulation could not see.
+
+**And it loses churn, for a reason worth having.** At a million entries the window variant ends a
+churn run with **4,194,304 slots against 2,097,152** -- one extra doubling -- and 24% slower churn.
+Counting where placements land says why: **15.8% of the window's placements reuse a tombstone
+against the grouped variant's 33.8%**. `ctz` takes the lowest available lane, which for a window is
+the home slot itself and for a group is the group's lane 0 -- a fixed position that all sixteen of
+that group's homes probe first, so it is tombstoned and reused constantly, where a window's first
+lane is different for every home and is more often a slot that has never been used. Burning fresh
+slots is what drives a load factor counting live plus tombstones, so it buys an extra growth.
+
+That is the answer to whether [the group index](#group-index) should adopt it, and the chain is what
+makes it no. A sliding window means no per-group counters, because there is no group to hang them
+on; no counters means the miss stops on an empty slot; and that means tombstones -- which is the
+property [churn](#same-workloads) exists to protect. It also means giving up the merged 88 byte
+block, worth 7% of a lookup's instructions and 28% of its dTLB misses at four million entries, since
+sixteen fingerprints starting at an arbitrary slot are not contiguous in it. Thirteen percent of a
+miss at one size does not buy all of that.
+
+What I am keeping is the mechanism, because it is the part I did not know: an aligned group's lane 0
+is probed first by all sixteen of its homes, and that single fact is worth 16% of the branch misses
+in one direction and half the tombstone recycling in the other.
 
 # 11. The group index: unordered_dense 5.0 [&#8593; contents](#contents){:.up} {#group-index}
 
