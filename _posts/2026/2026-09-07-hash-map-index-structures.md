@@ -22,15 +22,14 @@ in a table that only churns, or what folly's `outboundOverflowCount_` is for, th
 and it quotes the source. At the end there is a table with every design in it, and the same
 workloads run on all of them on one machine.
 
-`unordered_dense` appears here in two versions and both are mine: 4.11.0, which is the released
+unordered_dense appears here in two versions and both are mine: 4.11.0, which is the released
 robin hood design, and 5.0, which replaces its index and is **unreleased at the time of writing**.
-Take my measurements of my own map with whatever salt that deserves; everything in this post is
-reproducible with the commands in [how the numbers were made](#how-measured).
+Take my measurements of my own map with whatever salt that deserves.
 
 Numbers appear where they make a design easier to understand, not as a ranking. They are all from
 one desktop, every map is handed the same hash, and every ratio is a geometric mean over a range of
-table sizes rather than a measurement at one size -- [how the numbers were made](#how-measured) says why that
-matters more than it sounds like it should, and how to reproduce all of it.
+table sizes rather than a measurement at one size -- which matters more than it sounds like it
+should. [How the numbers were made](#how-measured) says why, and how to reproduce all of it.
 
 # Contents {#contents}
 
@@ -62,7 +61,7 @@ matters more than it sounds like it should, and how to reproduce all of it.
 16. [Three ways to be fast](#three-ways)
 17. [Question by question](#question-by-question)
 
-**Part IV: what is left, and how it was measured**
+**Part IV: loose ends, and how it was measured**
 
 {:start="18"}
 18. [Building the group index: growth, the compiler, the hash](#building)
@@ -122,13 +121,12 @@ distinguishes it from the others.
   because a bit cannot know whether some other key still needs it. A rehash is what eventually
   clears it. That is `boost::unordered_flat_map`.
 - **Count** what passed by, and count it back down again on an erase, so that nothing is left
-  behind at all. That is folly's F14, `indivi::flat_umap` and `unordered_dense` 5.0.
+  behind at all. That is folly's F14, `indivi::flat_umap` and unordered_dense 5.0.
 - **Move the elements back** so the sequence is repaired: robin hood's *backward shift deletion*,
-  which is `unordered_dense` 4.11.0.
+  which is unordered_dense 4.11.0.
 
 And there is a way of not needing an answer at all: **thread a chain** through the metadata, so that
 a lookup only ever visits keys that belong to it. That is what emhash8 and Verstable do.
-
 
 A few more words I will use without explaining again: a **group** is the run of slots a map
 compares in one instruction, usually 14, 15 or 16; a slot's **home** is the group or bucket its key
@@ -168,20 +166,20 @@ so between two doublings its load factor sweeps from about a half up to its maxi
 That is a hit measured at fifty-seven table sizes from 1,673 to 3,636 entries, small enough that all
 of it is in L1, so nothing in the picture is the cache. Every line ramps as the table fills and drops
 when it doubles, and **the amplitude differs by more than a factor of two between designs**: within
-the octave `unordered_dense` 4.11.0 swings 1.83x between its cheapest and dearest size, boost 1.52x,
-abseil 1.35x and `unordered_dense` 5.0 1.25x. Robin hood has the largest tooth of any design in this
+the octave unordered_dense 4.11.0 swings 1.83x between its cheapest and dearest size, boost 1.52x,
+abseil 1.35x and unordered_dense 5.0 1.25x. Robin hood has the largest tooth of any design in this
 post, and [the robin hood chapter](#robin-hood) says why.
 
 Two things follow. A number quoted at one size is a number quoted at one arbitrary point of that
-map's own tooth, and it can be 1.8x away from the same map's number one size along. And the maps do
-not fall off the same cliff: this octave nearly hides that, because a maximum load of 0.8 and one of
-0.875 happen to double at almost the same place for these sizes, but boost's slot count is not a
-power of two and at larger sizes its tooth walks out of phase with everyone else's.
+map's own tooth, and it can be 1.8x away from the same map's number one size along. And the teeth do
+not line up: this octave nearly hides that, because a maximum load of 0.8 and one of 0.875 happen to
+double at almost the same place for these sizes, but boost's slot count is not a power of two, and at
+larger sizes its tooth walks out of phase with everyone else's.
 
 That is why every ratio in this post is a geometric mean over the five sizes drawn as large dots,
 rather than a measurement at one of them. It is not a refinement; it changes answers. Measured on
-`unordered_dense` 5.0 against boost, churn at a fixed size read 19% in `unordered_dense`'s favour sampled at one
-size and **22% in boost's** averaged over the octave. The sign reversed.
+unordered_dense 5.0 against boost, churn at a fixed size read 19% in unordered_dense's favour
+sampled at one size and **22% in boost's** averaged over the octave. The sign reversed.
 
 # 3. Three families: flat, dense, node {#three-families}
 
@@ -215,7 +213,7 @@ value. Iteration is a plain array walk over exactly the live entries. A 64 byte 
 vector rather than the table. Growth rehashes indices, not values.
 
 **Four bytes is the usual index, and it is a choice rather than a law.** `folly::F14VectorMap` and
-ihtab fix theirs at `uint32_t`. `unordered_dense` uses `uint32_t` and has a second bucket type,
+ihtab fix theirs at `uint32_t`. unordered_dense uses `uint32_t` and has a second bucket type,
 `group_big`, whose index is a `size_t` for tables past four billion entries.
 `emhash8::HashMap` is a `uint32_t` by default and a `uint16_t` or a `uint64_t` depending on how it
 is compiled, and it stores *two* of them per bucket, because one of them is the chain link. And
@@ -274,23 +272,22 @@ a chain link. emhash8's two words carry a chain and a value index. These designs
 questions a byte cannot, and they pay for it in branches and in memory.
 
 **A group, plus something on the side.** boost's sixteenth byte, F14's two counter bytes, indivi's
-and `unordered_dense` 5.0's eight counters. This is where the answer to "when may a miss stop?" got
+and unordered_dense 5.0's eight counters. This is where the answer to "when may a miss stop?" got
 interesting in the last few years, and it is what the chapters on [boost](#boost), [F14](#f14),
 [indivi](#indivi) and [the group index](#group-index) are mostly about.
 
 One piece of vocabulary before Part II, because it turns up well before its own chapter does. When I
-write **the group index** I mean the index `unordered_dense` 5.0 uses and
-[its own chapter](#group-index) takes apart: sixteen one-byte fingerprints and eight overflow counters per
-group of sixteen slots, with the value indices in the same block. It has [a chapter of its own](#group-index),
-and the five design chapters before it each end by pointing forward to it, so the name has to arrive here
-rather than there.
+write **the group index** I mean the index unordered_dense 5.0 uses: sixteen one-byte fingerprints
+and eight overflow counters per group of sixteen slots, with the value indices in the same block.
+[Its own chapter](#group-index) takes it apart, and every design chapter before that one ends by
+pointing forward to it, so the name has to arrive here.
 
 Read each chapter for two things: **how a miss stops**, and **what an erase leaves behind**. Those
 two are one question asked from both ends, and no two of these maps answer it the same way.
 
 Where a design has an idea worth stealing, its chapter says so and
 [the borrowed ideas](#borrowed) say what happened when I stole it: twelve of them, implemented in
-`unordered_dense` 5.0 and measured, four kept, one optional, seven not.
+unordered_dense 5.0 and measured, four kept, one optional, seven not.
 
 # 5. Robin hood with an ordered word: unordered_dense 4.11.0 {#robin-hood}
 
@@ -374,13 +371,13 @@ mispredictions per hit and the four-lane SSE2 one 0.19; the shift went from 0.61
 insert to 0.24 the same way. And the cost of a lookup rides the load factor harder than in any other
 design here, because probe lengths in a robin hood table roughly double between an empty table and a
 full one: a scalar robin hood probe swings 2.05 to 2.35x between the cheapest and dearest point of
-one octave, where a group design swings 1.07 to 1.28x. [Chapter 16](#same-workloads) has the
-same measurement for 4.11.0 with its vector probe.
+one octave, where a group design swings 1.07 to 1.28x. [The measurements](#same-workloads) have the
+same figure for 4.11.0 with its vector probe.
 
 ## What carried into the group index, and what did not
 
-Into `unordered_dense` 5.0, that is; [the group index chapter](#group-index) is the whole of it, and this is only
-the part that came from the design above.
+Into unordered_dense 5.0, that is; [the group index chapter](#group-index) is the whole of it, and
+this is only the part that came from the design above.
 
 Kept: the fingerprint from the low byte of the hash and the home from the top bits, so the two are
 independent; the dense value vector; the 8 bit fingerprint width.
@@ -393,7 +390,7 @@ replaced them is [the group index](#group-index).
 The design everything else in this post is measured against, whether or not it says so.
 [abseil](https://abseil.io/about/design/swisstables)'s `raw_hash_set` is where the shape comes from:
 a group of slots, one byte of hash each, compared in a single SIMD instruction. Boost, folly,
-indivi, emilib, ihtab and `unordered_dense` 5.0 are all variations on it, and the chapters that
+indivi, emilib, ihtab and unordered_dense 5.0 are all variations on it, and the chapters that
 follow are mostly about the one thing each of them changed.
 
 ## Layout: one control byte per slot, sixteen at a time
@@ -533,7 +530,7 @@ Pays for: tombstones. A table held at a constant size by erasing one and inserti
 workload where SwissTable's answer to "gone?" is the weakest of the field, and it is the workload
 [the measurements](#same-workloads) include on purpose.
 
-Two things from this chapter were tried inside `unordered_dense` 5.0 and are measured with the
+Two things from this chapter were tried inside unordered_dense 5.0 and are measured with the
 others in [the borrowed ideas](#borrowed): the per-table seed, which costs nothing on a lookup, and
 cache-line-aligning the metadata, which costs 0.7%.
 
@@ -579,7 +576,7 @@ available-or-deleted keeps seven. Second, and much more important:
 That last sentence is a lovely detail. The reduced hash is not `h & 0xFF`; 0 and 1 are reserved, so
 they are remapped, to 8 and 9 respectively, precisely so that the remap does not change `h % 8` and
 the overflow bit a group consults is the same one an insert set. The remap is a 256 entry table of
-pre-broadcast 32 bit words -- **and that is the one I took for `unordered_dense` 5.0's own
+pre-broadcast 32 bit words -- **and that is the one I took for unordered_dense 5.0's own
 fingerprint word. Boost had it first.**
 
 ## One lookup: match, then is_not_overflowed
@@ -618,8 +615,8 @@ sets a bit to say "someone of class *h*%8 passed through here". An erase cannot 
 the bit is shared by every key of that class and there is no count -- the map does not know whether
 some other key still needs it. So on a table held at a fixed size by erasing one and inserting one,
 boost's overflow bits accumulate, misses walk further and further, and the only thing that clears
-them is a rehash. Measured with boost's own statistics facility, a table of 200,000 entries at load 0.81, erasing one
-and inserting one:
+them is a rehash. Measured with boost's own statistics facility, a table of 200,000 entries at load
+0.81, erasing one and inserting one:
 
 *Groups visited per miss; 1.00 would be a miss that never leaves its home group.*
 
@@ -687,7 +684,7 @@ on. It is consistently among the two or three fastest maps here on every lookup 
 
 Pays for: a churning table, and the fact that an erase leaves work for a future rehash.
 
-Two of boost's ideas ended up in `unordered_dense` 5.0, its terminating prober and its
+Two of boost's ideas ended up in unordered_dense 5.0, its terminating prober and its
 pre-broadcast fingerprint word table; [the borrowed ideas](#borrowed) say what each was worth.
 
 # 8. Folly F14: one counter per chunk {#f14}
@@ -781,7 +778,7 @@ comment that is a direct answer to abseil and boost:
 `outboundOverflowCount_` counts the keys that wanted this chunk and did not fit. An insert that
 passes a full chunk increments it; **an erase of such a key decrements it again**. So unlike boost's
 bit, it comes back down, and a table that churns at a fixed size does not degrade. That is the idea
-`unordered_dense` **5.0**'s index is built on -- 4.11.0 is robin hood and has no counters at all --
+unordered_dense **5.0**'s index is built on -- 4.11.0 is robin hood and has no counters at all --
 and F14 got there first.
 
 The two limits are in the comment. It **saturates at 254** and once saturated it never moves again,
@@ -807,15 +804,15 @@ Pays for: one class-blind counter per chunk, and a saturation point it cannot co
 the table itself is more elaborate than the others here -- the chunk carries capacity bookkeeping,
 so chunk 0 is special.
 
-Two of F14's ideas were tried in `unordered_dense` 5.0 and neither survived, the single counter
+Two of F14's ideas were tried in unordered_dense 5.0 and neither survived, the single counter
 and the double hashing; [the borrowed ideas](#borrowed) have both, with the numbers.
 
 # 9. indivi: counters an erase can undo, and distance nibbles {#indivi}
 
 [indivi_collection](https://github.com/gaujay/indivi_collection) by Guillaume Aujay is where
-`unordered_dense` 5.0's overflow counters come from, and it is the least known map in this post by
-a distance. Its
-`flat_umap` is the design F14 pointed at, taken further.
+unordered_dense 5.0's overflow counters come from, and it is the least known map in this post by a
+distance. Its `flat_umap` is [F14](#f14)'s overflow counter taken further: one counter per hash
+class instead of one per group.
 
 ## Layout: sixteen fragments, eight counters, sixteen nibbles
 
@@ -856,8 +853,8 @@ knows the class. Like F14's it saturates, at 255, and indivi's own assertion mes
 what that means: *"Overflow counter saturated: tombstone will remain until rehash."*
 
 Maximum load factor 0.875, and the same triangular probe over groups as boost, abseil and
-`unordered_dense` 5.0 -- `gIndex = (gIndex + (++delta)) & mGMask`, which is boost's `pos=(pos+step)&mask`
-line for line.
+unordered_dense 5.0 -- `gIndex = (gIndex + (++delta)) & mGMask`, which is boost's
+`pos=(pos+step)&mask` line for line.
 
 ## Erase by iterator without a hash: the nibbles
 
@@ -882,10 +879,10 @@ int matchs = MetaWGroup::match_hfrag(hfrags, hash);
 ```
 
 **It is the fastest map here on all-hit lookups at every size I measured** -- 0.71 at 32,000 entries
-and 0.64 at 500,000. The most useful comparison is not with unordered_dense, though, but with its own sibling:
-same author, same file layout, both flat, both SSE2, one grouped and one not.
+and 0.64 at 500,000. The most useful comparison is not with unordered_dense, though, but with its
+own sibling: same author, same file layout, both flat, both SSE2, one grouped and one not.
 
-*Time relative to `unordered_dense` 5.0, lower is faster; bold is the better of the two.*
+*Time relative to unordered_dense 5.0, lower is faster; bold is the better of the two.*
 
 |  | hit | miss | build | churn |
 |---|---|---|---|---|
@@ -944,16 +941,17 @@ costs no hash.
 Pays for: two bytes per slot instead of one, and the bookkeeping -- an insert maintains counters and
 distances, an erase undoes both.
 
-`unordered_dense` 5.0's counters are indivi's, and its distance nibbles were tried there and
+unordered_dense 5.0's counters are indivi's, and its distance nibbles were tried there and
 dropped; [the borrowed ideas](#borrowed) have both.
 
 # 10. The group index: unordered_dense 5.0 {#group-index}
 
 This is what replaced [robin hood](#robin-hood) in my own map in 5.0, and it is the design I
 know best because I built it by measuring every alternative I could think of and keeping what won.
-Most of this chapter is the alternatives. The ideas it took from the other maps have
-[a chapter of their own](#borrowed), and so do [how it grows, what the compilers make of it and
-which hash it is handed](#building), because none of that is about the index.
+Most of this chapter is the alternatives. Two things are deliberately elsewhere: the ideas it took
+from the other maps, which have [a chapter of their own](#borrowed), and [how it grows, what the
+compilers make of it and which hash it is handed](#building), because none of that is about the
+index.
 
 ## Layout: an 88 byte block
 
@@ -1196,8 +1194,8 @@ What that does *not* say is that it helps everybody. `move_home` runs only on a 
 that writes, so a program that only reads gets exactly nothing -- the control column *is* that
 program. And the gain is entirely on misses. The shape it pays for is a map that churns at a fixed
 size, is written to by key, and is asked about keys that are not there: a real shape, and not the
-shape of anything in my benchmark suite, which is why the suite reads exactly level on this change and always
-will.
+shape of anything in my benchmark suite, which is why the suite reads exactly level on this change
+and always will.
 
 The first measurement of it said 1.49x on misses and was wrong -- a paired run of two headers in one
 binary, where the code layout of the losing side moved. Note that the control column above reads -4.9%
@@ -1213,8 +1211,8 @@ byte block, `struct block : Group` so every existing use of the metadata reads u
 the same bytes in one allocation instead of two.
 
 Memory is unchanged to the byte. The score moves 1.5-2.2% and finds move 4.4-5.3%, and the reason to
-believe it is not the score but the counters -- one map per binary, all-hits lookups at 200000,
-800000 and 4M entries, split against merged: **7% fewer instructions** (66.9 to 62.0 per lookup),
+believe it is not the score but the counters -- one map per binary, all-hits lookups at 200,000,
+800,000 and 4M entries, split against merged: **7% fewer instructions** (66.9 to 62.0 per lookup),
 because the index is at a fixed offset from the group rather than a second address to compute;
 **12-14% fewer L1 misses**; and **28% fewer dTLB misses at 4M** (5.30 to 3.79), because a lookup
 touches two regions rather than three.
@@ -1326,7 +1324,7 @@ misses are its weakest column in [the measurements](#same-workloads) -- a miss h
 chain, and whether there is one is exactly the unpredictable question. And the eviction machinery
 means an insert can move an existing key, which the group designs never do.
 
-The free fingerprint was tried in `unordered_dense` 5.0 and lost, for a reason worth reading in
+The free fingerprint was tried in unordered_dense 5.0 and lost, for a reason worth reading in
 [the borrowed ideas](#borrowed).
 
 ## Verstable: a 16 bit word with a chain in it {#verstable}
@@ -1356,11 +1354,12 @@ evicts at most one key to keep the invariant that a chain starts at its home.
 The in-home bit is the most interesting single idea in this post, because it is the **exact** answer
 to "absent?": either a key that belongs here is here, or none is, and there is nothing to be
 approximate about. Every counter design above is a hint by comparison. It is measured as an
-alternative in [the borrowed ideas](#borrowed): 2 to 3% in cache and nothing out of it, because 80%
-of what a counter fails to filter is siblings, which an exact test also has to follow.
+alternative in [the borrowed ideas](#borrowed): 2 to 3% in cache and nothing out of it, because what
+an approximate counter gets wrong is mostly keys that really do belong to the group it is guarding,
+and an exact test has to follow those too.
 
 **What it costs is branches, and that is the whole result.** One map per binary, 30M lookups at
-50000 entries, from the counter table in [the measurements](#same-workloads):
+50,000 entries, from the counter table in [the measurements](#same-workloads):
 
 *Per miss at 50,000 entries, lower is better; bold is the best in each column.*
 
@@ -1382,13 +1381,14 @@ chain. Growth costs it 143 instructions and 79 cycles per element against unorde
 at 2.398 branch misses per element against 0.132.
 
 Memory is where it does well: 18 bytes per slot at a 0.9 maximum load puts it with abseil and emilib
-at the lean end of [the memory table](#same-workloads), ahead of boost and every dense map.
+at the lean end of [the memory table](#memory), ahead of boost and every dense map.
 
 # 12. The plain SwissTables: emilib and ihtab {#plain}
 
-Two implementations of the standard design with the fewest moving parts in the post. They are here
-because a clean version of the standard design is the baseline every trick above has to beat, and
-because one of them is dense in a way that shows what being dense does and does not buy.
+Two implementations of the standard design, with fewer moving parts than anything else in the post.
+They are here because a clean version of the standard design is the baseline every trick above has
+to beat, and because one of them is dense in a way that shows what being dense does and does not
+buy.
 
 ## emilib: a state byte per slot {#emilib}
 
@@ -1459,7 +1459,7 @@ one dead element for every live one until it rebuilds. And it is the one dense m
 and that branch stops the loop vectorising, so it iterates at 7.3x unordered_dense 5.0 rather than at 1.0.
 Being dense buys the iteration only when the array holds live entries and nothing else.
 
-## ixhtab, and the bug that a constant-size churn finds
+## ixhtab, and the bug that a constant-size churn finds {#ixhtab}
 
 `ixht::ixhtab` puts extendible hashing on top -- a directory of bins, each an `ihtab` with sixteen
 bit indices, split once a bin fills. Measuring it on the churn workload made it stand out
@@ -1473,7 +1473,7 @@ if (2 * els_num >= indexes_size)  // ixhtab.hpp:290
 table bigger than a single bin that is always true, so the code splits instead of compacting in
 place -- and since a deleted slot is never reclaimed, a bin fills its element array from tombstones
 alone however few of its elements are live. Each bin then splits about once per turnover, each split
-halves the live occupancy of both halves, and nothing merges back. At a constant 50000 live elements
+halves the live occupancy of both halves, and nothing merges back. At a constant 50,000 live elements
 over 40 turnovers the heap goes **1.4 MB to 44.8 MB**, 29.5 to 938.9 bytes per element and still
 doubling, and a hit goes from 8.2 ns to 17-30. `ihtab::rebuild()` has the same-shaped test and is
 correct there, because both quantities describe the same single table.
@@ -1517,7 +1517,7 @@ bold cell in each row is the choice that makes that design what it is.
 | emhash8 | **coalesced chain** | the end of the chain | no | **evicts a stranger from its home** | 0.80 | yes |
 | emilib | linear over aligned groups | an empty byte in the group | **yes** | no | 0.833 | yes |
 | indivi `flat_umap` | triangular over groups | **a per-class overflow counter** | no | no | 0.875 | since 2026-09 |
-| indivi `flat_wmap` | triangular in steps of 16 slots, from the home slot | an empty byte in the window | **yes** | no | 0.80 | -- |
+| indivi `flat_wmap` | triangular in steps of 16 slots, from the home slot | an empty byte in the window | **yes** | no | 0.80 | not checked |
 | Verstable | quadratic chain | **an exact in-home-bucket bit** | no | evicts at most one key | **0.90** | yes |
 | ihtab | linear over groups | an empty tag in the group | **yes** | no | **0.50** | yes |
 | unordered_dense 5.0 | triangular over groups | a per-class overflow counter | no | **only a hit inside a write, to its own home** | 0.80 | yes |
@@ -1536,8 +1536,8 @@ The designs with **no** in the tombstone column are exactly the designs with som
 SwissTable floor; boost gets fifteen slots out of sixteen bytes; indivi spends two bytes to hold
 three separate things. The dense maps look expensive here -- 5.5 or 8 bytes -- and are not, because
 that is the only place they pay for the value's location, where a flat map pays for it by keeping
-`sizeof(value_type)` of empty slot. [Chapter 16](#same-workloads) measures what it actually costs
-per live entry, and the ordering is nearly the reverse of this column.
+`sizeof(value_type)` of empty slot. [The memory table](#memory) measures what it actually costs per
+live entry, and the ordering is nearly the reverse of this column.
 
 **Down "compared at once"** is what the branch predictor sees, and it explains more of the
 measurements than anything else in either table. A design that asks one question of sixteen slots
@@ -1576,10 +1576,11 @@ Verstable's misses land on a chain head.
 
 # 14. The same workloads on every map {#same-workloads}
 
-Eighteen maps for an integer key and sixteen for a string, seven workloads, three table sizes, three key and value shapes, all in one process with
-the alternatives interleaved. Everything below is **time relative to `ankerl::unordered_dense` 5.0**,
-so 1.00 is level with it and **below 1.00 is faster than it**. Every figure is the geometric mean of
-five sizes spanning one doubling; [how the numbers were made](#how-measured) says why, and how to rerun any of it.
+Eighteen maps for an integer key and sixteen for a string, seven workloads, three key and value
+shapes, all in one process with the alternatives interleaved. Everything below is **time relative to
+`ankerl::unordered_dense` 5.0**, so 1.00 is level with it and **below 1.00 is faster than it**, and
+every figure is the geometric mean of five sizes spanning one doubling.
+[How the numbers were made](#how-measured) says why, and how to rerun any of it.
 
 Seven workloads: **build** from empty with no reserve; **hit**, **miss** and **50% hits**, random
 lookups on a freshly built table with an rng that never replays; **iterate**, summing every mapped
@@ -1593,7 +1594,7 @@ held; and **insert/erase**, a mix of `operator[]` and `erase` on a table that gr
 `map<uint64_t, size_t>`, octave from 32,000 entries -- so the index is comfortably in L2 and the
 values in L3, which is where most maps in most programs live:
 
-*Time relative to `unordered_dense` 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
 
 | map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
 |---|---|---|---|---|---|---|---|
@@ -1626,16 +1627,17 @@ control byte and at load 7/8 that is often not in the home group. boost (0.83), 
 column is the whole reason the overflow byte and the overflow counter were invented, and it is worth
 1.4 to 1.7x between two otherwise nearly identical SwissTables.
 
-**The chained designs pay for the miss too, and more.** emhash8 at 2.13 and Verstable at 2.10 are the
-two worst misses of any modern design here, and [the counters below](#same-workloads) say it is not
-the instructions: a chain has to be walked to its end, and whether there is one is unpredictable.
+**The chained designs pay for the miss too, and pay more.** emhash8 at 2.13 and Verstable at 2.10
+are the two worst misses of any modern design here, and [the counters below](#counters) say it is
+not the instructions: a chain has to be walked to its end, and whether there is one is
+unpredictable.
 
 **The iterate column is very nearly the family split.** 1.00 to 1.56 for the dense maps, 6 to 15x
 for every flat map, 12 to 34x for the node maps -- the largest ratios in the post by a factor of ten,
 and they come entirely from a flat map having to walk its empty slots. The exception is ihtab at
-7.32, which is dense and iterates like a flat map anyway: its element array is append-only, so an
-iterator has to consult a deleted-bitmap for every element, and that branch stops the loop
-vectorising. Being dense buys the iteration only if the array holds live entries and nothing else.
+7.32, which is dense and iterates like a flat map anyway, for the reason
+[its own section](#ihtab) gives: its element array is append-only, so an iterator has to test a
+deleted bit per element.
 
 **The build column has a surprise in it**, and it is not about the index: `absl flat, own hash`
 builds at 1.12 where `absl flat` with unordered_dense's wyhash builds at 1.61. `absl::Hash<uint64_t>` is
@@ -1646,7 +1648,7 @@ it.
 
 At an octave from 500,000 entries -- the index out of L2, the values out of L3 -- the picture tilts:
 
-*Time relative to `unordered_dense` 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
 
 | map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
 |---|---|---|---|---|---|---|---|
@@ -1677,9 +1679,9 @@ improves so much: once every lookup is waiting on memory, the number of regions 
 than which of them the probe stops at.
 
 **And the load factor stops being the story.** `indivi::flat_wmap`, the fastest hit at every size, is
-0.64 here -- but it is also the map with the widest sawtooth, and at the 32,000 octave its cheapest
-and dearest points are 2.12x apart where the group designs are 1.5 to 1.6x apart. A number for it at
-one size would have been worth very little.
+0.64 here -- and it is also the map with [the widest sawtooth in the post](#indivi), 2.12x across the
+32,000 octave where the group designs are 1.5 to 1.6x. A number for it at one size would have been
+worth very little.
 
 ## String keys
 
@@ -1687,7 +1689,7 @@ one size would have been worth very little.
 
 `map<std::string, size_t>`, keys 8 to 135 bytes skewed towards short, octave from 32,000:
 
-*Time relative to `unordered_dense` 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
 
 | map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
 |---|---|---|---|---|---|---|---|
@@ -1709,13 +1711,14 @@ one size would have been worth very little.
 | F14Node | 1.70 | 0.87 | 0.97 | **0.85** | 8.42 | 1.08 | 1.09 |
 
 **On every lookup and churn column, nearly everything is within 15% of everything else**, because the
-hash and the key comparison are most of the work and every map is being handed the same hash. That is worth saying plainly: for
-string keys, the index you choose is close to irrelevant and the hash you choose is not.
+hash and the key comparison are most of the work and every map is being handed the same hash. That
+is worth saying plainly: for string keys, the index you choose is close to irrelevant and the hash
+you choose is not.
 
 Which is exactly what the own-hash control rows show. On this workload, with the hash a caller gets
 by writing the type name and nothing else:
 
-*Time relative to `unordered_dense` 5.0, lower is faster; bold is the best in each row.*
+*Time relative to unordered_dense 5.0, lower is faster; bold is the best in each row.*
 
 |  | boost, this wyhash | boost, its own hash | abseil, this wyhash | abseil, its own hash |
 |---|---|---|---|---|
@@ -1738,7 +1741,7 @@ abseil's is 1.4x cheaper on a build.
 `map<uint64_t, some_64_byte_struct>`, octave from 32,000. This is the axis that separates flat from
 dense and nothing else changes:
 
-*Time relative to `unordered_dense` 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column.*
 
 | map | build | hit | miss | 50% hits | iterate | churn | insert/erase |
 |---|---|---|---|---|---|---|---|
@@ -1770,7 +1773,7 @@ Against that, the flat maps keep their lookup and churn advantage -- boost is st
 so the trade is exactly what [the three families](#three-families) says it is, at the value size where it is
 easiest to see.
 
-## Memory
+## Memory {#memory}
 
 [![Bytes per entry with a 64 byte value, before and after churning](/img/2026/hashmap-index/memory-big.svg)](/img/2026/hashmap-index/memory-big.svg)
 
@@ -1825,14 +1828,13 @@ therefore rehashes into a bigger one; `indivi::flat_wmap` does the same, 31.0 to
 tombstones and does *not* grow, because it counts only live elements against its limit -- so it pays
 in probe length instead, which is the trade the other way round.
 
-**And ihtab doubles**, 36.1 to 72.3 and stays there. Its element array is append-only and erased
-elements are marked in a side bitmap rather than reclaimed, so a table that churns carries one dead
-element for every live one until it rebuilds. That is a design choice rather than a fault -- unlike
-its extendible-hashing sibling [`ixhtab`](#ihtab), where the same property meets a bin-splitting
-test that reads a table-wide count against a per-bin size and the memory does not stop growing at
-all.
+**And ihtab doubles**, 36.1 to 72.3, and stays there: its append-only element array again, carrying
+one dead element for every live one until it rebuilds. That is a design choice rather than a fault
+-- unlike its extendible-hashing sibling [ixhtab](#ixhtab), where the same property meets a
+bin-splitting test that compares a table-wide count against a per-bin size, and the memory does not
+stop growing at all.
 
-## Counters
+## Counters {#counters}
 
 Times are ratios; counters are not. One map per binary, `perf stat`, 30 million lookups on a table
 of 50,000 entries -- the index in L1 and L2, so what is being counted is the *work*, not the memory
@@ -1980,11 +1982,11 @@ consult *all sixteen bytes* rather than one. That is the mechanism behind the 1.
 column.
 
 The group index's **two prefetches are issued before the metadata load**, which is why its extra
-dependent load costs less than [the picture of what one lookup touches](#what-one-lookup-touches) suggests: the
-value index is in the same block and the line is already on its way. On x86 that placement is
-compiler-dependent and not tunable in both directions -- clang emits both prefetches before the
-`movdqu` and gcc emits them after, and dropping one is a 5-11% clang win and a 12% gcc loss at four
-million entries.
+dependent load costs less than [the picture of what one lookup touches](#what-one-lookup-touches)
+suggests: the value index is in the same block and the line is already on its way. On x86 that
+placement is compiler-dependent and not tunable in both directions -- clang emits both prefetches
+before the `movdqu` and gcc emits them after, and dropping one is a 5-11% clang win and a 12% gcc
+loss at four million entries.
 
 And **the match walk is the same three instructions everywhere** -- `tzcnt`, use the lane,
 `lea`/`and` to clear it -- which is worth noticing because it is the part everyone gets right. All
@@ -2012,14 +2014,14 @@ negative result with a mechanism behind it says more about a design than a posit
 | an exact in-home test | [Verstable](#verstable) | 2 to 3% faster in cache, nothing out of it | no |
 | a value index narrower than 32 bits | CPython's compact dict | 1.4% slower on the suite | no |
 
-"On the suite" is the geometric mean of the fifteen workloads of `unordered_dense`'s own benchmark,
+"On the suite" is the geometric mean of the fifteen workloads of unordered_dense's own benchmark,
 measured paired against the header without the change. Where a number needs more than a row, it is
 below.
 
 ## From boost: the fingerprint word table, and a probe that terminates
 
 The 256 entry table of pre-broadcast fingerprint words, which [boost](#boost) has and
-`unordered_dense` had lost somewhere: building the word arithmetically is an and, a compare, a
+unordered_dense had lost somewhere: building the word arithmetically is an and, a compare, a
 shift, an or and a multiply on the critical path of every probe, placement and erase, and one L1
 load is cheaper. Paired, integer misses 5 to 6% faster on both compilers, big-value finds 14% faster
 under gcc.
@@ -2062,18 +2064,17 @@ same *d* the miss does, so if they agree at step 0 they agree everywhere. Three 
 step does break that lockstep and takes the churned miss from 1.262 groups to 1.238 -- and measures
 as noise, because it is 2% of the probe work on a path 17.5% of churned misses reach.
 
-And the fifth point on the axis, from [Verstable](#verstable): an **exact** counter, a second set of eight per group holding
-"entries of class *c* whose home **is** this group and which did not fit", which is its in-home bit
-generalised. Measured before writing any of it, on an instrumented header that rebuilds
-the exact answer offline by hashing every occupied slot: at load 0.79 after 200 turnovers it takes a
-churned miss from 1.242 groups to 1.201. That is a quarter of what moving displaced keys home is
-worth, for eight more bytes per group and a second invariant to keep. (The churned baseline of that
-instrument is one I later failed to reproduce -- see [drift](#group-index) in the group index chapter
--- but what matters here is the *difference* between two variants measured with one instrument.) **About 80% of what
-the approximate counter fails to filter is siblings** -- keys that genuinely home in that group and
-genuinely did not fit -- and both tests say "continue" for those, correctly. Being exact only
-removes the strangers.
-
+And the fifth point on the axis, from [Verstable](#verstable): an **exact** counter, a second set of
+eight per group holding "entries of class *c* whose home **is** this group and which did not fit",
+which is its in-home bit generalised. Measured before writing any of it, on an instrumented header
+that rebuilds the exact answer offline by hashing every occupied slot: at load 0.79 after 200
+turnovers it takes a churned miss from 1.242 groups to 1.201. That is a quarter of what moving
+displaced keys home is worth, for eight more bytes per group and a second invariant to keep. (The
+churned baseline of that instrument is one I later failed to reproduce -- see [drift](#group-index)
+in the group index chapter -- but what matters here is the *difference* between two variants
+measured with one instrument.) **About 80% of what the approximate counter fails to filter is
+siblings** -- keys that genuinely home in that group and genuinely did not fit -- and both tests say
+"continue" for those, correctly. Being exact only removes the strangers.
 
 ## From folly F14: double hashing instead of a triangular probe
 
@@ -2081,7 +2082,7 @@ The other transferable thing in [F14](#f14) is the probe sequence, and it is aim
 weakness here. Under a
 triangular sequence every key homed in group *g* walks the same groups, so a **sibling** -- another
 key that belongs in *g* and did not fit -- sits exactly where a later miss for *g* will look. That is
-not a small share of the problem: about 80% of what the overflow counter fails to filter is siblings.
+most of the problem: it is the same 80% the exact counter above could not remove either.
 
 Double hashing breaks it. Taking the step from bits 8 to 15 of the hash -- which neither the group
 (the top bits) nor the fingerprint (the low byte) uses -- and forcing it odd keeps the "visits every
@@ -2110,8 +2111,8 @@ place.
 ## From emhash8: a second fingerprint in the spare index bits
 
 [emhash8](#emhash8)'s free fingerprint is the most tempting idea in this post to steal, because
-`unordered_dense`'s value index is also a `uint32_t` with spare high bits, and it is also loaded on every hit. Eight
-bits there cost nothing until a table wants more than 2^24 slots.
+unordered_dense's value index is also a `uint32_t` with spare high bits, and it is also loaded on
+every hit. Eight bits there cost nothing until a table wants more than 2^24 slots.
 
 Measured, it is **2.5% slower** on the geometric mean, and the losses are precisely on lookups:
 find 9%, big-value find 8%, random hit 7%, churn 8.5%. The reason is the general shape
@@ -2241,7 +2242,7 @@ benchmark depends entirely on whether the benchmark holds the size constant; mos
 **Iteration.** The dense maps, by an order of magnitude, and it is the single largest ratio anywhere
 in this post. A dense map walks exactly the live entries in a contiguous array; a flat map walks the
 whole slot array, and at load 0.5 that is twice the memory for the same elements. F14Vector and
-emhash8 are here with `unordered_dense`; ihtab is not, because its array is append-only and its
+emhash8 are here with unordered_dense; ihtab is not, because its array is append-only and its
 iterator has to check a deleted bit per element.
 
 **Large values.** The dense maps again, for the same reason from the other side: a flat map writes
@@ -2290,7 +2291,7 @@ answer faster than a table does.
 
 # 18. Building the group index: growth, the compiler, the hash {#building}
 
-The three sections here are about `unordered_dense` 5.0 and not about its index: how it grows, what
+The three sections here are about unordered_dense 5.0 and not about its index: how it grows, what
 the two compilers do to it, and what hash it is handed. They are here rather than in
 [the group index chapter](#group-index) because a reader of the reference does not need them, and a reader who
 wants to know where the group index's build and lookup times actually come from does.
@@ -2324,20 +2325,23 @@ are write-allocate misses a load prefetch does not help -- where a dense map's m
 index and leaves the values where they are. The lookahead hides a load's latency behind a hash
 chain, and boost's growth is not waiting on a load.
 
-Two things around it are worth recording. A database-style **radix partition** of the elements by
-the top bits of their group cuts the dTLB misses to 0.24 and halves the isolated loop from 4M
-entries up -- and end to end it is indistinguishable, because the scratch array is fresh memory
-every time and faulting it in costs about a microsecond a page, and a rehash is a minority of a
-large build anyway. Ported into boost, where growth is three quarters of a build rather than a
-quarter, it fails the same way and further: 1.7 to 2x slower at every size with a fresh scratch, a
-19% win on the isolated rehash at four million integer entries once the scratch is kept warm across
-rehashes, and a 5 to 10% *slower* build, because a build doubles twenty-odd times and the scratch
-grows with it. And the loop used to index the value container, `m_values[value_idx]`, which
-cost clang **a memory latency per element**: placing an entry stores a `std::uint8_t` fingerprint,
+Two things around it are worth recording, and the first is what a rehash is *not* bound by. A
+database-style **radix partition** of the elements by the top bits of their group cuts the dTLB
+misses to 0.24 and halves the isolated loop from 4M entries up -- and end to end it is
+indistinguishable, because the scratch array is fresh memory every time and faulting it in costs
+about a microsecond a page, and a rehash is a minority of a large build anyway. Ported into boost,
+where growth is three quarters of a build rather than a quarter, it fails the same way and further:
+1.7 to 2x slower at every size with a fresh scratch, a 19% win on the isolated rehash at four million
+integer entries once the scratch is kept warm across rehashes, and a 5 to 10% *slower* build, because
+a build doubles twenty-odd times and the scratch grows with it.
+
+The second is a single line of source. The loop used to index the value container,
+`m_values[value_idx]`, which cost clang **a memory latency per element**: placing an entry stores a
+`std::uint8_t` fingerprint,
 that store may alias any object including the container's own data pointer, so the next iteration
 had to reload the pointer before it could form the address of the next key -- and the random group
 access could not start until that resolved. Walking with an iterator instead took the growth phase
-from 10.43 ns per insert to 2.74 and the whole 200000 element build from 16.72 ms to 8.96. gcc had
+from 10.43 ns per insert to 2.74 and the whole 200,000 element build from 16.72 ms to 8.96. gcc had
 disambiguated it on its own, which is exactly why comparing two compilers' absolute times is worth
 doing.
 
@@ -2406,24 +2410,25 @@ instructions on a path that retires two per cycle is four or five cycles, which 
 cache. I went looking for the answer in the probe *sequence* and in the window *alignment* and both
 were dead ends; the answer, if there is one, is in the instruction stream.
 
-**Huge pages are worth 22% of a large lookup and nothing asks for them.** At 800000 entries and all
+**Huge pages are worth 22% of a large lookup and nothing asks for them.** At 800,000 entries and all
 hits, unordered_dense 5.0 takes 1.48 dTLB misses and 7.03 L1 misses per lookup against boost's 0.89 and
 5.15, while executing only 14% more instructions for 33% more cycles. A third of that gap is address
 translation -- a dense map touches two regions per lookup where a flat map touches one.
 `/sys/kernel/mm/transparent_hugepage/enabled` is `madvise` on this machine, which is a common
 default, and neither the map nor the benchmark ever madvises, so all of it runs on 4 KB pages.
-Handing both maps an allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s: at 800000
-entries unordered_dense goes 17.10 to 13.32 ns per hit and boost 9.75 to 7.58, both about 22%. At 200000
-entries it is nothing. So it is free speed exactly in the regime a benchmark suite that builds
-200000 entries cannot see, it does not change the ranking, and it belongs in an opt-in allocator
+Handing both maps an allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s: at 800,000
+entries unordered_dense goes 17.10 to 13.32 ns per hit and boost 9.75 to 7.58, both about 22%. At
+200,000 entries it is nothing. So it is free speed exactly in the regime a benchmark suite that builds
+200,000 entries cannot see, it does not change the ranking, and it belongs in an opt-in allocator
 rather than in the container.
 
 **Prefetching should probably be tuned per architecture and is not.** Boost tunes it and says so in
 a comment: *"ARM architectures get a higher speedup when around the first half of the element slots
-in a group are prefetched, whereas for Intel just the first cache line is best."* `unordered_dense` 5.0 issues
-the same two prefetches everywhere. On x86 I did chase it and there is nothing to tune that is right
-for both compilers -- dropping the second prefetch is a clang win of 5-11% and a gcc loss of up to
-12% at four million entries, because gcc emits the `movdqu` before the prefetches and clang emits
+in a group are prefetched, whereas for Intel just the first cache line is best."* unordered_dense
+5.0 issues the same two prefetches everywhere. On x86 I did chase it and there is nothing to tune
+that is right for both compilers -- dropping the second prefetch is a clang win of 5-11% and a gcc
+loss of up to 12% at four million entries, because gcc emits the `movdqu` before the prefetches and
+clang emits
 both prefetches before it, so under clang they take load-port slots in front of the load actually on
 the critical path. The ARM half of the question is unasked.
 
@@ -2439,7 +2444,7 @@ is 1.27x behind on integer keys and 1.9x behind on a build -- and 6 to 12% *ahea
 lookups. One map per binary says where: the hit is a 2% tie, the miss is 9.5%, the hash is provably
 not it (the same `wyhash` symbol at 44% of both profiles), the load factors are the same (4,096
 groups holding 7.8 entries each at 32,000), and the value indirection cannot be it because F14Vector
-has one too. Half of the gap is clang leaving `unordered_dense`'s lookup out of line for
+has one too. Half of the gap is clang leaving unordered_dense's lookup out of line for
 `std::string` keys where it inlines it for `uint64_t`; force-inlining it takes the miss from 103.8
 to 99.1 cycles at an identical instruction count -- and then costs gcc 16% on integer misses in the
 paired suite, so it is not applied. The rest is eight instructions of ordinary difference between
@@ -2457,10 +2462,10 @@ been tried.
 
 Everything above was measured on one machine: a Ryzen 9 7950X, Fedora, clang 22.1.8 at `-O3
 -DNDEBUG -std=c++20`, **default `-march`** -- so plain x86-64, SSE2 and nothing newer. (C++20 is the
-harness's dialect rather than any library's: F14 needs it, and every map then gets the same one.) That last one matters
-more than it sounds: `-march=native` silently upgrades these SSE2 intrinsics to AVX-512 on this
-machine, `vpcmpeqb` into a mask register with no `pmovmskb` at all, so a profile taken that way is
-not the code most callers run.
+harness's dialect rather than any library's: F14 needs it, and every map then gets the same one.)
+That last one matters more than it sounds: `-march=native` silently upgrades these SSE2 intrinsics
+to AVX-512 on this machine, `vpcmpeqb` into a mask register with no `pmovmskb` at all, so a profile
+taken that way is not the code most callers run.
 
 **Every map is given the same hash**, unordered_dense's wyhash, because what is being compared is the
 index. Each library has its own way of being told a hash is already well mixed, and all three had to
@@ -2478,9 +2483,9 @@ shows up plainly in the tables. For a string it goes the other way.
 [what a lookup is made of](#what-a-lookup-is-made-of): two maps with different maximum loads double at
 different sizes, so their sawtooths are out of phase and one size compares one map near the top of
 its cycle with the other wherever its own cycle happened to be. It changes answers rather than
-refining them -- on unordered_dense's own suite, churn against boost read **19% in `unordered_dense`'s favour at one
-size and 22% in boost's over the octave**, big-value churn 24% and 20% -- and it is the thing I would most like other
-people's benchmarks to adopt. Same-family comparisons are safe however they are sampled, because
+refining them -- on unordered_dense's own suite, churn against boost read **19% in
+unordered_dense's favour at one size and 22% in boost's over the octave**, big-value churn 24% and
+20% -- and it is the thing I would most like other people's benchmarks to adopt. Same-family comparisons are safe however they are sampled, because
 two builds of the same map are in phase and it cancels; cross-family ones are not.
 
 **The alternatives run interleaved.** [nanobench](https://nanobench.ankerl.com)'s `compare()` runs one epoch of each map per round,
@@ -2494,7 +2499,7 @@ string ones are noisier -- 309 of 336 within 5%, worst 1.18 -- because a string 
 of itself in the hash and the allocator. Every number quoted above is the geometric mean of the two
 runs, and I would not defend any single one of them to better than 5%.
 
-**Anything under 10% is decided one map per binary, with hardware counters.** A binary holding
+**Anything under 10% is decided with one map per binary, and hardware counters.** A binary holding
 several maps has a code layout that moves every time any of them changes, by more than the effect
 being measured -- I have watched a same-code control read 8% slower in one run and 13% faster in the next, in a
 benchmark that never touches the map. `scripts/ab/maps_one.cpp` builds one binary per map per
@@ -2543,7 +2548,7 @@ scripts/ab/move_home.sh miss 838860 20 1 4000000
 
 `maps.sh` compiles in whatever it finds; the environment variables it reads for the other libraries'
 checkouts are documented at the top of it. Every adapter is checked against `ankerl::unordered_dense`
-over 400000 mixed operations before any timing is believed, which is what caught Verstable's
+over 400,000 mixed operations before any timing is believed, which is what caught Verstable's
 `vt_insert` being `insert_or_assign` rather than `try_emplace`; the honest counterpart is
 `vt_get_or_insert`.
 
@@ -2566,7 +2571,7 @@ the file and the symbol do not.
 | `std::unordered_map` | libstdc++, gcc 16 | -- | -- |
 
 The harness is `scripts/ab/maps.h`, `maps.cpp`, `maps_one.cpp`, `maps.sh` and `maps_one.sh` in the
-`unordered_dense` repository, and the figures are generated by `scripts/ab/diagrams.py` and
+unordered_dense repository, and the figures are generated by `scripts/ab/diagrams.py` and
 `scripts/ab/mapsplot.py` in the same place, so every chart in this post can be redrawn from its CSV.
 
 Thanks to the authors of all of these for writing headers that explain themselves. Boost's
