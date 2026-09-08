@@ -29,6 +29,17 @@ subtitle: "What SwissTable, Boost, F14, emhash8, emilib, indivi, Verstable and u
 .blog-post table.grid .s2 { background: #fbdfc2; }
 .blog-post table.grid .s3 { background: #f7c99b; }
 .blog-post table.grid .s4 { background: #f2b273; }
+.blog-post table .f1, .blog-post table .f2, .blog-post table .f3, .blog-post table .f4,
+.blog-post table .s1, .blog-post table .s2, .blog-post table .s3, .blog-post table .s4 {
+  padding-left: 6px; padding-right: 6px; }
+.blog-post table .f1 { background: #e8f1fd; }
+.blog-post table .f2 { background: #cfe3fb; }
+.blog-post table .f3 { background: #aed1f7; }
+.blog-post table .f4 { background: #8bbdf2; }
+.blog-post table .s1 { background: #fdf0e3; }
+.blog-post table .s2 { background: #fbdfc2; }
+.blog-post table .s3 { background: #f7c99b; }
+.blog-post table .s4 { background: #f2b273; }
 
 /* Every chapter heading carries a link back to the contents. Floated, so it sits at the right
    of the heading's first line and a long title neither wraps around it nor is pushed by it;
@@ -38,6 +49,66 @@ subtitle: "What SwissTable, Boost, F14, emhash8, emilib, indivi, Verstable and u
 .blog-post h1 > a.up:hover, .blog-post h1 > a.up:focus { color: #008AFF; text-decoration: underline; }
 @media (max-width: 480px) { .blog-post h1 > a.up { margin-left: 0.75rem; } }
 </style>
+
+<script>
+/* The markdown tables get the same tinting the generated grids carry as classes: distance from a
+   reference, four steps, blue nearer / amber further. `.heat-par` measures every cell against 1.00,
+   which is parity with unordered_dense; `.heat-low` measures each column against its own best value,
+   so the leanest cell is untinted and the rest deepen away from it. `data-invert` names the columns
+   where larger is better (IPC). A row whose only filled cell is its label starts a new section, so
+   the two halves of the counter table are scaled separately rather than against each other -- hits
+   and misses are not comparable quantities and tinting them on one scale would say they were.
+   The number is in the cell either way, so with scripting off nothing is lost but the shortcut. */
+(function () {
+  /* This block sits at the top of the post, so the tables below it do not exist yet. */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', paint);
+  } else {
+    paint();
+  }
+  function paint() {
+  var FAST = ['f1', 'f2', 'f3', 'f4'], SLOW = ['s1', 's2', 's3', 's4'], EDGE = [0.07, 0.22, 0.5, 1.0];
+  var num = function (td) {
+    var s = td.textContent.trim().replace(/,/g, '');
+    return /^[0-9]+(\.[0-9]+)?$/.test(s) ? parseFloat(s) : null;
+  };
+  var filled = function (tr) {
+    return [].filter.call(tr.children, function (c) { return c.textContent.trim() !== ''; }).length;
+  };
+  [].forEach.call(document.querySelectorAll('table.heat-par, table.heat-low'), function (t) {
+    var par = t.classList.contains('heat-par');
+    var inv = (t.getAttribute('data-invert') || '').split(',').map(function (s) { return s.trim(); });
+    var head = [].map.call(t.querySelectorAll('thead th'), function (th) { return th.textContent.trim(); });
+    var sections = [[]];
+    [].forEach.call(t.querySelectorAll('tbody tr'), function (tr) {
+      if (filled(tr) <= 1 && sections[sections.length - 1].length) { sections.push([]); }
+      if (filled(tr) > 1) { sections[sections.length - 1].push(tr); }
+    });
+    sections.forEach(function (rows) {
+      if (rows.length < 2) { return; }
+      var cols = Math.max.apply(null, rows.map(function (r) { return r.children.length; }));
+      for (var c = 1; c < cols; c++) {
+        var cells = [], vals = [];
+        rows.forEach(function (r) {
+          var td = r.children[c];
+          if (!td) { return; }
+          var v = num(td);
+          if (v !== null && v > 0) { cells.push(td); vals.push(v); }
+        });
+        if (vals.length < 2) { continue; }
+        var ref = par ? 1 : (inv.indexOf(head[c]) >= 0 ? Math.max.apply(null, vals)
+                                                       : Math.min.apply(null, vals));
+        cells.forEach(function (td, i) {
+          var d = Math.abs(Math.log(vals[i] / ref) / Math.LN2), b = -1;
+          if (d >= EDGE[0]) { b = 3; for (var k = 1; k < EDGE.length; k++) { if (d < EDGE[k]) { b = k - 1; break; } } }
+          if (b >= 0) { td.className = (par && vals[i] < 1 ? FAST : SLOW)[b]; }
+        });
+      }
+    });
+  });
+  }
+}());
+</script>
 
 Every fast hash map is decided by a few bytes you never see. Before it touches a key it reads
 something smaller: a control byte, a tag, a fingerprint, a distance, a counter. That metadata is
@@ -710,7 +781,7 @@ boost's overflow bits accumulate, misses walk further and further, and the only 
 them is a rehash. Measured with boost's own statistics facility, a table of 200,000 entries at load
 0.81, erasing one and inserting one:
 
-*Groups visited per miss; 1.00 would be a miss that never leaves its home group.*
+*Groups visited per miss; 1.00 would be a miss that never leaves its home group. Cells here and in the tables below are tinted by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense -- so the colour never says anything the number does not.*
 
 | erase-insert pairs, in turnovers of the table | groups visited per miss |
 |---|---|
@@ -720,6 +791,7 @@ them is a rehash. Measured with boost's own statistics facility, a table of 200,
 | 0.62 | 1.104 |
 | 1.12 | 1.214 |
 | 1.25 | 1.058 |
+{: .heat-low}
 
 **It is a saw, and the teeth are about two thirds of a turnover apart** -- at 200,000 entries, one
 repair per 120,000 to 150,000 erase-insert pairs. The repair is an **in-place rehash**: the bucket
@@ -980,6 +1052,7 @@ own sibling: same author, same file layout, both flat, both SSE2, one grouped an
 |---|---|---|---|---|
 | `flat_umap`, grouped | 0.82 | 0.97 | **1.62** | **0.69** |
 | `flat_wmap`, ungrouped | **0.71** | **0.83** | 1.86 | 0.93 |
+{: .heat-par}
 
 The ungrouped window is **1.13 to 1.42x faster on lookups** across the three octaves and
 consistently slower on builds. That is the biggest single index effect I found in anyone else's map,
@@ -998,6 +1071,7 @@ worth almost nothing. Simulated with the same keys at the same load, windows vis
 | 0.760 | 1.0318 | **1.0238** |
 | 0.790 | 1.0436 | **1.0352** |
 | 0.799 | 1.0481 | **1.0396** |
+{: .heat-low}
 
 Slot-level placement removes about a fifth of an excess that is already under 5%. For calibration,
 that is a quarter of what moving displaced entries home is worth in
@@ -1013,6 +1087,7 @@ grouped sibling against the ungrouped one:
 | 1,000 | 53.3 | **47.3** | 0.876 | **0.378** |
 | 50,000 | 54.6 | **48.3** | 3.744 | **3.297** |
 | 1,000,000 | 72.6 | **64.4** | 4.733 | **3.856** |
+{: .heat-low}
 
 Six fewer instructions per hit at every size, and fewer cache lines touched **even at a thousand
 entries, where the whole map is in L1** -- so it is not a footprint effect that shows up only when
@@ -1220,6 +1295,7 @@ the map has never held, at a constant size:
 | load 0.760, per miss | 1.052 | 1.061 | 1.036 | **1.025** |
 | load 0.799, per hit | 1.039 | 1.066 | 1.044 | **1.028** |
 | load 0.799, per miss | 1.086 | 1.122 | 1.081 | **1.052** |
+{: .heat-low}
 
 The drift is real, it saturates rather than growing (5, 20, 100 and 400 turnovers give 1.039, 1.036,
 1.035 and 1.035 per hit at load 0.76), and it is worth about 0.036 groups on a miss at the fullest
@@ -1270,6 +1346,7 @@ to measure the same, and whatever they differ by there is code layout to be subt
 | 52,363 (in L2) | 1.052 | **0.903** | 0.961 | 0.988 |
 | 838,860 (L3) | 1.002 | **0.908** | 0.997 | -- |
 | 3,355,443 (past L3) | 1.003 | **0.910** | 1.009 | -- |
+{: .heat-par}
 
 So: **about a tenth of a miss, at every size**, nothing on a hit, and nothing paid on the writing
 path that earns it. I expected it to fade out of cache -- one step of displacement lands in the
@@ -1461,6 +1538,7 @@ and an exact test has to follow those too.
 | miss, group index | 57.2 | 20.7 | **0.108** | 3.41 |
 | miss, boost | 54.2 | **20.4** | 0.164 | **1.90** |
 | miss, Verstable | **44.6** | 40.8 | 0.806 | 1.96 |
+{: .heat-low}
 
 A Verstable miss executes **22% fewer instructions than a group probe and takes twice the cycles**.
 The design delivers exactly what it advertises -- fewest instructions, fewest cache lines touched --
@@ -2268,6 +2346,7 @@ by writing the type name and nothing else:
 | miss | **0.84** | 1.25 | 0.98 | 0.99 |
 | build | 1.41 | 1.60 | 1.25 | **1.24** |
 | churn | **0.87** | 0.92 | 0.93 | 0.93 |
+{: .heat-par}
 
 `boost::hash<std::string>` costs boost 31% on a hit and 49% on a miss and turns a map that is ahead
 of unordered_dense 5.0 into one that is behind it. `absl::Hash<std::string>` costs abseil 1 to 4% and
@@ -2482,6 +2561,7 @@ whatever an erase leaves behind.
 | boost node | 47.7 | 47.7 | 95.4 | 95.4 |
 | absl node | 46.5 | 48.6 | **94.2** | 96.3 |
 | F14Node | 46.8 | 46.8 | 94.5 | **94.5** |
+{: .heat-low}
 
 `uint64_t` keys, octave from 32,000 entries; the flat maps hold a 16 or 72 byte `value_type` and the
 dense ones hold the same in a vector plus their index.
@@ -2552,6 +2632,7 @@ system. Per lookup:
 | emhash8 | 7.19 | 46.4 | 38.2 | 0.592 | 2.07 | 1.21 |
 | Verstable | 7.58 | **44.6** | 40.8 | 0.806 | 1.96 | 1.09 |
 | `std::unordered_map` | 12.61 | 52.9 | 68.0 | 0.649 | 3.43 | 0.78 |
+{: .heat-low data-invert="IPC"}
 
 **The bottom of the miss table is the whole argument of this post in four rows.** Verstable executes
 **44.6 instructions and takes 40.8 cycles**; unordered_dense 5.0 executes 57.2 and takes 20.7. Twenty-eight
@@ -2583,6 +2664,7 @@ lookup:
 | F14Value | 22.70 | 126.1 | **1.157** | 4.303 |
 | emhash8 | 24.69 | 137.2 | 2.205 | **3.697** |
 | boost node | 33.30 | 185.8 | 2.580 | 5.440 |
+{: .heat-low}
 
 **The dTLB column is the family split**, and it is the clearest single number for the dense penalty:
 1.33 to 1.37 misses per lookup for the flat maps that touch one region, 1.78 to 2.21 for the dense
@@ -2838,6 +2920,7 @@ load 0.76 after 200 turnovers:
 | 8, one byte each | 1.06 | 1.26 | 17.5% | **1.000** |
 | 16 nibbles | 1.03 | **1.13** | **9.7%** | 1.014 |
 | 32 two-bit | **1.02** | 1.15 and rising | rising | 1.012 |
+{: .heat-low}
 
 A shared counter does not know the fingerprint class, so *any* overflow past a group makes every
 later miss into it carry on -- and in a churned table most groups have seen an overflow, so 60% of
