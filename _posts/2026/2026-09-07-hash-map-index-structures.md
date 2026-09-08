@@ -2462,19 +2462,39 @@ a *present* key from 74 to 88, because the merged function pays the placement co
 pressure on the path that never places. Paired on the benchmark suite that came out 1.2% faster with
 every interval excluding parity, so the attribute went in.
 
-**And then it came out again, which is the sharpest thing I have measured about measuring.** The
-paired harness compiles the baseline header and the candidate into *one translation unit* -- and
-that is exactly the condition under which a compiler runs out of inlining budget, so making one
-header smaller changes what gets inlined in **both** and the ratio reports that instead of the
-change. It cannot see this class of change at all, and it gets the sign wrong. Re-measured with one
-header per binary, which is what a caller's build actually looks like, three rounds each and 0.1%
-spread: the suite is **1.7% faster under clang and 3.9% faster under gcc without the attribute**,
-where the paired run had it 2.1% faster *with* it under clang, on a clean control. The counters say
-the same: on a reserved insert the attribute takes clang from 106.8 instructions and 27.2 cycles to
-97.8 and **31.3** -- fewer instructions, more cycles -- and gcc from 68.9 and 23.9 to 124.9 and
-38.0, and it takes a `try_emplace` on a key that is already there from 48.4 instructions to 73.2. So
-it was never the no-op for gcc I had written down. It is not in the header any more, and the rule it
-leaves is [in chapter 20](#how-measured), with the other instance of it.
+**Then I took it out, and put it back the same day.** That is the most useful thing in this
+chapter, so here is the whole of it. The paired harness compiles both headers into *one translation
+unit*, which is the condition under which a compiler runs out of inlining budget, so making one
+header smaller changes what is inlined in **both**; it cannot see this class of change and it gets
+the sign wrong. Re-measured one header per binary, the scored suite is **1.7% faster under clang and
+3.9% under gcc without the attribute**, and on that I removed it.
+
+**That was still the wrong instrument, and the reason is a rule I did not have.** The scored
+benchmark is ~90 translation units of test suite -- the largest unit anyone compiles this header
+into, and one whose inlining budget is already spent, so an `always_inline` in it displaces
+something else. A caller's translation unit holds one map. Measured *that* way, building from empty,
+with the attribute against without:
+
+*One map per binary, building from empty, lower is better.*
+
+| entries | with the attribute | without | instructions with | without |
+|---|---|---|---|---|
+| 32,000 | **251,633 ns** | 287,833 | **5.08M** | 5.98M |
+| 200,000 | **1,749,840 ns** | 2,087,600 | **28.09M** | 33.71M |
+| 1,000,000 | **13,064,800 ns** | 15,670,600 | **162.3M** | 190.4M |
+
+**14 to 20% slower without it at every size**, and the instruction counts are what settle it,
+because neither code layout nor drift can move them: 17 to 20% more work retired. The eighteen-map
+binary agrees, at 17% slower on a build at 32,000. Two harnesses out of three said the removal hurt,
+and I called them artifacts on the strength of the third.
+
+So the attribute is in the header, and the rule it leaves is narrower than "one map per binary":
+**the translation unit's *size* decides what an `always_inline` is worth, a benchmark binary is the
+largest unit anyone compiles into, and an instruction count is the only number in the argument that
+none of it moves.** What the attribute costs is unchanged and is written above it in the header -- a
+`try_emplace` on a key that is already there goes from 48.4 instructions to 73.2, because the merged
+function pays the placement code's register pressure on the path that never places. It is simply
+smaller than 17% of a build.
 
 ## The hash it is given {#the-hash}
 
@@ -2582,12 +2602,12 @@ already being prefetched, and 5 to 7% lost on churn.
 
 **Re-measured on 2026-09-08, and the way it did not move is worth recording.** The paired harness,
 re-run a day later, reported the string lookup gap halving -- every one of its nine lookup cells
-moved this map's way, geomean 0.92 to 0.96. One map per binary says the hit was a tie before and is
-a tie now, and the miss was 9.5% and is 9.3%. Nothing moved. In the same pair of runs the paired
-harness also reported this map's integer *build* 15% slower, for a change that is 15% **faster**
-built one header per binary. Which is the third time in this post that instrument has been the one
-that was wrong, always at the same magnitude, and it is why the numbers above are the ones from
-`perf` rather than from a ratio.
+moved this map's way, geomean 0.92 to 0.96. One map per binary says otherwise, three times across a
+header change and its revert: the hit is a tie (24.33, 24.33 and 24.53 ns against 24.29, 24.22 and
+24.51) and the miss is 8 to 9% (18.68, 18.59 and 18.79 against 16.95, 17.14 and 17.00). Nothing
+moved. The paired figure did, which is what it does at this magnitude -- and in the same pair of
+runs it also reported this map's integer *build* 15% slower for a change that
+[turned out to be 17% of a build in the other direction](#compiler).
 
 **The string erase's 50 ns.** A dense erase hashes the moved element's key. For an integer that is
 free; for a string it is about 50 ns and it is the largest single avoidable cost I know of in this
