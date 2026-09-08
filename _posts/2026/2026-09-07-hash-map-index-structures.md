@@ -2298,6 +2298,26 @@ behind -- 2.5x at 2M and 4M entries -- and nothing at all for integers at 176 MB
 is bound by the TLB rather than by latency (1.15 dTLB misses per placement on 4 KB pages, and a
 prefetch cannot hide a page walk).
 
+**Nobody else has one, and it does not transfer.** Folly prefetches the *source* values of the chunk
+it is about to hash (`prefetchBeforeRehash`) and then places each one synchronously; abseil solves a
+different problem in `GrowToNextCapacity`, moving the elements that stay in their home group of the
+doubled array straight across and encoding the ones that would probe as `(h2, source_offset, h1)`
+into a stack buffer for a second pass, so nothing is hashed twice; boost, indivi, emhash8, emilib,
+Verstable and ihtab hash and place one element at a time with no prefetch at all. Ported into a copy
+of boost's `unchecked_rehash` -- sixteen elements of lookahead, prefetching the destination group
+and all four cache lines of its slots -- it is a wash to a loss: under clang 6.5 to 7.0 ns per
+element at 200,000 integer entries and 10.6 to 11.1 at a million, under gcc 10.2 to 7.0 and 10.4 to
+10.2, where the one real gain is gcc's straight loop being 1.5x slower than clang's on the same
+source and the restructuring taking it to clang's floor.
+
+The reason is that the two loops are not bound by the same thing. Per element rehashed at a million
+`uint64_t` entries, `perf stat`: **boost 97.5 instructions and 110.9 cycles, this map 51.9 and
+46.7**, on the same 3.7 to 3.8 L1 load misses. A flat map's rehash *moves the `value_type`* into a
+hash-scattered slot -- that is where the extra instructions go, and the random writes that follow
+are write-allocate misses a load prefetch does not help -- where a dense map's moves a four byte
+index and leaves the values where they are. The lookahead hides a load's latency behind a hash
+chain, and boost's growth is not waiting on a load.
+
 Two things around it are worth recording. A database-style **radix partition** of the elements by
 the top bits of their group cuts the dTLB misses to 0.24 and halves the isolated loop from 4M
 entries up -- and end to end it is indistinguishable, because the scratch array is fresh memory
