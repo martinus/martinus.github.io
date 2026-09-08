@@ -221,7 +221,7 @@ ihtab fix theirs at `uint32_t`. `unordered_dense` uses `uint32_t` and has a seco
 is compiled, and it stores *two* of them per bucket, because one of them is the chain link. And
 [CPython's compact dict](https://mail.python.org/pipermail/python-dev/2012-December/123028.html),
 which is the same idea outside C++, sizes its index to the table: one byte, two, four or eight. That
-last one sounds like the obvious win and it is measured in [the group index chapter](#group-index), where a 16 bit
+last one sounds like the obvious win and it is measured in [the borrowed ideas](#borrowed), where a 16 bit
 index is 1.4% slower on the suite -- a table small enough to be indexed in 16 bits has an index of at most 128 KB,
 which is already in L2, so halving something that already fits buys nothing.
 
@@ -1052,49 +1052,34 @@ the usual one. On a Neoverse N2, SWAR against 4.11.0's *scalar* probe was **behi
 nothing and gained nothing. With `vceqq_u8` the same runner reads 1.48x on hits and 1.62x on misses.
 The vector compare is not an optimization of the group design; it is the group design.
 
-## Eight counters, by fingerprint class -- and the four other widths
+## Eight counters, by fingerprint class
 
 An insert that finds its home group full increments the counter for its own class in every full
 group it passes; an erase decrements the same ones. A miss stops at the first group whose counter
-for its class is zero. That is indivi's idea, with F14's erase-decrement, and the question left over
-is how wide the counters should be. All four other divisions of a group's eight counter bytes were
-built and measured; the table is [below](#borrowed), under folly's single counter, and the two
-directions off the shipped design lose for opposite reasons.
-
-**Coarser** (one shared counter, F14 style) does not know the class, so any overflow at all sends
-every later miss on: 60% of churned misses continue, and it is 4% slower on the suite.
-
-**Finer** (sixteen nibbles) filters genuinely better -- 9.7% of churned misses continue against
-17.5% -- at no memory cost, and still loses, by 1.4%, because a sub-byte counter is a
-load-mask-compare on the read and a read-modify-write on the increment, paid on *every* lookup, to
-save a group hop that was already rare. Two-bit counters filter best of all when fresh (1.3%
-continue) and are the worst under churn, because their maximum of 3 is reached constantly and a
-saturated counter never comes back down. A byte per class is the point where the counter is a single
-aligned load and still knows the class.
-
-Two more variants on the same axis. Consulting a *different* class at each step of the probe
-(`(fp + d) & 7`) is exactly a no-op, as the arithmetic says it must be: a displaced sibling adds the
-same *d* the miss does, so if they agree at step 0 they agree everywhere. Three fresh hash bits per
-step does break that lockstep and takes the churned miss from 1.262 groups to 1.238 -- and measures
-as noise, because it is 2% of the probe work on a path 17.5% of churned misses reach.
-
-And the fifth point on the axis, an **exact** counter: a second set of eight per group holding
-"entries of class *c* whose home **is** this group and which did not fit", which is Verstable's
-in-home bit generalised. Measured before writing any of it, on an instrumented header that rebuilds
-the exact answer offline by hashing every occupied slot: at load 0.79 after 200 turnovers it takes a
-churned miss from 1.242 groups to 1.201. That is a quarter of what moving displaced keys home is
-worth, for eight more bytes per group and a second invariant to keep. (The churned baseline of that
-instrument is one I later failed to reproduce -- see [drift](#group-index) below -- but what matters
-here is the *difference* between two variants measured with one instrument.) **About 80% of what
-the approximate counter fails to filter is siblings** -- keys that genuinely home in that group and
-genuinely did not fit -- and both tests say "continue" for those, correctly. Being exact only
-removes the strangers.
+for its class is zero. That is indivi's idea with F14's erase-decrement, and the one question it
+leaves open is how wide a counter should be: one shared counter per group, eight bytes, sixteen
+nibbles, thirty-two two-bit counters, or an exact one. All five were built and measured, in
+[the borrowed ideas](#borrowed); the short version is that a byte per class is the point where the
+counter is still a single aligned load and already knows the class, and that about 80% of what it
+fails to filter is siblings -- keys that genuinely belong in that group and genuinely did not fit --
+which an exact counter has to follow as well.
 
 ## The miss bound
 
-`|| delta == m_group_mask`. A key that exists was placed within one cycle of its probe sequence, so
-a walk that has seen every group can stop. It is in [boost's chapter](#boost) because boost has it and this
-did not, and it has a second effect worth knowing: it converts a missing or wrong erase decrement
+`|| delta == m_group_mask`: a key that exists was placed within one cycle of its probe sequence, so
+a walk that has seen every group can stop. [Boost](#boost)'s prober has always had it -- `return
+step<=mask` -- and until the review before release this one did not. It stopped only at a group
+whose counter for the key's class was zero, on the argument that an exact counter puts a zero right
+after the furthest entry of that class. The argument is wrong, because a counter counts entries that
+overflowed past its group on *their* probe sequences, not on the one being walked. Eight chosen keys
+are enough to make `contains()` on an absent key loop forever: fill a group, send one key of class 1
+past it, erase the fillers -- the passer stays, so the counter stays -- and repeat for every group.
+Any hash the caller controls reaches it, and the default hash with chosen keys does too. By
+mechanism the bound is free: 83.6 to 82.7 instructions on a hit, 69.5 to 67.6 on a miss, cycles and
+mispredictions unchanged. `indivi::flat_umap`, where the counters came from, had the same hole;
+[reported](https://github.com/gaujay/indivi_collection/issues/2), it was fixed the same day.
+
+The bound has a second effect worth knowing: it converts a missing or wrong erase decrement
 from a hang into a silent slowdown. That fault used to be caught loudly -- counters only grew, a
 miss found no zero, the test suite hung -- and now the table stays correct and gets slower. Which is
 the right trade against a hostile hash, and it is why there is now a test that measures the
@@ -1125,11 +1110,9 @@ load runs under the counter walk; and an integer hash is one multiply, so the gr
 produces issues early enough to overlap. For a string it costs about 50 ns, because wyhash over 8 to
 135 bytes behind a heap pointer is a dependent load and then a long chain, and none of it overlaps.
 
-The fix for that is a back-pointer per value, and it is [indivi's nibbles, measured and
-rejected](#borrowed):
-it pays exactly where the hash is expensive (string churn 4.5% faster, string insert-erase 2.4%)
-and costs everywhere the vector grows (integer build 4.7% slower, big-value build 4%), for 19% more memory
-at an eight byte value.
+The fix for the string case is a slot back-pointer per value, indivi's distance nibbles taken to
+their conclusion, and it is [measured and rejected in the borrowed ideas](#borrowed): a tenth
+faster exactly where the hash is expensive, and a loss everywhere the vector grows.
 
 ## Drift, and moving home
 
@@ -1236,17 +1219,12 @@ because the index is at a fixed offset from the group rather than a second addre
 **12-14% fewer L1 misses**; and **28% fewer dTLB misses at 4M** (5.30 to 3.79), because a lookup
 touches two regions rather than three.
 
-Two other layout questions on the same axis, both measured and both ties or losses. Splitting the
+One other layout question on the same axis, measured and a tie. Splitting the
 fingerprints and the counters into *two* arrays -- so that four groups' fingerprints fit a cache
 line exactly, where a 24 byte group straddles one time in four -- is a tie both in cache and on a
 20M entry table whose index is 37 MB (57.1 against 57.0 ns per hit). The straddle is free because
 the second line is the adjacent one; the counter line is free because its address depends only on
-the group, so it issues beside the fingerprint load rather than after it. And a 16 bit value index
-for small maps -- CPython's compact dict, sized to the table -- is **1.4% slower** over the thirteen
-workloads that fit under 2^16 entries, and the reason kills the adaptive version too: a map small
-enough to be indexed in 16 bits has an index of at most 128 KB, which is already in L2, so halving
-something that already fits buys nothing, and the maps whose index footprint hurts are exactly the
-ones that need more than 16 bits.
+the group, so it issues beside the fingerprint load rather than after it.
 
 ## Good at, pays for
 
@@ -1378,9 +1356,8 @@ evicts at most one key to keep the invariant that a chain starts at its home.
 The in-home bit is the most interesting single idea in this post, because it is the **exact** answer
 to "absent?": either a key that belongs here is here, or none is, and there is nothing to be
 approximate about. Every counter design above is a hint by comparison. It is measured as an
-alternative in [the group index chapter](#group-index), and what it is worth there is 2-3% in cache and nothing
-out of it, because 80% of what a counter fails to filter is siblings, which an exact test also has
-to follow.
+alternative in [the borrowed ideas](#borrowed): 2 to 3% in cache and nothing out of it, because 80%
+of what a counter fails to filter is siblings, which an exact test also has to follow.
 
 **What it costs is branches, and that is the whole result.** One map per binary, 30M lookups at
 50000 entries, from the counter table in [the measurements](#same-workloads):
@@ -1539,7 +1516,7 @@ bold cell in each row is the choice that makes that design what it is.
 | folly F14 | **double hashing** | an outbound counter of zero | no | no | 0.857 | yes |
 | emhash8 | **coalesced chain** | the end of the chain | no | **evicts a stranger from its home** | 0.80 | yes |
 | emilib | linear over aligned groups | an empty byte in the group | **yes** | no | 0.833 | yes |
-| indivi `flat_umap` | triangular over groups | **a per-class overflow counter** | no | no | 0.875 | **no** |
+| indivi `flat_umap` | triangular over groups | **a per-class overflow counter** | no | no | 0.875 | since 2026-09 |
 | indivi `flat_wmap` | triangular in steps of 16 slots, from the home slot | an empty byte in the window | **yes** | no | 0.80 | -- |
 | Verstable | quadratic chain | **an exact in-home-bucket bit** | no | evicts at most one key | **0.90** | yes |
 | ihtab | linear over groups | an empty tag in the group | **yes** | no | **0.50** | yes |
@@ -2031,33 +2008,26 @@ negative result with a mechanism behind it says more about a design than a posit
 
 "On the suite" is the geometric mean of the fifteen workloads of `unordered_dense`'s own benchmark,
 measured paired against the header without the change. Where a number needs more than a row, it is
-below. The exact in-home test is already covered by
-[the counters section](#group-index) above and is not repeated here.
+below.
 
-## From boost: a probe that terminates, and the fingerprint word table
+## From boost: the fingerprint word table, and a probe that terminates
 
-Two things came from [boost](#boost). Its prober **terminates** -- `return step<=mask` -- and until
-the review before release unordered_dense's group probe did not. It stopped only at a group whose
-counter for the key's class was zero, on the argument that an exact counter puts a zero right after
-the furthest entry of that class. The argument is wrong, because a counter counts entries that
-overflowed past its group on *their* probe sequences, not on the one being walked. Eight chosen keys
-are enough to make `contains()` on an absent key loop forever: fill a group, send one key of class 1
-past it, erase the fillers -- the passer stays, so the counter stays -- and repeat for every group.
-The fix is `|| delta == m_group_mask`, and by mechanism it is free: 83.6 to 82.7 instructions on a
-hit, 69.5 to 67.6 on a miss, cycles and mispredictions unchanged. `indivi::flat_umap`, where the
-counters came from, has the same hole, and the same eight keys hang it.
+The 256 entry table of pre-broadcast fingerprint words, which [boost](#boost) has and
+`unordered_dense` had lost somewhere: building the word arithmetically is an and, a compare, a
+shift, an or and a multiply on the critical path of every probe, placement and erase, and one L1
+load is cheaper. Paired, integer misses 5 to 6% faster on both compilers, big-value finds 14% faster
+under gcc.
 
-The other is the 256 entry table of pre-broadcast fingerprint words, which boost has and
-`unordered_dense` had lost somewhere: building the word arithmetically is an and, a compare, a shift, an or
-and a multiply on the critical path of every probe, placement and erase, and one L1 load is cheaper.
-Paired, integer misses 5 to 6% faster on both compilers, big-value finds 14% faster under gcc.
+The other thing taken from boost is its terminating prober, and that one is a correctness fix
+rather than an optimization: it is [the miss bound](#group-index), with the eight keys that showed
+it was missing.
 
-## From folly F14: one counter per group instead of eight
+## From folly F14, and then from Verstable: how wide should the counter be
 
-The group index keeps eight counters per group, one per fingerprint class, and folly's design is the
-natural question: is one enough? It is measurable, and the answer is no by a distance. Building
-unordered_dense 5.0 with a single class-blind counter per group, on a table at load 0.76 after 200
-turnovers:
+The group index keeps eight one-byte counters per group, one per fingerprint class, and folly's
+design asks the obvious question: is one enough? It is measurable, and so are the other directions
+off the shipped design. Every division of a group's eight counter bytes was built, on a table at
+load 0.76 after 200 turnovers:
 
 *Groups visited per miss, the share of misses that leave home, and time on the suite relative to the shipped design: lower is better throughout, bold is the best in each column.*
 
@@ -2072,9 +2042,32 @@ A shared counter does not know the fingerprint class, so *any* overflow past a g
 later miss into it carry on -- and in a churned table most groups have seen an overflow, so 60% of
 misses continue. It is 4% slower over the benchmark suite and 20% slower on churn.
 
-The other two rows are [the counters section](#group-index) above; the short version is that eight
-one-byte counters is the point where the counter is still a single aligned load and already knows
-the class.
+**Finer** (sixteen nibbles) filters genuinely better -- 9.7% of churned misses continue against
+17.5% -- at no memory cost, and still loses, by 1.4%, because a sub-byte counter is a
+load-mask-compare on the read and a read-modify-write on the increment, paid on *every* lookup, to
+save a group hop that was already rare. Two-bit counters filter best of all when fresh (1.3%
+continue) and are the worst under churn, because their maximum of 3 is reached constantly and a
+saturated counter never comes back down. A byte per class is the point where the counter is a single
+aligned load and still knows the class.
+
+Two more variants on the same axis. Consulting a *different* class at each step of the probe
+(`(fp + d) & 7`) is exactly a no-op, as the arithmetic says it must be: a displaced sibling adds the
+same *d* the miss does, so if they agree at step 0 they agree everywhere. Three fresh hash bits per
+step does break that lockstep and takes the churned miss from 1.262 groups to 1.238 -- and measures
+as noise, because it is 2% of the probe work on a path 17.5% of churned misses reach.
+
+And the fifth point on the axis, from [Verstable](#verstable): an **exact** counter, a second set of eight per group holding
+"entries of class *c* whose home **is** this group and which did not fit", which is its in-home bit
+generalised. Measured before writing any of it, on an instrumented header that rebuilds
+the exact answer offline by hashing every occupied slot: at load 0.79 after 200 turnovers it takes a
+churned miss from 1.242 groups to 1.201. That is a quarter of what moving displaced keys home is
+worth, for eight more bytes per group and a second invariant to keep. (The churned baseline of that
+instrument is one I later failed to reproduce -- see [drift](#group-index) in the group index chapter
+-- but what matters here is the *difference* between two variants measured with one instrument.) **About 80% of what
+the approximate counter fails to filter is siblings** -- keys that genuinely home in that group and
+genuinely did not fit -- and both tests say "continue" for those, correctly. Being exact only
+removes the strangers.
+
 
 ## From folly F14: double hashing instead of a triangular probe
 
@@ -2126,9 +2119,9 @@ every lookup in order to avoid a value access on the 3% with a fingerprint colli
 
 [indivi](#indivi)'s counters are the ancestor of these, and what changed in the copy is small: the
 fingerprint word remap (0 to 8, so that the class is unchanged), the fact that unordered_dense's
-counters live in the same block as the value indices, and the **termination bound** indivi does not
-have -- `find_impl` loops on `gIndex <= mGMask`, which the mask makes always true, so the same eight
-chosen keys hang it too.
+counters live in the same block as the value indices, and the **termination bound**, which indivi lacked
+until [it was reported](https://github.com/gaujay/indivi_collection/issues/2) -- `find_impl` looped on `gIndex <= mGMask`, which the mask makes always
+true -- and has had since September 2026.
 
 The nibbles did not follow, and they were measured properly before being dropped. Implemented here
 as a slot back-pointer per value (four extra bytes per entry) plus indivi's distance nibbles, so
@@ -2181,6 +2174,18 @@ array a 64 byte aligned block type does exactly what you would expect on lookups
 2% faster) and costs 4-5% on builds and churn, for a net **0.7% loss** on the geometric mean. The
 likely mechanism is conflict misses: with both arrays at power-of-two offsets, a group's metadata
 and its indices collide in the same cache sets more often than when one of them is skewed.
+
+## From CPython: a value index narrower than 32 bits
+
+[CPython's compact dict](https://mail.python.org/pipermail/python-dev/2012-December/123028.html)
+sizes its index to the table, one byte, two, four or eight. The equivalent here is a group type with
+a `uint16_t` index, which makes the block 3.5 bytes per slot instead of 5.5 and puts two groups'
+indices in one cache line. Over the thirteen workloads of the suite that fit under 2^16 entries it
+is **1.4% slower**, with only random integer hits (3% faster) and string finds (2%) ahead and churn
+and big-value finds 3 to 4% behind -- and the reason kills the adaptive version too. A map small
+enough to be indexed in 16 bits has an index of at most 128 KB, which is already in L2, so halving
+something that already fits buys nothing, the narrow loads cost a zero-extension on every use, and
+the maps whose index footprint actually hurts are exactly the ones that need more than 16 bits.
 
 # 16. Three ways to be fast {#three-ways}
 
@@ -2249,8 +2254,9 @@ insert, nothing in the flat or dense families will do it and no amount of measur
 value vector -- and it is not the same guarantee, because the index still doubles beside itself.
 
 **A hostile hash.** Every design here degrades to linear scanning of a probe sequence, which is fine.
-The question is whether it *terminates*: `indivi::flat_umap` does not, and neither did unordered_dense 5.0
-until the review before its release, and eight chosen keys are enough to hang either. abseil
+The question is whether it *terminates*: `indivi::flat_umap` did not until
+[September 2026](https://github.com/gaujay/indivi_collection/issues/2), and neither did unordered_dense 5.0 until the review before its release; eight
+chosen keys were enough to hang either. abseil
 additionally salts each table with a per-table seed, which is the only defence here aimed at an
 adversary rather than at an accident -- and, [measured in unordered_dense](#borrowed), one that costs
 zero cycles on a lookup, so the argument against it is about reproducible iteration order and not
@@ -2524,7 +2530,7 @@ the file and the symbol do not.
 | boost `unordered_flat_map` | 1.90 | `boost/unordered/detail/foa/core.hpp`: the `group15` design comment, `match`, `is_not_overflowed`, `mark_overflow`, `match_word`, `pow2_quadratic_prober`, `table_core::find` | [boostorg/unordered](https://github.com/boostorg/unordered) |
 | folly F14 | `65749da`, 2026-09-04 | `folly/container/detail/F14Table.h`: `F14Chunk`, `splitHashImpl`, `probeDelta`, `findImpl` | [facebook/folly](https://github.com/facebook/folly) |
 | emhash8, emilib | `20a28e8`, 2026-09-05 | `include/emhash/hash_table8.hpp`: `Index`, `EMH_EQHASH`, `EMH_NEW`, `find_filled_slot`. `include/emilib/emihmap1.hpp`: `State`, `hash_key2` | [ktprime/emhash](https://github.com/ktprime/emhash) |
-| indivi `flat_umap`, `flat_wmap` | `27ff2ce`, 2025-08-12 | `src/indivi/detail/flat_utable.h`: `MetaGroup`, `match_word`, `get_overflow`, `dec_overflow`, `get_distance`, `find_impl`. `src/indivi/detail/flat_wtable.h`: `MetaWGroup` | [gaujay/indivi_collection](https://github.com/gaujay/indivi_collection) |
+| indivi `flat_umap`, `flat_wmap` | `27ff2ce`, 2025-08-12; the probe bound of [#2](https://github.com/gaujay/indivi_collection/issues/2) landed after it, in `9ff9dc6` | `src/indivi/detail/flat_utable.h`: `MetaGroup`, `match_word`, `get_overflow`, `dec_overflow`, `get_distance`, `find_impl`. `src/indivi/detail/flat_wtable.h`: `MetaWGroup` | [gaujay/indivi_collection](https://github.com/gaujay/indivi_collection) |
 | Verstable | `dd83033`, 2025-05-06 | `verstable.h`: the metadatum masks, `vt_hashfrag`, `MAX_LOAD` | [JacksonAllan/Verstable](https://github.com/JacksonAllan/Verstable) |
 | ihtab, ixhtab | `1405f8e`, 2026-06-26 | `ihtab.hpp`: the group constants, `do_1`, `rebuild`. `ixhtab.hpp:290` for the bug | [vnmakarov/ihtab](https://github.com/vnmakarov/ihtab) |
 | `std::unordered_map` | libstdc++, gcc 16 | -- | -- |
