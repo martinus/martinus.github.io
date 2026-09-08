@@ -1283,9 +1283,36 @@ block, worth 7% of a lookup's instructions and 28% of its dTLB misses at four mi
 sixteen fingerprints starting at an arbitrary slot are not contiguous in it. Thirteen percent of a
 miss at one size does not buy all of that.
 
-What I am keeping is the mechanism, because it is the part I did not know: an aligned group's lane 0
-is probed first by all sixteen of its homes, and that single fact is worth 16% of the branch misses
-in one direction and half the tombstone recycling in the other.
+**The mechanism is the part worth keeping, and it is testable on its own.** The claim was that `ctz`
+takes the lowest free lane -- which for a window is the home slot, different for every key, and for
+an aligned group is lane 0, shared by all sixteen of that group's homes. So transplant exactly that
+one property: give the *grouped* variant a per-key starting lane from bits 8 to 11 of the hash,
+rotate the available mask by it, change nothing else. It costs a rotate on the insert path and
+affects no lookup at all, because a group is compared whole either way.
+
+*Churn at a million entries, three runs each; the middle column is the grouped variant with only the
+starting lane changed.*
+
+|  | grouped | grouped, per-key start lane | sliding window |
+|---|---|---|---|
+| tombstones recycled | **33.8%** | 16.3% | 15.8% |
+| slots after the run | **2,097,152** | 4,194,304 | 4,194,304 |
+| churn | **67.2 ns** | 87.5 ns | 83.9 ns |
+{: .heat-low}
+
+One property moved and the whole behaviour moved with it, onto the window's numbers. **And the
+direction is the opposite of the intuition:** spreading the preferred lane does not relieve
+contention, it destroys recycling, and contending on one lane is the *feature*. A tombstone appears
+wherever a key was; if every key prefers lane 0 then lane 0 is where the keys are, so lane 0 is
+where the tombstones are, so the next placement lands on one instead of consuming a fresh slot.
+Concentration is what makes a tombstone design recycle at all.
+
+That is a fact about [abseil](#swisstable) and [emilib](#emilib), which both take the lowest lane and
+should keep doing so, and it is the reason a window -- whose first lane is the home slot by
+construction -- cannot recycle well. It is not a fact about
+[the group index](#group-index), which has no tombstones to recycle: an erase there writes a
+fingerprint of zero, a genuinely empty slot, and lane position cannot affect a lookup that compares
+all sixteen at once.
 
 **And none of this explains why `flat_wmap` is fast**, which is worth being clear about because the
 prototype invites the conclusion that it should. Both of its variants are dense -- a value index
