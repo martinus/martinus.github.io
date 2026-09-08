@@ -2551,19 +2551,43 @@ variance of probe lengths and comparisons per lookup with Welford's algorithm, a
 editing a copy of a header. A built-in equivalent is the one idea I read in another map that is a
 feature rather than a fix.
 
-**F14VectorMap, side by side, and the answer was not the one I expected.** It is the closest relative
-`ankerl::unordered_dense` has and the only other map here that iterates like it. Over everything it
-is 1.27x behind on integer keys and 1.9x behind on a build -- and 6 to 12% *ahead* on string
-lookups. One map per binary says where: the hit is a 2% tie, the miss is 9.5%, the hash is provably
-not it (the same `wyhash` symbol at 44% of both profiles), the load factors are the same (4,096
-groups holding 7.8 entries each at 32,000), and the value indirection cannot be it because F14Vector
-has one too. Half of the gap is clang leaving unordered_dense's lookup out of line for
-`std::string` keys where it inlines it for `uint64_t`; force-inlining it takes the miss from 103.8
-to 99.1 cycles at an identical instruction count -- and then costs gcc 16% on integer misses in the
-paired suite, so it is not applied. The rest is eight instructions of ordinary difference between
-two probe loops, and the twelve-slot, one-cache-line chunk that looked like F14Vector's structural
-advantage is worth exactly nothing when rebuilt here: 1.4 fewer L1 misses per lookup, because the
-lines it saves were already being prefetched, and 5 to 7% lost on churn.
+**F14VectorMap's string miss, which is the one column I cannot explain away.** It is the closest
+relative `ankerl::unordered_dense` has -- the only other dense map here with the same four byte
+value index in front of the same contiguous vector -- so it is the fairest index comparison in the
+post. Over everything it is 1.27x behind on integer keys and 1.71x behind on a build, and it loses
+every integer workload. On a *string* lookup it is ahead, and that is the interesting part.
+
+One map per binary, 20 million lookups at 32,000 entries, run twice a day apart and agreeing to a
+tenth of a nanosecond: **the hit is a tie** -- 24.33 ns against 24.29 and 24.22 -- and **the miss is
+8 to 9% behind**, 18.6 ns against 17.0. Three explanations are ruled out by construction. The hash
+is not it: the harness hands F14 this map's wyhash and `perf record` puts the identical
+`wyhash::hash` symbol at 44% of both profiles. The load factor is not it: both hold 4,096 groups of
+7.8 entries at that size. And the value indirection cannot be it, because F14Vector has one too.
+
+What the counters say is that the miss costs two things, and the shape of the index is neither.
+**Eight more instructions** (139.6 against 131.7), which is ordinary difference between two probe
+loops. And **1.3 more L1 fills** (5.21 against 3.93), which are [the two index
+prefetches](#probe-assembly) issued before the fingerprints have even been compared: on a miss that
+matches nothing they fetch a line that is never read. They stay, because dropping one costs gcc 12%
+at four million entries. Note what is *not* on that list -- on a miss this map mispredicts *less*
+than F14Vector (1.06 branch misses against 1.14), and on a hit it executes *fewer* instructions
+(167.6 against 172) and still only draws.
+
+Half of what is left is clang leaving this map's lookup out of line for `std::string` keys where it
+inlines it for `uint64_t`; force-inlining it takes the miss from 103.8 to 99.1 cycles at an
+identical instruction count -- and then costs gcc 16% on integer misses, so it is not applied. And
+the twelve-slot, one-cache-line chunk that looked like F14Vector's structural advantage is worth
+exactly nothing when rebuilt here: 1.4 fewer L1 misses per lookup, because the lines it saves were
+already being prefetched, and 5 to 7% lost on churn.
+
+**Re-measured on 2026-09-08, and the way it did not move is worth recording.** The paired harness,
+re-run a day later, reported the string lookup gap halving -- every one of its nine lookup cells
+moved this map's way, geomean 0.92 to 0.96. One map per binary says the hit was a tie before and is
+a tie now, and the miss was 9.5% and is 9.3%. Nothing moved. In the same pair of runs the paired
+harness also reported this map's integer *build* 15% slower, for a change that is 15% **faster**
+built one header per binary. Which is the third time in this post that instrument has been the one
+that was wrong, always at the same magnitude, and it is why the numbers above are the ones from
+`perf` rather than from a ratio.
 
 **The string erase's 50 ns.** A dense erase hashes the moved element's key. For an integer that is
 free; for a string it is about 50 ns and it is the largest single avoidable cost I know of in this
