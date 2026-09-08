@@ -7,10 +7,6 @@
     .m{fill:#4b5563;font-size:11.5px}
     .hd{fill:#111827;font-weight:600;font-size:13.5px}
     .sub{fill:#4b5563;font-size:12px}
-    @media (prefers-color-scheme: dark){
-      .t{fill:#e5e7eb} .m{fill:#9ca3af} .hd{fill:#f9fafb} .sub{fill:#9ca3af}
-      .ax{stroke:#374151} .base{stroke:#6b7280} .ref{stroke:#9ca3af}
-    }
   </style>
   <text x="8" y="20" class="hd">relative to unordered_dense 5.0, big keys</text>
   <text x="8" y="38" class="sub">geometric mean over one octave from 32,000 entries; lower is faster</text>

@@ -7,10 +7,6 @@
     .m{fill:#4b5563;font-size:11.5px}
     .hd{fill:#111827;font-weight:600;font-size:13.5px}
     .sub{fill:#4b5563;font-size:12px}
-    @media (prefers-color-scheme: dark){
-      .t{fill:#e5e7eb} .m{fill:#9ca3af} .hd{fill:#f9fafb} .sub{fill:#9ca3af}
-      .ax{stroke:#374151} .base{stroke:#6b7280} .ref{stroke:#9ca3af}
-    }
   </style>
   <text x="8" y="22" class="hd">hit against table size, across one doubling and a little past it, u64 keys</text>
   <text x="8" y="42" class="sub">the same 57 sizes for every map, 1,673 to 3,636 entries; the large dots are the five sizes every ratio in this post is averaged over</text>
