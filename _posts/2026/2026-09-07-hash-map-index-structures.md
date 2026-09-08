@@ -1859,32 +1859,29 @@ index and takes twice as many cycles, entirely for this reason.
 
 ## What one lookup touches {#what-one-lookup-touches}
 
-The tables above are static. This is the same information as a picture of the *chain*: what a hit
-has to wait for, in order. Every arrow is a load whose address the box before it produced, so
-nothing after it can start early.
+The tables above are static. This is the same information as a picture of the *chain* a hit waits
+on: the hash is arithmetic, and every box after it is a load whose address the box before it
+produced, so none of them can start early. Amber marks a load that lands in a cache line the
+previous one already brought in, which is nearly free; teal marks one that does not.
 
-[![The dependent load chain of a hit, per design](/img/2026/hashmap-index/lookup-touches.svg)](/img/2026/hashmap-index/lookup-touches.svg)
+[![The chain of loads a hit waits on, per design, grouped by family](/img/2026/hashmap-index/lookup-touches.svg)](/img/2026/hashmap-index/lookup-touches.svg)
 
-Three things are worth taking from it.
+**A flat map waits for two loads and a dense one for three**, and that third box is
+[the family cost](#three-families) -- not recoverable by any amount of index cleverness, because it
+is what the dense layout *is*. What varies is how much it costs. In the group index and in ihtab the
+value index sits in the same block as the fingerprints that produced it, so the middle load is
+usually already in cache; in F14Vector it is a separate array, and pays.
 
-**The dense designs have one more box.** Metadata, then a value index, then the value. That is the
-family cost from [the three families](#three-families) and it is not recoverable by any amount of index
-cleverness -- it is what the dense layout *is*. What varies is how bad the extra box is: in the group
-index the index lives in the same 88 byte block as the fingerprints that produced it, so the second
-load is usually in a cache line the first one already brought in, which is worth 28% of the dTLB
-misses at four million entries. ihtab has the same arrangement. emhash8's index word carries the
-index and the chain link together, so its extra box is folded into the first one, and it pays
-elsewhere.
+**Two designs get out of it by not having a separate index at all.** unordered_dense 4.11.0's bucket
+word holds the distance, the fingerprint and the index together, and emhash8's index word holds the
+chain link and the index -- so both are dense and still wait for only two loads. What they pay for
+that is elsewhere: eight bytes per slot for one, and a chain to walk for the other.
 
-**Boxes at the same depth are not the same cost.** A group compare is one `movdqu`, one `pcmpeqb`
-and one `pmovmskb` producing sixteen verdicts and one branch. A chain step is a load and a branch
-the predictor has to guess. They occupy the same position in the picture and differ by a factor of
-two in cycles, which is [the chains chapter](#chains)'s result.
-
-**The chained designs have a variable number of boxes**, and the variability is the cost rather than
-the average. emhash8's chains are short -- close to one at load 0.8 -- and Verstable's are short too.
-What costs is that "is there a chain" and "is it over" are decisions, and at load 0.9 about 59% of
-Verstable's misses land on a chain head.
+**And boxes at the same depth are not the same cost.** A group compare is one `movdqu`, one
+`pcmpeqb` and one `pmovmskb` producing sixteen verdicts and a single branch. A chain step is a load
+and a branch the predictor has to guess -- which is why the designs marked "+1 per chain step" lose
+even where the chain is short, and why at load 0.9 about 59% of Verstable's misses land on a chain
+head.
 
 # 15. The same workloads on every map [&#8593; contents](#contents){:.up} {#same-workloads}
 
