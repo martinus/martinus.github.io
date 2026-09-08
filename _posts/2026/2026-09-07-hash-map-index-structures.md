@@ -855,7 +855,9 @@ where a bit cannot -- and strictly better than F14's single counter on a fresh o
 knows the class. Like F14's it saturates, at 255, and indivi's own assertion message is honest about
 what that means: *"Overflow counter saturated: tombstone will remain until rehash."*
 
-Maximum load factor 0.875, quadratic probing at the group level.
+Maximum load factor 0.875, and the same triangular probe over groups as boost, abseil and
+`unordered_dense` 5.0 -- `gIndex = (gIndex + (++delta)) & mGMask`, which is boost's `pos=(pos+step)&mask`
+line for line.
 
 ## Erase by iterator without a hash: the nibbles
 
@@ -1537,8 +1539,8 @@ bold cell in each row is the choice that makes that design what it is.
 | folly F14 | **double hashing** | an outbound counter of zero | no | no | 0.857 | yes |
 | emhash8 | **coalesced chain** | the end of the chain | no | **evicts a stranger from its home** | 0.80 | yes |
 | emilib | linear over aligned groups | an empty byte in the group | **yes** | no | 0.833 | yes |
-| indivi `flat_umap` | quadratic over groups | **a per-class overflow counter** | no | no | 0.875 | **no** |
-| indivi `flat_wmap` | quadratic, no groups | an empty byte in the window | **yes** | no | 0.80 | -- |
+| indivi `flat_umap` | triangular over groups | **a per-class overflow counter** | no | no | 0.875 | **no** |
+| indivi `flat_wmap` | triangular in steps of 16 slots, from the home slot | an empty byte in the window | **yes** | no | 0.80 | -- |
 | Verstable | quadratic chain | **an exact in-home-bucket bit** | no | evicts at most one key | **0.90** | yes |
 | ihtab | linear over groups | an empty tag in the group | **yes** | no | **0.50** | yes |
 | unordered_dense 5.0 | triangular over groups | a per-class overflow counter | no | **only a hit inside a write, to its own home** | 0.80 | yes |
