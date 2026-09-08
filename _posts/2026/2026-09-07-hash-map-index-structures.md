@@ -198,7 +198,6 @@ are only the parts particular to that design.
     * [Layout: one byte per slot, and a window rather than a group](#wmap-layout)
     * [One lookup](#wmap-lookup)
     * [Why it is faster, and it is not the window](#wmap-why)
-    * [Both layouts, built](#wmap-built)
     * [What it would cost the group index](#wmap-steal)
 11. [The group index: unordered_dense 5.0](#group-index)
     * [Eight counters, by fingerprint class](#counters-by-class)
@@ -826,7 +825,7 @@ boost's overflow bits accumulate, misses walk further and further, and the only 
 them is a rehash. Measured with boost's own statistics facility, a table of 200,000 entries at load
 0.81, erasing one and inserting one:
 
-*Groups visited per miss; 1.00 would be a miss that never leaves its home group. The turnover points are chosen to straddle the in-place rehash rather than spaced evenly, because the shape being shown is the saw and not the average -- 0.62 and 1.25 are the rows just after a repair. Cells here and in the tables below are tinted by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense -- so the colour never says anything the number does not.*
+*Groups visited per miss; 1.00 would be a miss that never leaves its home group. The turnover points straddle the in-place rehash rather than being evenly spaced, because the shape is the saw and not the average. Tinted cells, here and below, are coloured by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense; a table with no tint is one where no axis is a common scale or where every difference is too small to be worth a colour.*
 
 | erase-insert pairs, in turnovers of the table | groups visited per miss |
 |---|---|
@@ -1184,7 +1183,7 @@ grouped map takes the first free slot in the group of sixteen its home falls in,
 completely full is likelier than *no* free slot existing in a sliding window. That is true, and it is
 worth almost nothing. Simulated with the same keys at the same load, windows visited per placement:
 
-*Sixteen-slot windows visited per placement, lower is better; bold is the better of the two. No tint: every difference here is under 5%, which is the finding.*
+*Sixteen-slot windows visited per placement, lower is better; bold is the better of the two.*
 
 | load | bucketized | sliding |
 |---|---|---|
@@ -1199,9 +1198,7 @@ that is a quarter of what moving displaced entries home is worth in
 **What causes it is instructions and metadata width.** One map per binary, all-hit lookups, the
 grouped sibling against the ungrouped one:
 
-*Per hit, one map per binary, lower is better; bold is the better of each pair. No tint: a row here
-holds two instruction counts and two cache-miss counts, and a column holds three table sizes, so
-neither axis is a common scale.*
+*Per hit, one map per binary, lower is better; bold is the better of each pair.*
 
 | entries | `flat_umap` instructions | `flat_wmap` | `flat_umap` L1 misses | `flat_wmap` |
 |---|---|---|---|---|
@@ -1228,125 +1225,45 @@ octave a hit swings 2.12x between the cheapest and dearest point of the octave, 
 designs swing 1.5 to 1.6x, so a number quoted for it at one size is worth less than for anything
 else here.
 
-## Both layouts, built {#wmap-built}
-
-The measurements above compare two people's maps, which cannot separate the window from everything
-else that differs between them. So I built both layouts over one implementation -- same value
-vector, same hash, same fingerprint encoding, same load factor, same tombstones, same growth, same
-erase, same SSE2 helpers -- differing in the home unit and the probe step and nothing else, one
-variant per binary, both cross-checked against `std::unordered_map` before anything was timed.
-
-**The window wins the lookup, and it wins it at the branch predictor rather than in the cache.**
-Per operation at 200,000 entries, aligned groups against the sliding window:
-
-*One index per binary, per operation, lower is better; bold is the better of the two.*
-
-|  | instructions | cycles | branch misses | L1 misses |
-|---|---|---|---|---|
-| **on a hit** |  |  |  |  |
-| aligned groups | 71.9 | 56.8 | 0.198 | **4.615** |
-| sliding window | **70.5** | **53.6** | **0.167** | 4.852 |
-| **on a miss** |  |  |  |  |
-| aligned groups | 70.1 | 47.9 | 0.518 | **2.810** |
-| sliding window | **67.4** | **44.0** | **0.436** | 3.018 |
-{: .heat-low}
-
-16% fewer branch misses on both, three to four fewer cycles -- and **more** L1 misses, because an
-unaligned sixteen byte load straddles two cache lines where an aligned one does not. In time, over
-three sizes and three runs: hits 1 to 5% faster, and a miss 13% faster at 200,000 entries.
-
-**The miss number is against the wrong baseline, though, and it is worth saying so rather than
-banking it.** Neither variant has overflow counters, because there is no group in the ungrouped one
-to hang them on -- so both stop a miss on an *empty slot*, and the grouped variant is
-[the group index](#group-index) with the counters taken out, which is precisely the path they exist
-for. Windows visited per miss: at 200,000 entries and load 0.76, **1.2962 grouped against 1.2246
-window**; at a million and load 0.48, 1.0060 against 1.0027. The shipped index visits **1.046** on a
-fresh miss at any load, because a counter stops it at home. So the 13% is the window leaving the
-first window slightly less often *when the miss test is an empty slot*, and where a miss already
-stops at home it evaporates -- at a million entries the window is 2% *slower* on a miss. The hit
-advantage is the robust one: 1 to 5%, and still 7% at a million where both variants visit 1.000
-windows, so that part is addressing and instructions rather than probe length.
-
-**And it loses churn, for a reason worth having.** At a million entries the window variant ends a
-churn run with **4,194,304 slots against 2,097,152** -- one extra doubling -- and 24% slower churn.
-Counting where placements land says why: **15.8% of the window's placements reuse a tombstone
-against the grouped variant's 33.8%**. `ctz` takes the lowest available lane, which for a window is
-the home slot itself and for a group is the group's lane 0 -- a fixed position that all sixteen of
-that group's homes probe first, so it is tombstoned and reused constantly, where a window's first
-lane is different for every home and is more often a slot that has never been used. Burning fresh
-slots is what drives a load factor counting live plus tombstones, so it buys an extra growth.
-
 ## What it would cost the group index {#wmap-steal}
 
-**First, a dense map built on this structure against the shipped one.** Variant 1 above
-already is that map -- a sliding window, one metadata byte per slot, a `uint32` index in front of a
-dense value vector -- so I added a third variant that is `ankerl::unordered_dense` itself behind the
-same interface, running the identical workload code. It reproduces the production harness to within
-1% on a build, which is the check that the workloads are honest.
+Comparing two people's maps cannot separate the window from everything else that differs between
+them, so I built both layouts over one implementation -- same value vector, hash, fingerprint
+encoding, load factor, tombstones, growth, erase and SSE2 helpers, differing in the home unit and
+the probe step and nothing else, one variant per binary, both cross-checked against
+`std::unordered_map` before anything was timed.
 
-*Per operation, median of three runs, lower is better; bold is the best of the three.*
+**The window wins a lookup at the branch predictor rather than in the cache.** Per operation at
+200,000 entries it retires one to three fewer instructions, takes three to four fewer cycles, and
+mispredicts **16% less** on both a hit and a miss -- while taking *more* L1 misses, because an
+unaligned sixteen byte load straddles two cache lines where an aligned one does not. In time that is
+1 to 5% on a hit. Its miss looks better too, but only against this baseline: neither variant has
+overflow counters, because there is no group in the ungrouped one to hang them on, so both stop a
+miss on an empty slot where [the shipped index](#group-index) stops on a counter at home. Where a
+miss already stops at home the advantage evaporates -- at a million entries the window is 2%
+*slower* on one.
 
-|  | grouped, tombstones | window, dense | unordered_dense 5.0 |
-|---|---|---|---|
-| build, 200,000 | 16.69 | 16.66 | **9.10** |
-| hit, 200,000 | 8.62 | 7.74 | **6.77** |
-| miss, 200,000 | 7.76 | 6.65 | **4.72** |
-| churn, 1M | 65.71 | 83.87 | **62.01** |
-| bytes per entry, 1M | 27.26 | **27.26** | 28.31 |
-{: .heat-row}
+**And it loses churn, for a reason worth having.** At a million entries the window ends a churn run
+with one extra doubling and 24% slower churn, because **15.8% of its placements reuse a tombstone
+against the grouped variant's 33.8%**. Transplanting only that property confirms it: give the
+*grouped* variant a per-key starting lane instead of always taking the lowest, change nothing else,
+and its recycling falls to 16.3% and its slot count doubles -- onto the window's numbers exactly.
 
-**Read the third column as a prototype against a tuned library, not as a design comparison.** The
-build gap is 83 to 143% and almost none of it is the index -- the shipped map hashes sixteen
-elements ahead when it grows and the prototype rebuilds one at a time -- and the lookup gap is the
-merged block and the prefetches. The design question is the first column against the second, same
-author and same afternoon, and that is the comparison this section is built on.
+**The direction of that is the opposite of the intuition, and it is the part worth keeping.**
+Spreading the preferred lane does not relieve contention, it destroys recycling, and contending on
+one lane is the *feature*: a tombstone appears wherever a key was, so if every key prefers lane 0
+then lane 0 is where the tombstones are, and the next placement lands on one instead of consuming a
+fresh slot. That is a fact about [abseil](#swisstable) and [emilib](#emilib), which both take the
+lowest lane and should keep doing so, and the reason a window -- whose first lane is the home slot by
+construction -- cannot recycle well. It is not a fact about the group index, which has no tombstones
+to recycle and compares all sixteen lanes at once, so lane position cannot reach a lookup at all.
 
-**And the answer is no, with the chain that makes it no.** A sliding window means no per-group counters, because there is no group to hang them
-on; no counters means the miss stops on an empty slot; and that means tombstones -- which is the
+**So: no.** A sliding window means no per-group counters, because there is no group to hang them on;
+no counters means the miss stops on an empty slot; and that means tombstones -- which is the
 property [churn](#same-workloads) exists to protect. It also means giving up the merged 88 byte
 block, worth 7% of a lookup's instructions and 28% of its dTLB misses at four million entries, since
-sixteen fingerprints starting at an arbitrary slot are not contiguous in it. Thirteen percent of a
-miss at one size does not buy all of that.
-
-**One thing is worth keeping whatever happens to the layout, and it is testable on its own.** The claim was that `ctz`
-takes the lowest free lane -- which for a window is the home slot, different for every key, and for
-an aligned group is lane 0, shared by all sixteen of that group's homes. So transplant exactly that
-one property: give the *grouped* variant a per-key starting lane from bits 8 to 11 of the hash,
-rotate the available mask by it, change nothing else. It costs a rotate on the insert path and
-affects no lookup at all, because a group is compared whole either way.
-
-*Churn at a million entries, three runs each; the middle column is the grouped variant with only the
-starting lane changed.*
-
-|  | grouped | grouped, per-key start lane | sliding window |
-|---|---|---|---|
-| tombstones recycled, % | **33.8** | 16.3 | 15.8 |
-| slots after the run | **2,097,152** | 4,194,304 | 4,194,304 |
-| churn, ns per operation | **67.2** | 87.5 | 83.9 |
-{: .heat-row}
-
-One property moved and the whole behaviour moved with it, onto the window's numbers. **And the
-direction is the opposite of the intuition:** spreading the preferred lane does not relieve
-contention, it destroys recycling, and contending on one lane is the *feature*. A tombstone appears
-wherever a key was; if every key prefers lane 0 then lane 0 is where the keys are, so lane 0 is
-where the tombstones are, so the next placement lands on one instead of consuming a fresh slot.
-Concentration is what makes a tombstone design recycle at all.
-
-That is a fact about [abseil](#swisstable) and [emilib](#emilib), which both take the lowest lane and
-should keep doing so, and it is the reason a window -- whose first lane is the home slot by
-construction -- cannot recycle well. It is not a fact about
-[the group index](#group-index), which has no tombstones to recycle: an erase there writes a
-fingerprint of zero, a genuinely empty slot, and lane position cannot affect a lookup that compares
-all sixteen at once.
-
-**And none of this explains why `flat_wmap` is fast**, which is worth being clear about because the
-prototype invites the conclusion that it should. Both of its variants are dense -- a value index
-between the metadata and the key -- and carry the same metadata width, on purpose, so that the
-window is the only thing varying. `flat_wmap` is *flat*, with the key in the slot the window found,
-and it carries **one** metadata byte per slot where this map carries 5.5 and its own grouped sibling
-carries two. Those are the differences [the counters](#counters) already attribute it to: 48.0
-instructions per hit against `flat_umap`'s 54.3 and unordered_dense's 60.5. The window is the
-smallest of the three, and it is the only one this map could have taken.
+sixteen fingerprints starting at an arbitrary slot are not contiguous in it. A few percent of a hit
+does not buy that.
 
 # 11. The group index: unordered_dense 5.0 [&#8593; contents](#contents){:.up} {#group-index}
 
@@ -1525,7 +1442,7 @@ freshly built one with the same contents. Groups visited per lookup, counted ins
 reserved table churned 200 times through -- erasing a uniformly random live key and inserting one
 the map has never held, at a constant size:
 
-*Groups visited per lookup, lower is better; bold is the best in each row. No tint: the whole table spans 11%, and a scale that fine says more than the measurement does.*
+*Groups visited per lookup, lower is better; bold is the best in each row.*
 
 |  | fresh | churned | + one writing hit per round | + four |
 |---|---|---|---|---|
@@ -1540,24 +1457,11 @@ The drift is real, it saturates rather than growing (5, 20, 100 and 400 turnover
 1.035 and 1.035 per hit at load 0.76), and it is worth about 0.036 groups on a miss at the fullest
 point of the sawtooth and almost nothing at the emptiest.
 
-That is the honest difference from a tombstone design, and it is small -- but it is not zero, and
-I have had it wrong in both directions. For a while I had it written down as zero, because "a
-churned table is identical to a fresh one" is true of backward shift deletion and I carried it over.
-Then an earlier instrumentation recorded 1.14 groups per hit and 1.27 per miss at load 0.76, and I
-quoted those for weeks; re-instrumenting the probe for the table above reproduces its *fresh*
-figures to three digits and its churned ones nowhere near, so either that harness churned
-differently in a way that matters or the number was wrong. Every column of the table above comes
-from one instrument, and those are the figures to use.
-
-Two repairs were measured. **Pulling a displaced sibling home on erase**: when an erase frees a slot
-and any counter is nonzero, look one group along for an entry whose home is this one and move it
-back. It works -- half the drift, one step deep, 1.24M pull-backs in 10M erases -- and it costs 20 ns
-per erase, because at load 0.76 *some* counter of the freed group is nonzero on 46% of erases, and
-each of those hashes two or three candidate keys to find out. It buys 0.4-0.6 ns per lookup in cache
-and nothing at all out of it, since a one-step displacement lands in the adjacent block that the
-spatial prefetcher already brought in. Break-even at thirty to fifty lookups per erase. Not kept.
-
-**The lazy version is kept.** The entry a hit just found is the one candidate whose home is known
+That is the honest difference from a tombstone design: real, and small. Repairing it eagerly -- on
+every erase, by looking one group along for an entry whose home is the freed slot's -- was measured
+and costs 20 ns per erase to buy half a nanosecond per lookup, because at this load *some* counter
+of the freed group is nonzero on 46% of erases and each of those has to hash two or three candidate
+keys to find out. **The lazy version is the one that is kept.** The entry a hit just found is the one candidate whose home is known
 without another hash -- the probe computed it -- and whether the home has room is one `match_empty`
 on a group the probe just visited. So `move_home` runs on every hit inside a path that already
 writes (`try_emplace`, `operator[]`, `insert`, `emplace`, `insert_or_assign`) and nowhere else. It is
@@ -1604,12 +1508,6 @@ program. And the gain is entirely on misses. The shape it pays for is a map that
 size, is written to by key, and is asked about keys that are not there: a real shape, and not the
 shape of anything in my benchmark suite, which is why the suite reads exactly level on this change
 and always will.
-
-The first measurement of it said 1.49x on misses and was wrong -- a paired run of two headers in one
-binary, where the code layout of the losing side moved. Note that the control column above reads
-1.052 at 52,363 entries where it has to read 1.00, which is that same effect, still there, measured
-rather than guessed at. The rule
-it leaves is in [how the numbers were made](#how-measured).
 
 ## Where the indices live: one array or two {#one-array-or-two}
 
@@ -2006,7 +1904,7 @@ Those seven workloads are the ones named [in chapter 2](#what-a-lookup-is-made-o
 `map<uint64_t, size_t>`, octave from 32,000 entries -- so the index is comfortably in L2 and the
 values in L3, which is where most maps in most programs live:
 
-*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column. The tint says the same thing again -- blue where a map beats unordered_dense, amber where it does not, deeper the further from parity -- so the colour is never carrying anything the number does not.*
+*Time relative to unordered_dense 5.0: 0.80 is 20% faster, 1.50 is 50% slower. Lower is faster; bold is the fastest map in each column; blue beats unordered_dense and amber does not.*
 
 <table class="grid">
 <thead><tr><th scope="col">map</th>
@@ -3138,20 +3036,15 @@ answer faster than a table does.
 
 # 18. What unordered_dense 5.0 took from the others, and what each idea was worth [&#8593; contents](#contents){:.up} {#borrowed}
 
-**This is the narrowest chapter in the post, and the one where I am not a reporter.** Every design
-above was read with one question in mind: is there something in it that belongs in
+Every design above was read with one question in mind: is there something in it that belongs in
 [the group index](#group-index)? Twelve ideas were then built into unordered_dense 5.0 and measured
 against the same header without them. Four are in the shipped index, one is there behind a switch,
 and seven are not -- and the seven are the more interesting part, because a negative result with a
 mechanism behind it says more about a design than a positive one does.
 
 **Read a row as "unordered_dense 5.0 already had a way of doing this", not as "this was a bad
-idea".** Nothing here is a verdict on an idea, and still less on the map it came from. It is what
-one idea was worth in *one* map, whose layout, value indirection, maximum load and probe had already
-decided most of what there was to decide -- and that is the mechanism behind several of the seven:
-an idea earns its keep in its own map because nothing cheaper filtered first, and earns nothing here
-because the group compare and the counter already had. In its own map it is not slower by 4%; it is
-the reason that map is fast.
+idea".** None of it is a verdict on an idea, still less on the map it came from: in its own map an
+idea is not slower by 4%, it is the reason that map is fast.
 
 **And the list runs the other way too.** Every part of this index worth having came from somewhere
 on it: the counters are [indivi](#indivi)'s, the erase that decrements them is [folly](#f14)'s, the
@@ -3179,14 +3072,10 @@ theirs.
 each row measured paired against the same header with that one change taken out. Where a number
 needs more than a row, it is below.
 
-**Read the small rows with the caveat this post spends [its last chapter](#how-measured) earning.** A
-paired harness cannot resolve a few percent, and six of these rows are a few percent. Most of them
-do not rest on it: the terminating probe is settled by instruction counts, the seed and double
-hashing by one map per binary, the counter widths and the exact in-home test by probe lengths
-counted inside the header, the nibbles by instructions per round. Three do -- the second
-fingerprint, the cache-line-aligned metadata and the narrow value index, at 2.5%, 0.7% and 1.4% --
-and those three are best read as "measured, did not pay for itself, not re-tested on a better
-instrument" rather than as settled.
+Six of these rows are a few percent, which is below what a paired harness can resolve. Most of them
+do not rest on one -- instruction counts, one map per binary or probe lengths settle them -- but
+three do: the second fingerprint, the cache-line-aligned metadata and the narrow value index. Read
+those as "measured, did not pay for itself, not re-tested on a better instrument".
 
 ## From boost: the fingerprint word table, and a probe that terminates {#from-boost}
 
@@ -3207,7 +3096,7 @@ design asks the obvious question: is one enough? It is measurable, and so are th
 off the shipped design. Every division of a group's eight counter bytes was built, on a table at
 load 0.76 after 200 turnovers:
 
-*Groups visited per miss, the share of misses that leave home, and time on the suite relative to the shipped design: lower is better throughout, bold is the best in each column. No tint: two of these cells are words rather than numbers, and a column half coloured and half not says less than none. The churned column here is the older instrumentation, the one whose absolute figures [the drift section](#drift) retracts -- it reads 1.26 groups where the instrument used everywhere else reads 1.06. The four rows are measured against each other on one instrument and are comparable to each other; do not read them against a number from another section.*
+*Groups visited per miss, the share of misses that leave home, and time on the suite relative to the shipped design: lower is better throughout, bold is the best in each column. The churned column is the older instrumentation, which reads 1.26 groups where the instrument used everywhere else reads 1.06: the four rows are comparable to each other and not to a number from another section.*
 
 | counters per group | fresh miss | churned miss | misses continuing past home | time on the suite |
 |---|---|---|---|---|
@@ -3239,10 +3128,10 @@ eight per group holding "entries of class *c* whose home **is** this group and w
 which is its in-home bit generalised. Measured before writing any of it, on an instrumented header
 that rebuilds the exact answer offline by hashing every occupied slot: at load 0.79 after 200
 turnovers it takes a churned miss from 1.242 groups to 1.201. That is a quarter of what moving
-displaced keys home is worth, for eight more bytes per group and a second invariant to keep. (The
-churned baseline of that instrument is one I later failed to reproduce -- see [drift](#drift)
-in the group index chapter -- but what matters here is the *difference* between two variants
-measured with one instrument.) **About 80% of what the approximate counter fails to filter is
+displaced keys home is worth, for eight more bytes per group and a second invariant to keep. (Its
+churned baseline is the older instrument's, so read the *difference* between the two variants rather
+than either absolute against a figure from another chapter.) **About 80% of what the approximate
+counter fails to filter is
 siblings** -- keys that genuinely home in that group and genuinely did not fit -- and both tests say
 "continue" for those, correctly. Being exact only removes the strangers.
 
@@ -3451,17 +3340,9 @@ a *present* key from 74 to 88, because the merged function pays the placement co
 pressure on the path that never places. Paired on the benchmark suite that came out 1.2% faster with
 every interval excluding parity, so the attribute went in.
 
-**Then I took it out, and put it back the same day.** That is the most useful thing in this
-chapter, so here is the whole of it. The paired harness compiles both headers into *one translation
-unit*, which is the condition under which a compiler runs out of inlining budget, so making one
-header smaller changes what is inlined in **both**; it cannot see this class of change and it gets
-the sign wrong. Re-measured one header per binary, the scored suite is **1.7% faster under clang and
-3.9% under gcc without the attribute** -- and per workload in that binary, `build64` is **15% faster
-without it** and `buildbig` 16%, against churn 7 to 9% slower. On that I removed it.
-
-**That was still the wrong instrument, and the reason is a rule I did not have.** The scored
-benchmark is ~90 translation units of test suite -- the largest unit anyone compiles this header
-into, and one whose inlining budget is already spent, so an `always_inline` in it displaces
+**I removed that attribute once, on a measurement, and put it back the same day on a better one.**
+The scored benchmark is ~90 translation units of test suite -- the largest unit anyone compiles this
+header into, and one whose inlining budget is already spent, so an `always_inline` there displaces
 something else. A caller's translation unit holds one map. Measured *that* way, building from empty,
 with the attribute against without:
 
@@ -3473,27 +3354,12 @@ with the attribute against without:
 | 200,000 | **1,749,840 ns** | 2,087,600 | **28.09M** | 33.71M |
 | 1,000,000 | **13,064,800 ns** | 15,670,600 | **162.3M** | 190.4M |
 
-**14 to 20% slower without it at every size**, and the instruction counts are what settle it,
-because neither code layout nor drift can move them: 17 to 20% more work retired. The eighteen-map
-binary agrees, at 17% slower on a build at 32,000.
+**14 to 20% slower without it at every size**, on 17 to 20% more instructions retired -- and the
+instruction counts are what settle it, because neither code layout nor drift can move them.
 
-The order it happened in is the uncomfortable part. When I removed the attribute I had two readings:
-the paired one, which said keep it, and the ~90-unit one-header-per-binary one, which said remove it
-and which I had just finished arguing was the better instrument. I removed it. The two readings that
-say the removal hurt -- the eighteen-map binary and the one-map binary -- I took *afterwards*, while
-re-measuring something else entirely, and the eighteen-map one I dismissed on sight as an artefact of
-its own translation unit. It was not; it was the only harness in the room whose answer matched a
-caller's.
-
-So the attribute is in the header, and the rule it leaves is narrower than "one map per binary":
-**the translation unit's *size* decides what an `always_inline` is worth, a benchmark binary is the
-largest unit anyone compiles into, and an instruction count is the only number in the argument that
-none of it moves.** What the attribute costs is unchanged and is written above it in the header -- a
-`try_emplace` on a key that is already there goes from 48.4 instructions to 73.2. That is a later
-measurement than the table above and in a binary holding one map rather than the whole suite, so it
-is a bigger penalty on smaller numbers; the mechanism is the same one either way. The merged
-function pays the placement code's register pressure on the path that never places. It is simply
-smaller than 17% of a build.
+So the rule this leaves is narrower than "one map per binary": **the size of the translation unit
+decides what an `always_inline` is worth, a benchmark binary is the largest unit anyone compiles
+into, and an instruction count is the only number in the argument that none of it moves.**
 
 ## The hash it is given {#the-hash}
 
