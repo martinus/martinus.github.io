@@ -1861,8 +1861,10 @@ index and takes twice as many cycles, entirely for this reason.
 
 The tables above are static. This is the same information as a picture of the *chain* a hit waits
 on: the hash is arithmetic, and every box after it is a load whose address the box before it
-produced, so none of them can start early. Amber marks a load that lands in a cache line the
-previous one already brought in, which is nearly free; teal marks one that does not.
+produced, so none of them can start early. One of those loads is cheaper than the others and is
+marked amber: in the group index and in ihtab the value index lives inside the same block the
+fingerprints came from, so by the time it is needed it is usually already in cache. Every other load
+in the picture goes to a different region and pays for it.
 
 [![The chain of loads a hit waits on, per design, grouped by family](/img/2026/hashmap-index/lookup-touches.svg)](/img/2026/hashmap-index/lookup-touches.svg)
 
