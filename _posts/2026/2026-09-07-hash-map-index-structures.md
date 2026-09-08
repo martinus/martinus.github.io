@@ -1804,7 +1804,13 @@ dense ones hold the same in a vector plus their index.
 
 **At an eight byte value the flat maps win and it is close.** 27 to 29 bytes per entry against 32.6
 for unordered_dense 5.0, which is one byte of metadata per slot at load 0.875 against 5.5 bytes at 0.8 --
-plus the doubling overhang of a `std::vector`, which is what most of the gap actually is.
+plus the doubling overhang of a `std::vector`, which is what most of the gap actually is. That last
+part is a knob rather than a property: the value container is a template parameter, and one that
+grows by 1.5x instead of 2 measures **29.8 bytes per entry against 33.2, for 14% of the build** (and
+98.9 against 113.3 at a 64 byte value, for 19%). Level with boost on memory, at the cost of the
+column this map is furthest ahead on -- which is why 2 is still the default, and why the trade is
+available to anyone whose scarce resource is the other one. Every map here doubles, incidentally:
+folly's much-quoted 1.406 growth factor binds only on an explicit `reserve`, never on insertion.
 
 **At a 64 byte value the order reverses completely, and the node maps win.** A flat map pays for
 every empty slot at the full width of the value: at load 0.875 that is 82 bytes of slot for 72 bytes
