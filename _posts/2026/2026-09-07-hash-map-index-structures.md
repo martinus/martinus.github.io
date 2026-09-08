@@ -33,38 +33,84 @@ should. [How the numbers were made](#how-measured) says why, and how to reproduc
 
 # Contents {#contents}
 
-**Part I: what an index has to do**
+**What an index has to do**
 
 1. [Five questions every hash map index answers](#five-questions)
 2. [What a lookup is made of](#what-a-lookup-is-made-of)
 3. [Three families: flat, dense, node](#three-families)
+    * [Keys in the slots: flat](#flat-family)
+    * [Keys in a vector: dense](#dense-family)
+    * [Keys behind a pointer: node-based](#node-family)
 4. [Per-slot metadata or per-group metadata](#per-slot-or-per-group)
 
-**Part II: the designs**
+**The designs**
+
+Every chapter here reads the same way: the layout, one lookup through it, what an insert and an
+erase leave behind, and what the design is good at and what it pays for. Listed below each chapter
+are only the parts particular to that design.
 
 {:start="5"}
 5. [Robin hood with an ordered word: unordered_dense 4.11.0](#robin-hood)
+    * [Backward shift deletion: no tombstones, ever](#backward-shift)
+    * [What carried into the group index, and what did not](#rh-carried)
 6. [SwissTable: abseil's flat_hash_map](#swisstable)
+    * [Tombstones and the 7/8 rule](#swiss-tombstones)
+    * [The small table: one element, and no allocation at all](#swiss-soo)
 7. [Boost's unordered_flat_map: fifteen slots and an overflow byte](#boost)
+    * [An erase cannot clear a bit](#boost-erase)
+    * [Why an overflow bit degrades more gently than a tombstone](#bit-vs-tombstone)
 8. [Folly F14: one counter per chunk](#f14)
+    * [A counter an erase can decrement](#f14-counter)
+    * [Value, Node, Vector](#f14-variants)
 9. [indivi: counters an erase can undo, and distance nibbles](#indivi)
+    * [Erase by iterator without a hash: the nibbles](#indivi-nibbles)
+    * [flat_wmap: the same without groups, and it wins the hit](#flat-wmap)
 10. [The group index: unordered_dense 5.0](#group-index)
+    * [Eight counters, by fingerprint class](#counters-by-class)
+    * [The miss bound](#miss-bound)
+    * [Erase: decrement, do not tombstone](#group-erase)
+    * [Drift, and moving home](#drift)
+    * [Where the indices live: one array or two](#one-array-or-two)
 11. [Chains instead of probes: emhash8 and Verstable](#chains)
+    * [emhash8: chaining through the index, and a fingerprint for free](#emhash8)
+    * [Verstable: a 16 bit word with a chain in it](#verstable)
 12. [The plain SwissTables: emilib and ihtab](#plain)
+    * [emilib: a state byte per slot](#emilib)
+    * [ihtab: eight slots at half load](#ihtab)
+    * [ixhtab, and the bug that a constant-size churn finds](#ixhtab)
 
-**Part III: side by side**
+**Side by side**
 
 {:start="13"}
 13. [The summary table](#summary-table)
+    * [What one lookup touches](#what-one-lookup-touches)
 14. [The same workloads on every map](#same-workloads)
+    * [Integer keys](#integer-keys)
+    * [String keys](#string-keys)
+    * [A 64 byte mapped value](#big-value)
+    * [Memory](#memory)
+    * [Counters](#counters)
+    * [The probe loops, in assembly](#probe-assembly)
 15. [Every idea taken from another map, and what each was worth](#borrowed)
+    * [From boost: the fingerprint word table, and a probe that terminates](#from-boost)
+    * [From folly F14, and then from Verstable: how wide should the counter be](#counter-width)
+    * [From folly F14: double hashing instead of a triangular probe](#from-f14-probe)
+    * [From emhash8: a second fingerprint in the spare index bits](#from-emhash8)
+    * [From indivi: the counters themselves, and the nibbles that did not follow](#from-indivi)
+    * [From abseil: a per-table seed](#from-abseil-seed)
+    * [From abseil and boost: cache-line-aligned metadata](#from-aligned)
+    * [From CPython: a value index narrower than 32 bits](#from-cpython)
 16. [Three ways to be fast](#three-ways)
 17. [Question by question](#question-by-question)
+    * [Which one, then](#which-one)
 
-**Part IV: loose ends, and how it was measured**
+**Loose ends, and how it was measured**
 
 {:start="18"}
 18. [Building the group index: growth, the compiler, the hash](#building)
+    * [Growth: the pipelined rehash](#pipelined-rehash)
+    * [What the compiler decides](#compiler)
+    * [The hash it is given](#the-hash)
 19. [What is still on the table](#still-on-the-table)
 20. [How the numbers were made, and how to remake them](#how-measured)
 21. [Appendix: sources and versions](#appendix)
@@ -193,7 +239,7 @@ order, so iteration is an array walk and a large value costs the vector rather t
 one more dependent load on every hit. Node maps keep references and iterators valid forever, and pay
 an allocation per insert and a cache miss per lookup for it.
 
-## Keys in the slots: flat
+## Keys in the slots: flat {#flat-family}
 
 `absl::flat_hash_map`, `boost::unordered_flat_map`, `folly::F14ValueMap`, `indivi::flat_umap`,
 emilib, Verstable. The `value_type` is stored in the slot the hash picked. A lookup that gets a
@@ -205,7 +251,7 @@ hash-scattered slots. An empty slot occupies a full `value_type`. Iteration walk
 array, most of which is empty, so a flat map at load 0.5 reads twice the memory it has to. And
 references and iterators are invalidated by any growth, because the values move.
 
-## Keys in a vector: dense
+## Keys in a vector: dense {#dense-family}
 
 `ankerl::unordered_dense`, `emhash8::HashMap`, `folly::F14VectorMap`, ihtab. The values live in a
 contiguous array in insertion order, and the hash table holds an *index* into it rather than the
@@ -233,7 +279,7 @@ fix is to move the last element into it -- which means finding the *slot* that p
 element, which means hashing its key again. For an integer key that is free (see
 [the group index's erase](#group-index)); for a string key it costs about 50 ns.
 
-## Keys behind a pointer: node-based
+## Keys behind a pointer: node-based {#node-family}
 
 [`std::unordered_map`](https://en.cppreference.com/w/cpp/container/unordered_map),
 `boost::unordered_node_map`, `absl::node_hash_map`, `folly::F14NodeMap`. Each
@@ -276,7 +322,7 @@ and unordered_dense 5.0's eight counters. This is where the answer to "when may 
 interesting in the last few years, and it is what the chapters on [boost](#boost), [F14](#f14),
 [indivi](#indivi) and [the group index](#group-index) are mostly about.
 
-One piece of vocabulary before Part II, because it turns up well before its own chapter does. When I
+One piece of vocabulary before the designs, because it turns up well before its own chapter does. When I
 write **the group index** I mean the index unordered_dense 5.0 uses: sixteen one-byte fingerprints
 and eight overflow counters per group of sixteen slots, with the value indices in the same block.
 [Its own chapter](#group-index) takes it apart, and every design chapter before that one ends by
@@ -352,7 +398,7 @@ the subject of [the previous post](/2026/09/04/unordered-dense-four-buckets-at-a
 what makes this an honest comparison rather than a straw man. The scalar loop above is what runs
 where SSE2 is not available, and it is the classic shape.
 
-## Backward shift deletion: no tombstones, ever
+## Backward shift deletion: no tombstones, ever {#backward-shift}
 
 An erase does not free the slot and walk away. It shifts the following run back down by one,
 decrementing each distance, until it reaches a bucket at distance 1 or an empty one. The
@@ -374,7 +420,7 @@ full one: a scalar robin hood probe swings 2.05 to 2.35x between the cheapest an
 one octave, where a group design swings 1.07 to 1.28x. [The measurements](#same-workloads) have the
 same figure for 4.11.0 with its vector probe.
 
-## What carried into the group index, and what did not
+## What carried into the group index, and what did not {#rh-carried}
 
 Into unordered_dense 5.0, that is; [the group index chapter](#group-index) is the whole of it, and
 this is only the part that came from the design above.
@@ -456,7 +502,7 @@ would have been placed at or before it, so it is not in the table.
 The probe sequence is triangular, `offset += index; index += Width`, which visits every group in a
 power-of-two array exactly once.
 
-## Tombstones and the 7/8 rule
+## Tombstones and the 7/8 rule {#swiss-tombstones}
 
 An erase writes `kDeleted` -- unless both neighbours in the same group are empty, in which case it
 can write `kEmpty` without breaking anyone's proof. So a table that churns at a fixed size fills
@@ -466,7 +512,7 @@ bigger, but the tombstones go away and every probe sequence is rebuilt.
 
 The maximum load factor is 7/8, so growth happens at capacity times 7/8.
 
-## The small table: one element, and no allocation at all
+## The small table: one element, and no allocation at all {#swiss-soo}
 
 Recent abseil has something no other map here does, and it is aimed at a case a benchmark suite
 almost never measures: the map that holds nothing, or one thing.
@@ -608,7 +654,7 @@ array is aligned, and the match masks off the overflow byte with `& 0x7FFF`.
 `next()` returns false once `step > mask`, so a full-table walk terminates. Maximum load factor is
 0.875.
 
-## An erase cannot clear a bit
+## An erase cannot clear a bit {#boost-erase}
 
 Here is the cost of the overflow byte, and it is the exact mirror of what makes it good. An insert
 sets a bit to say "someone of class *h*%8 passed through here". An erase cannot unset it, because
@@ -638,7 +684,7 @@ clear the bits.
 Welford accounting to every lookup and makes a miss take 10.4 ns instead of 3.9. The counts are
 exact either way; the times below are from a build without it.)
 
-## Why an overflow bit degrades more gently than a tombstone
+## Why an overflow bit degrades more gently than a tombstone {#bit-vs-tombstone}
 
 Both boost and abseil leave something behind that only a rehash clears, so it is fair to ask why one
 is so much worse than the other. Same workload, same hash, same machine, a miss on a 200,000 entry
@@ -773,7 +819,7 @@ comment that is a direct answer to abseil and boost:
 // our experiments.
 ```
 
-## A counter an erase can decrement
+## A counter an erase can decrement {#f14-counter}
 
 `outboundOverflowCount_` counts the keys that wanted this chunk and did not fit. An insert that
 passes a full chunk increments it; **an erase of such a key decrements it again**. So unlike boost's
@@ -786,7 +832,7 @@ so a pathological table can pin a chunk permanently. And there is exactly **one 
 which knows nothing about the hash class -- any overflow at all sends every later miss into that
 chunk on to the next.
 
-## Value, Node, Vector
+## Value, Node, Vector {#f14-variants}
 
 F14 ships three maps over one table. `F14ValueMap` is flat. `F14NodeMap` is node-based.
 `F14VectorMap` keeps the values in a contiguous vector behind 4 byte indices and is, as far as I
@@ -856,7 +902,7 @@ Maximum load factor 0.875, and the same triangular probe over groups as boost, a
 unordered_dense 5.0 -- `gIndex = (gIndex + (++delta)) & mGMask`, which is boost's
 `pos=(pos+step)&mask` line for line.
 
-## Erase by iterator without a hash: the nibbles
+## Erase by iterator without a hash: the nibbles {#indivi-nibbles}
 
 The distance nibbles are the other idea, and they are aimed at a specific operation. Given an
 iterator, an ordinary open addressing map cannot erase without knowing where the key's home is, and
@@ -865,7 +911,7 @@ current group minus that many steps of the probe sequence, run backwards -- so `
 needs no hash and no key access at all. For a `std::string` key that is a whole wyhash and a
 dependent load saved.
 
-## flat_wmap: the same without groups, and it wins the hit
+## flat_wmap: the same without groups, and it wins the hit {#flat-wmap}
 
 `indivi::flat_wmap` is the sibling, and it is the surprise of the measurements. One metadata byte per
 slot, no counters, tombstones, a maximum load of 0.8 -- and, in its own words, *"It doesn't group
@@ -1050,7 +1096,7 @@ the usual one. On a Neoverse N2, SWAR against 4.11.0's *scalar* probe was **behi
 nothing and gained nothing. With `vceqq_u8` the same runner reads 1.48x on hits and 1.62x on misses.
 The vector compare is not an optimization of the group design; it is the group design.
 
-## Eight counters, by fingerprint class
+## Eight counters, by fingerprint class {#counters-by-class}
 
 An insert that finds its home group full increments the counter for its own class in every full
 group it passes; an erase decrements the same ones. A miss stops at the first group whose counter
@@ -1062,7 +1108,7 @@ counter is still a single aligned load and already knows the class, and that abo
 fails to filter is siblings -- keys that genuinely belong in that group and genuinely did not fit --
 which an exact counter has to follow as well.
 
-## The miss bound
+## The miss bound {#miss-bound}
 
 `|| delta == m_group_mask`: a key that exists was placed within one cycle of its probe sequence, so
 a walk that has seen every group can stop. [Boost](#boost)'s prober has always had it -- `return
@@ -1085,7 +1131,7 @@ the right trade against a hostile hash, and it is why there is now a test that m
 reached its contents by erasing a run of overflowing entries must compare a miss exactly as often as
 a table built from the survivors directly.
 
-## Erase: decrement, do not tombstone
+## Erase: decrement, do not tombstone {#group-erase}
 
 An erase clears the fingerprint and walks the same sequence from home to the group the entry was
 found in, decrementing each counter. Then, because the values are dense, it moves `m_values.back()`
@@ -1112,7 +1158,7 @@ The fix for the string case is a slot back-pointer per value, indivi's distance 
 their conclusion, and it is [measured and rejected in the borrowed ideas](#borrowed): a tenth
 faster exactly where the hash is expensive, and a loss everywhere the vector grows.
 
-## Drift, and moving home
+## Drift, and moving home {#drift}
 
 Because nothing moves after it is placed, an entry that landed away from home while its home group
 was full **stays there after the home empties again**. So a long-churned table probes further than a
@@ -1202,7 +1248,7 @@ binary, where the code layout of the losing side moved. Note that the control co
 at 52,363 entries, which is that same effect, still there, measured rather than guessed at. The rule
 it leaves is in [how the numbers were made](#how-measured).
 
-## Where the indices live: one array or two
+## Where the indices live: one array or two {#one-array-or-two}
 
 The value indices used to be a second array beside the groups, and a comment in the header recorded
 that the split had been tried against a merged block years ago and was 10% faster on a build. That
@@ -1587,7 +1633,7 @@ lookups on a freshly built table with an rng that never replays; **iterate**, su
 value; **churn**, erasing one and inserting one at a constant size, with a key the map has never
 held; and **insert/erase**, a mix of `operator[]` and `erase` on a table that grows and shrinks.
 
-## Integer keys
+## Integer keys {#integer-keys}
 
 [![Every map on build, hit, churn and iterate, relative to the group index](/img/2026/hashmap-index/bench-u64.svg)](/img/2026/hashmap-index/bench-u64.svg)
 
@@ -1679,11 +1725,11 @@ improves so much: once every lookup is waiting on memory, the number of regions 
 than which of them the probe stops at.
 
 **And the load factor stops being the story.** `indivi::flat_wmap`, the fastest hit at every size, is
-0.64 here -- and it is also the map with [the widest sawtooth in the post](#indivi), 2.12x across the
+0.64 here -- and it is also the map with [the widest sawtooth in the post](#flat-wmap), 2.12x across the
 32,000 octave where the group designs are 1.5 to 1.6x. A number for it at one size would have been
 worth very little.
 
-## String keys
+## String keys {#string-keys}
 
 [![Every map on the string workloads, relative to the group index](/img/2026/hashmap-index/bench-str.svg)](/img/2026/hashmap-index/bench-str.svg)
 
@@ -1734,7 +1780,7 @@ changes nothing. So the often-quoted "boost is faster on string lookups" is a st
 For an integer key it is the other way round: both defaults are cheaper than a wyhash multiply, and
 abseil's is 1.4x cheaper on a build.
 
-## A 64 byte mapped value
+## A 64 byte mapped value {#big-value}
 
 [![Every map with a 64 byte mapped value, relative to the group index](/img/2026/hashmap-index/bench-big.svg)](/img/2026/hashmap-index/bench-big.svg)
 
@@ -1994,7 +2040,7 @@ the design difference is in the two instructions before and after it.
 
 # 15. Every idea taken from another map, and what each was worth {#borrowed}
 
-Every design in Part II was read with one question in mind: is there something in it that belongs
+Every design above was read with one question in mind: is there something in it that belongs
 in the group index? Twelve ideas were implemented and measured. Four are in the shipped index, one is there
 behind a switch, and seven are not -- and the seven are the more interesting part, because a
 negative result with a mechanism behind it says more about a design than a positive one does.
@@ -2018,7 +2064,7 @@ negative result with a mechanism behind it says more about a design than a posit
 measured paired against the header without the change. Where a number needs more than a row, it is
 below.
 
-## From boost: the fingerprint word table, and a probe that terminates
+## From boost: the fingerprint word table, and a probe that terminates {#from-boost}
 
 The 256 entry table of pre-broadcast fingerprint words, which [boost](#boost) has and
 unordered_dense had lost somewhere: building the word arithmetically is an and, a compare, a
@@ -2030,7 +2076,7 @@ The other thing taken from boost is its terminating prober, and that one is a co
 rather than an optimization: it is [the miss bound](#group-index), with the eight keys that showed
 it was missing.
 
-## From folly F14, and then from Verstable: how wide should the counter be
+## From folly F14, and then from Verstable: how wide should the counter be {#counter-width}
 
 The group index keeps eight one-byte counters per group, one per fingerprint class, and folly's
 design asks the obvious question: is one enough? It is measurable, and so are the other directions
@@ -2076,7 +2122,7 @@ measured with one instrument.) **About 80% of what the approximate counter fails
 siblings** -- keys that genuinely home in that group and genuinely did not fit -- and both tests say
 "continue" for those, correctly. Being exact only removes the strangers.
 
-## From folly F14: double hashing instead of a triangular probe
+## From folly F14: double hashing instead of a triangular probe {#from-f14-probe}
 
 The other transferable thing in [F14](#f14) is the probe sequence, and it is aimed at a real
 weakness here. Under a
@@ -2108,7 +2154,7 @@ sequence past home has nothing left to win.** Folly's comment is right about fol
 tour matters precisely because there is no per-class counter stopping a miss at home in the first
 place.
 
-## From emhash8: a second fingerprint in the spare index bits
+## From emhash8: a second fingerprint in the spare index bits {#from-emhash8}
 
 [emhash8](#emhash8)'s free fingerprint is the most tempting idea in this post to steal, because
 unordered_dense's value index is also a `uint32_t` with spare high bits, and it is also loaded on
@@ -2122,7 +2168,7 @@ consulted anyway. Here the sixteen-way fingerprint compare has already rejected 
 going to reject, so a second check adds an xor, a shift and a compare to the dependent chain of
 every lookup in order to avoid a value access on the 3% with a fingerprint collision.
 
-## From indivi: the counters themselves, and the nibbles that did not follow
+## From indivi: the counters themselves, and the nibbles that did not follow {#from-indivi}
 
 [indivi](#indivi)'s counters are the ancestor of these, and what changed in the copy is small: the
 fingerprint word remap (0 to 8, so that the class is unchanged), the fact that unordered_dense's
@@ -2147,7 +2193,7 @@ So it is a real win for a real pattern, and the pattern needs an expensive key *
 iterator, and a caller with both can call `erase(key)` with the hash their own `find` already paid
 for.
 
-## From abseil: a per-table seed
+## From abseil: a per-table seed {#from-abseil-seed}
 
 [abseil](#swisstable) mixes a seed of its own into every hash so that keys chosen against a known
 hash cannot be aimed at a particular table. It is the one idea in this post aimed at an adversary
@@ -2171,7 +2217,7 @@ So: worth having behind a switch, not worth making the default, because the cost
 and the threat is not everyone's. abseil makes the opposite call, and it is defensible -- it is a
 library used at a scale where somebody is always feeding you keys.
 
-## From abseil and boost: cache-line-aligned metadata
+## From abseil and boost: cache-line-aligned metadata {#from-aligned}
 
 [abseil](#swisstable)'s and [boost](#boost)'s groups are cache-line-aligned, which they get for free
 because their metadata is 16 bytes. Measured while the value indices were still a separate array:
@@ -2182,7 +2228,7 @@ array a 64 byte aligned block type does exactly what you would expect on lookups
 likely mechanism is conflict misses: with both arrays at power-of-two offsets, a group's metadata
 and its indices collide in the same cache sets more often than when one of them is skewed.
 
-## From CPython: a value index narrower than 32 bits
+## From CPython: a value index narrower than 32 bits {#from-cpython}
 
 [CPython's compact dict](https://mail.python.org/pipermail/python-dev/2012-December/123028.html)
 sizes its index to the table, one byte, two, four or eight. The equivalent here is a group type with
@@ -2296,7 +2342,7 @@ the two compilers do to it, and what hash it is handed. They are here rather tha
 [the group index chapter](#group-index) because a reader of the reference does not need them, and a reader who
 wants to know where the group index's build and lookup times actually come from does.
 
-## Growth: the pipelined rehash
+## Growth: the pipelined rehash {#pipelined-rehash}
 
 Placement is shift-free, so a rehash can place in any order. The loop hashes sixteen elements ahead
 of the one it places and prefetches the group each will land in. Below cache that is 1.26x for the
@@ -2345,7 +2391,7 @@ from 10.43 ns per insert to 2.74 and the whole 200,000 element build from 16.72 
 disambiguated it on its own, which is exactly why comparing two compilers' absolute times is worth
 doing.
 
-## What the compiler decides
+## What the compiler decides {#compiler}
 
 Two of the largest single numbers on this branch are not design changes at all.
 
@@ -2387,7 +2433,7 @@ the same: on a reserved insert the attribute takes clang from 106.8 instructions
 it was never the no-op for gcc I had written down. It is not in the header any more, and the rule it
 leaves is [in chapter 20](#how-measured), with the other instance of it.
 
-## The hash it is given
+## The hash it is given {#the-hash}
 
 A hash for a map is chosen on **latency**, not throughput, because its result is the address of the
 group to probe and nothing after it can start. That sounds obvious and it orders candidates by more
