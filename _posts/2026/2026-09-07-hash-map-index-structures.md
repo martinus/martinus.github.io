@@ -100,7 +100,7 @@ are only the parts particular to that design.
     * [Memory](#memory)
     * [Counters](#counters)
     * [The probe loops, in assembly](#probe-assembly)
-15. [Every idea taken from another map, and what each was worth](#borrowed)
+15. [What unordered_dense 5.0 took from the others, and what each idea was worth](#borrowed)
     * [From boost: the fingerprint word table, and a probe that terminates](#from-boost)
     * [From folly F14, and then from Verstable: how wide should the counter be](#counter-width)
     * [From folly F14: double hashing instead of a triangular probe](#from-f14-probe)
@@ -2049,12 +2049,29 @@ And **the match walk is the same three instructions everywhere** -- `tzcnt`, use
 `lea`/`and` to clear it -- which is worth noticing because it is the part everyone gets right. All
 the design difference is in the two instructions before and after it.
 
-# 15. Every idea taken from another map, and what each was worth {#borrowed}
+# 15. What unordered_dense 5.0 took from the others, and what each idea was worth {#borrowed}
 
-Every design above was read with one question in mind: is there something in it that belongs
-in the group index? Twelve ideas were implemented and measured. Four are in the shipped index, one is there
-behind a switch, and seven are not -- and the seven are the more interesting part, because a
-negative result with a mechanism behind it says more about a design than a positive one does.
+**This is the narrowest chapter in the post, and the one where I am not a reporter.** Every design
+above was read with one question in mind: is there something in it that belongs in
+[the group index](#group-index)? Twelve ideas were then built into unordered_dense 5.0 and measured
+against the same header without them. Four are in the shipped index, one is there behind a switch,
+and seven are not -- and the seven are the more interesting part, because a negative result with a
+mechanism behind it says more about a design than a positive one does.
+
+**Read a row as "unordered_dense 5.0 already had a way of doing this", not as "this was a bad
+idea".** Nothing here is a verdict on an idea, and still less on the map it came from. It is what
+one idea was worth in *one* map, whose layout, value indirection, maximum load and probe had already
+decided most of what there was to decide -- and that is the mechanism behind several of the seven:
+an idea earns its keep in its own map because nothing cheaper filtered first, and earns nothing here
+because the group compare and the counter already had. In its own map it is not slower by 4%; it is
+the reason that map is fast.
+
+**And the list runs the other way too.** Every part of this index worth having came from somewhere
+on it: the counters are [indivi](#indivi)'s, the erase that decrements them is [folly](#f14)'s, the
+pre-broadcast fingerprint word and the prober that terminates are [boost](#boost)'s, and the group
+of sixteen fingerprints compared in one instruction, which everything else here sits on, is
+[abseil](#swisstable)'s. What is mine is the arrangement, and the measuring; the shoulders are
+theirs.
 
 | idea | from | measured | kept |
 |---|---|---|---|
@@ -2072,8 +2089,8 @@ negative result with a mechanism behind it says more about a design than a posit
 | a value index narrower than 32 bits | CPython's compact dict | 1.4% slower on the suite | no |
 
 "On the suite" is the geometric mean of the fifteen workloads of unordered_dense's own benchmark,
-measured paired against the header without the change. Where a number needs more than a row, it is
-below.
+each row measured paired against the same header with that one change taken out. Where a number
+needs more than a row, it is below.
 
 ## From boost: the fingerprint word table, and a probe that terminates {#from-boost}
 
