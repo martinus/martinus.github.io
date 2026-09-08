@@ -175,36 +175,40 @@ are only the parts particular to that design.
     * [Value, Node, Vector](#f14-variants)
 9. [indivi: counters an erase can undo, and distance nibbles](#indivi)
     * [Erase by iterator without a hash: the nibbles](#indivi-nibbles)
-    * [flat_wmap: the same without groups, and it wins the hit](#flat-wmap)
-10. [The group index: unordered_dense 5.0](#group-index)
+10. [indivi flat_wmap: the window that beats the group](#flat-wmap)
+    * [Layout: one byte per slot, and a window rather than a group](#wmap-layout)
+    * [One lookup](#wmap-lookup)
+    * [Why it is faster, and it is not the window](#wmap-why)
+    * [What it would take to steal this](#wmap-steal)
+11. [The group index: unordered_dense 5.0](#group-index)
     * [Eight counters, by fingerprint class](#counters-by-class)
     * [The miss bound](#miss-bound)
     * [Erase: decrement, do not tombstone](#group-erase)
     * [Drift, and moving home](#drift)
     * [Where the indices live: one array or two](#one-array-or-two)
-11. [Chains instead of probes: emhash8 and Verstable](#chains)
+12. [Chains instead of probes: emhash8 and Verstable](#chains)
     * [emhash8: chaining through the index, and a fingerprint for free](#emhash8)
     * [Verstable: a 16 bit word with a chain in it](#verstable)
-12. [The plain SwissTables: emilib and ihtab](#plain)
+13. [The plain SwissTables: emilib and ihtab](#plain)
     * [emilib: a state byte per slot](#emilib)
     * [ihtab: eight slots at half load](#ihtab)
     * [ixhtab, and the bug that a constant-size churn finds](#ixhtab)
 
 **Side by side**
 
-{:start="13"}
-13. [The summary table](#summary-table)
+{:start="14"}
+14. [The summary table](#summary-table)
     * [What one lookup touches](#what-one-lookup-touches)
-14. [The same workloads on every map](#same-workloads)
+15. [The same workloads on every map](#same-workloads)
     * [Integer keys](#integer-keys)
     * [String keys](#string-keys)
     * [A 64 byte mapped value](#big-value)
     * [Memory](#memory)
-15. [Where the time actually goes](#where-the-time-goes)
+16. [Where the time actually goes](#where-the-time-goes)
     * [Counters](#counters)
     * [The probe loops, in assembly](#probe-assembly)
     * [Three ways to be fast](#three-ways)
-16. [Question by question](#question-by-question)
+17. [Question by question](#question-by-question)
     * [Which one, then](#which-one)
 
 **Standing on those shoulders**
@@ -212,8 +216,8 @@ are only the parts particular to that design.
 The three chapters about my own map rather than about the field: what it borrowed, how it was
 built, and what it has not answered.
 
-{:start="17"}
-17. [What unordered_dense 5.0 took from the others, and what each idea was worth](#borrowed)
+{:start="18"}
+18. [What unordered_dense 5.0 took from the others, and what each idea was worth](#borrowed)
     * [From boost: the fingerprint word table, and a probe that terminates](#from-boost)
     * [From folly F14, and then from Verstable: how wide should the counter be](#counter-width)
     * [From folly F14: double hashing instead of a triangular probe](#from-f14-probe)
@@ -222,18 +226,18 @@ built, and what it has not answered.
     * [From abseil: a per-table seed](#from-abseil-seed)
     * [From abseil and boost: cache-line-aligned metadata](#from-aligned)
     * [From CPython: a value index narrower than 32 bits](#from-cpython)
-18. [Building the group index: growth, the compiler, the hash](#building)
+19. [Building the group index: growth, the compiler, the hash](#building)
     * [Growth: the pipelined rehash](#pipelined-rehash)
     * [What the compiler decides](#compiler)
     * [The hash it is given](#the-hash)
-19. [What is still on the table](#still-on-the-table)
+20. [What is still on the table](#still-on-the-table)
     * [What reading eighteen of them changed my mind about](#changed-my-mind)
 
 **How it was measured**
 
-{:start="20"}
-20. [How the numbers were made, and how to remake them](#how-measured)
-21. [Appendix: sources and versions](#appendix)
+{:start="21"}
+21. [How the numbers were made, and how to remake them](#how-measured)
+22. [Appendix: sources and versions](#appendix)
 
 # 1. Five questions every hash map index answers [&#8593; contents](#contents){:.up} {#five-questions}
 
@@ -1053,24 +1057,92 @@ current group minus that many steps of the probe sequence, run backwards -- so `
 needs no hash and no key access at all. For a `std::string` key that is a whole wyhash and a
 dependent load saved.
 
-## flat_wmap: the same without groups, and it wins the hit {#flat-wmap}
+## Good at, pays for
 
-`indivi::flat_wmap` is the sibling, and it is the surprise of the measurements. One metadata byte per
-slot, no counters, tombstones, a maximum load of 0.8 -- and, in its own words, *"It doesn't group
-buckets but still relies on SIMD operations for speed"*. There is no group alignment at all: the
-sixteen byte window is read **unaligned, starting at the home bucket**.
+Good at: the most information per slot of any flat map here (a fragment, a class counter's share,
+and a distance), a tombstone-free erase that also knows the class, and an `erase(iterator)` that
+costs no hash.
+
+Pays for: two bytes per slot instead of one, and the bookkeeping -- an insert maintains counters and
+distances, an erase undoes both.
+
+unordered_dense 5.0's counters are indivi's, and its distance nibbles were tried there and
+dropped; [the borrowed ideas](#borrowed) have both.
+
+And the same author ships a second map that throws all of this away -- the counters, the distances,
+the groups themselves -- and is faster on every lookup than this one. That is the next chapter.
+
+# 10. indivi flat_wmap: the window that beats the group [&#8593; contents](#contents){:.up} {#flat-wmap}
+
+The fastest map in this post on an integer hit is not a SwissTable, does not group its slots, and is
+by the same author as the one in the chapter before. `indivi::flat_wmap` is `flat_umap`'s sibling --
+same repository, same file structure, same SSE2 -- with the groups taken out, and it beats it by
+1.13 to 1.42x on lookups. It is the largest single index effect I found in anyone else's code, so it
+gets its own chapter, and the answer to *why* is not the one the design advertises.
+
+## Layout: one byte per slot, and a window rather than a group {#wmap-layout}
+
+[![One metadata byte per slot, the sixteen-byte window read unaligned at the home slot, and the duplicated tail that makes it legal](/img/2026/hashmap-index/wmap-window.svg)](/img/2026/hashmap-index/wmap-window.svg)
+
+One byte per slot, and that is the whole of the metadata -- no counters, no distances, no second
+array. The byte is a seven bit hash fragment or one of two markers, and the values they take are
+chosen so that a *signed* compare separates them:
 
 ```cpp
-const uint8_t* group = &mGroups.data[index];   // index is the home *slot*, not a group
-auto hfrags = MetaWGroup::load_hfrags(group);  // _mm_loadu_si128
-int matchs = MetaWGroup::match_hfrag(hfrags, hash);
+static constexpr uint8_t EMPTY_FRAG{ 0x7F };     // 127
+static constexpr uint8_t TOMBSTONE_FRAG{ 0x7E }; // 126
+static constexpr uint8_t SETMAX_FRAG{ 0x7D };    // 125
 ```
 
-**On integer keys it is the fastest map here on all-hit lookups at every size I measured** -- 0.71
-at 32,000 entries and 0.64 at 500,000. On string keys it is sixth, for the reason
-[that section](#string-keys) gives: there the hash and the key compare are most of the lookup and
-the index barely participates. The most useful comparison is not with unordered_dense, though, but with its
-own sibling: same author, same file layout, both flat, both SSE2, one grouped and one not.
+Every occupied slot holds a fragment that is `< 126` as `int8_t`, every free one holds 126 or 127,
+so `match_available` is one `_mm_cmpgt_epi8` against 125 and `match_set` one `_mm_cmplt_epi8`
+against 126. The fragment comes from the *low* byte of the hash through a 256 entry table of
+pre-broadcast words -- boost's trick, and the one [the group index](#group-index) also took -- which
+here does double duty, because it is also what remaps a hash byte that would collide with the two
+markers.
+
+The home is a **slot**, not a group: `hash_position` is `hash >> shift`, the top bits, and the
+sixteen bytes compared are the sixteen bytes *starting at that slot*, read with `_mm_loadu_si128`.
+There is no alignment anywhere in the design. What makes that legal at the end of the array is the
+same trick abseil uses for a different purpose: the metadata is over-allocated by sixteen bytes that
+duplicate the first group, `newGCapa = newCapa + 16u`, so a window opened at the last slot is still
+one load and still wraps to the right fragments.
+
+## One lookup {#wmap-lookup}
+
+```cpp
+do {
+  const uint8_t* group = &mGroups.data[index];   // index is the home *slot*
+  auto hfrags = MetaWGroup::load_hfrags(group);  // _mm_loadu_si128
+  int matchs = MetaWGroup::match_hfrag(hfrags, hash);
+  if (matchs) {
+    item_type* pValue = &mValues.data[index];
+    INDIVI_PREFETCH(pValue);
+    do {
+      int idx = first_bit_index(matchs);
+      size_type valIdx = (index + idx) & mGMask;
+      if (equal()(key, get_key(mValues.data[valIdx]))) { return { mValues.data + valIdx, valIdx }; }
+      matchs &= matchs - 1;
+    } while (matchs);
+  }
+  if (MetaWGroup::match_empty(hfrags)) { return { nullptr, 0 }; }
+  index = (index + (++delta) * 16) & mGMask;
+} while (index <= mGMask);
+```
+
+Three things in that loop are worth naming. The lane index is added to the *slot*, not to a group
+base -- `valIdx = (index + idx) & mGMask` -- so a match in lane 0 is the home slot itself and the
+value array wraps where the metadata array duplicates. The miss stops on an **empty** fragment, so
+this is a tombstone design and pays what tombstone designs pay under churn. And the probe steps by
+`(++delta) * 16`: triangular, but in units of sixteen slots, so the second window begins where the
+first ended rather than at the next aligned group.
+
+Placement is the mirror of it. `unchecked_insert` takes `match_available` on the same unaligned
+window and puts the key in the **first free slot within sixteen of its home**, where a grouped map
+must take the first free slot in the one group its home falls in. That is the difference the design
+is *for*, and it is measurable, and it turns out not to be where the speed comes from.
+
+## Why it is faster, and it is not the window {#wmap-why}
 
 *Time relative to unordered_dense 5.0, lower is faster; bold is the better of the two.*
 
@@ -1121,23 +1193,31 @@ the metadata array gets big. One byte of metadata per slot against two, and no o
 load on the way past. The alignment of the window is the most visible difference between the two
 designs and the least important one.
 
-What the ungrouped design pays is the other columns: tombstones, a slower build, and the widest
-load-factor sawtooth of anything in this post -- at the 32,000 octave it swings 2.12x between its
-cheapest and dearest point where the group designs swing 1.5 to 1.6x.
+## Good at, pays for {#wmap-pays}
 
-## Good at, pays for
+Good at: the fastest integer hit and miss measured here, at one byte of metadata per slot -- the
+leanest index in the post that still compares sixteen slots at once. Slot-level placement, so a
+displaced key lands as close to home as any design here puts it.
 
-Good at: the most information per slot of any flat map here (a fragment, a class counter's share,
-and a distance), a tombstone-free erase that also knows the class, and an `erase(iterator)` that
-costs no hash.
+Pays for: tombstones, and everything that follows from them -- a miss that stops on an empty
+fragment degrades under churn, and a rehash is what repairs it. A slower build than its grouped
+sibling at every size. And the widest load-factor sawtooth of anything in this post: at the 32,000
+octave a hit swings 2.12x between the cheapest and dearest point of the octave, where the group
+designs swing 1.5 to 1.6x, so a number quoted for it at one size is worth less than for anything
+else here.
 
-Pays for: two bytes per slot instead of one, and the bookkeeping -- an insert maintains counters and
-distances, an erase undoes both.
+## What it would take to steal this {#wmap-steal}
 
-unordered_dense 5.0's counters are indivi's, and its distance nibbles were tried there and
-dropped; [the borrowed ideas](#borrowed) have both.
+The window is the one idea in this post I would still like to have and cannot simply take. Sixteen
+fingerprints starting at an arbitrary slot are not contiguous in [the group index](#group-index)'s
+88 byte block, so a sliding window means giving up the merged block -- worth 7% of a lookup's
+instructions and 28% of its dTLB misses at four million entries -- and it means giving up per-group
+overflow counters, which are worth 1.4 to 1.7x of a miss against an otherwise identical SwissTable.
+The prize, by the measurements above, is instructions and metadata width rather than the window
+itself. That is a bad trade as stated, and [what is still on the table](#still-on-the-table) is
+where the unexplained part of it sits.
 
-# 10. The group index: unordered_dense 5.0 [&#8593; contents](#contents){:.up} {#group-index}
+# 11. The group index: unordered_dense 5.0 [&#8593; contents](#contents){:.up} {#group-index}
 
 This is what replaced [robin hood](#robin-hood) in my own map in 5.0, and it is the design I
 know best because I built it by measuring every alternative I could think of and keeping what won.
@@ -1434,7 +1514,7 @@ Pays for: one more dependent load on every hit than a flat map, which is the fam
 not go away; a rehash that has to move values as well as indices; and an erase that hashes the moved
 element's key, which is free for an integer and about 50 ns for a string.
 
-# 11. Chains instead of probes: emhash8 and Verstable [&#8593; contents](#contents){:.up} {#chains}
+# 12. Chains instead of probes: emhash8 and Verstable [&#8593; contents](#contents){:.up} {#chains}
 
 Two designs answer "absent?" without a probe sequence at all. They thread a **chain** through the
 metadata, so a lookup visits only keys that belong to its own bucket and a miss ends where the
@@ -1583,7 +1663,7 @@ at 2.398 branch misses per element against 0.132.
 Memory is where it does well: 18 bytes per slot at a 0.9 maximum load puts it with abseil and emilib
 at the lean end of [the memory table](#memory), ahead of boost and every dense map.
 
-# 12. The plain SwissTables: emilib and ihtab [&#8593; contents](#contents){:.up} {#plain}
+# 13. The plain SwissTables: emilib and ihtab [&#8593; contents](#contents){:.up} {#plain}
 
 Two implementations of the standard design, with fewer moving parts than anything else in the post.
 They are here because a clean version of the standard design is the baseline every trick above has
@@ -1686,7 +1766,7 @@ transferable part is not the bug, it is the test: **a workload that holds the el
 constant while churning is the only one that can see this class of fault**, and it is the workload
 most hash map benchmarks do not have.
 
-# 13. The summary table [&#8593; contents](#contents){:.up} {#summary-table}
+# 14. The summary table [&#8593; contents](#contents){:.up} {#summary-table}
 
 Everything above, in two tables. The first is what the index *is*; the second is how it behaves. The
 bold cell in each row is the choice that makes that design what it is.
@@ -1778,7 +1858,7 @@ the average. emhash8's chains are short -- close to one at load 0.8 -- and Verst
 What costs is that "is there a chain" and "is it over" are decisions, and at load 0.9 about 59% of
 Verstable's misses land on a chain head.
 
-# 14. The same workloads on every map [&#8593; contents](#contents){:.up} {#same-workloads}
+# 15. The same workloads on every map [&#8593; contents](#contents){:.up} {#same-workloads}
 
 Eighteen maps for an integer key and sixteen for a string -- Verstable and ihtab are the two that
 drop out, both C libraries whose buckets are `malloc`ed and never constructed, so a key has to be
@@ -2647,7 +2727,7 @@ one dead element for every live one until it rebuilds. That is a design choice r
 bin-splitting test that compares a table-wide count against a per-bin size, and the memory does not
 stop growing at all.
 
-# 15. Where the time actually goes [&#8593; contents](#contents){:.up} {#where-the-time-goes}
+# 16. Where the time actually goes [&#8593; contents](#contents){:.up} {#where-the-time-goes}
 
 The tables above are ratios, and a ratio can only tell you which map was quicker. These are the
 counters underneath them -- instructions, cycles, branch misses, cache lines -- one map per binary
@@ -2841,7 +2921,7 @@ group designs win; past L3 the memory system is, and the map that touches one re
 dense maps are on the wrong side of that second one by construction, and on the right side of every
 column that involves iterating, growing, or a value bigger than a pointer.
 
-# 16. Question by question [&#8593; contents](#contents){:.up} {#question-by-question}
+# 17. Question by question [&#8593; contents](#contents){:.up} {#question-by-question}
 
 What the measurements say, workload by workload. The first three items are
 [questions 3 and 5](#five-questions) -- when may a miss stop, and what does an erase leave behind --
@@ -2926,7 +3006,7 @@ stay valid: a node map, and prefer `boost::unordered_node_map` or `absl::node_ha
 I wrote [a quiz](/which-hash-map/) about this, which asks the questions in an order that gets to an
 answer faster than a table does.
 
-# 17. What unordered_dense 5.0 took from the others, and what each idea was worth [&#8593; contents](#contents){:.up} {#borrowed}
+# 18. What unordered_dense 5.0 took from the others, and what each idea was worth [&#8593; contents](#contents){:.up} {#borrowed}
 
 **This is the narrowest chapter in the post, and the one where I am not a reporter.** Every design
 above was read with one question in mind: is there something in it that belongs in
@@ -3155,7 +3235,7 @@ enough to be indexed in 16 bits has an index of at most 128 KB, which is already
 something that already fits buys nothing, the narrow loads cost a zero-extension on every use, and
 the maps whose index footprint actually hurts are exactly the ones that need more than 16 bits.
 
-# 18. Building the group index: growth, the compiler, the hash [&#8593; contents](#contents){:.up} {#building}
+# 19. Building the group index: growth, the compiler, the hash [&#8593; contents](#contents){:.up} {#building}
 
 The three sections here are about unordered_dense 5.0 and not about its index: how it grows,
 what the two compilers do to it, and what hash it is handed. They are here rather than in
@@ -3308,7 +3388,7 @@ independently and folded into one finalizer, instead of chaining blocks through 
 one multiply plus the finalizer for any length in that range. Paired on the suite that is
 13% faster in a hashing loop, 8% on string misses, 9% on string insert-erase, 7% on string builds.
 
-# 19. What is still on the table [&#8593; contents](#contents){:.up} {#still-on-the-table}
+# 20. What is still on the table [&#8593; contents](#contents){:.up} {#still-on-the-table}
 
 Things I know are worth something and have not done. They are all about my own map, with one
 exception: huge pages, where boost gains as much as unordered_dense does and the entry says so.
@@ -3425,7 +3505,7 @@ reason about when it is churning, when the hash is hostile, when the values are 
 table has left cache -- because those are the four places the ranking changes, and they change it
 differently.
 
-# 20. How the numbers were made, and how to remake them [&#8593; contents](#contents){:.up} {#how-measured}
+# 21. How the numbers were made, and how to remake them [&#8593; contents](#contents){:.up} {#how-measured}
 
 Everything above was measured on one machine: a Ryzen 9 7950X, Fedora, clang 22.1.8 at `-O3
 -DNDEBUG -std=c++20`, **default `-march`** -- so plain x86-64, SSE2 and nothing newer. (C++20 is the
