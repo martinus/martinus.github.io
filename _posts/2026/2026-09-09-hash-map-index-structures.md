@@ -532,8 +532,8 @@ struct standard {
 };
 ```
 
-Eight bytes per slot, and no key in them. Four of those eight are `m_dist_and_fingerprint`, and it
-is that `uint32_t` the rest of this section is about: **its** low byte is the fingerprint and **its**
+Eight bytes per slot, and no key in them. Four of those eight are `m_dist_and_fingerprint`, and
+that `uint32_t` is what the rest of this section is about. Its low byte is the fingerprint. Its
 upper three bytes are the distance from home, incremented by adding `dist_inc`, which is exactly
 `1 << 8`. Zero means the bucket is empty; distance 1 means the key is at home. The other four bytes
 are `m_value_idx` and take no part in any of it.
@@ -1677,7 +1677,7 @@ bottom -- the same independence every design here arranges some way. One bit say
 here belongs here". Eleven bits of quadratic displacement to the next key in *this bucket's* chain.
 
 So every key homed at a bucket sits on one linked list threaded through otherwise-unused buckets,
-and a lookup visits **only** buckets holding keys that belong to it. Key and value are inline in a
+and a lookup visits *only* buckets holding keys that belong to it. Key and value are inline in a
 flat bucket array, both arrays out of one `malloc`, maximum load 0.9, tombstone-free, and an insert
 evicts at most one key to keep the invariant that a chain starts at its home.
 
@@ -3147,7 +3147,7 @@ step does break that lockstep and takes the churned miss from 1.262 groups to 1.
 as noise, because it is 2% of the probe work on a path 17.5% of churned misses reach.
 
 And the fifth point on the axis, from [Verstable](#verstable): an **exact** counter, a second set of
-eight per group holding "entries of class *c* whose home **is** this group and which did not fit",
+eight per group holding "entries of class *c* whose home *is* this group and which did not fit",
 which is its in-home bit generalised. Measured before writing any of it, on an instrumented header
 that rebuilds the exact answer offline by hashing every occupied slot: at load 0.79 after 200
 turnovers it takes a churned miss from 1.242 groups to 1.201. That is a quarter of what moving
@@ -3200,7 +3200,7 @@ Measured, it is **2.5% slower** on the geometric mean, and the losses are precis
 running into: **a filter only pays where nothing cheaper filtered first.** For emhash8 the trick is
 free because there is no group-level fingerprint and the word has to be consulted anyway. Here the
 sixteen-way fingerprint compare has already rejected everything it is going to reject, so a second
-check adds an xor, a shift and a compare to the dependent chain of every lookup in order to avoid a
+check adds an xor, a shift and a compare to the dependent chain of every lookup to avoid a
 value access on the 3% with a fingerprint collision.
 
 ## From indivi: the counters themselves, and the nibbles that did not follow {#from-indivi}
@@ -3487,7 +3487,7 @@ kilobyte boost is at 66.9 ns and folly at 59.7.
 
 Net of the chain, on the scored mix: **4.8 ns for this hash and for abseil's, 5.4 for 4.11.0's, 8.0
 for boost's and 14.0 for folly's**. Every percentage below is net of the chain, since that constant
-is not part of anybody's hash. Four things in that table are worth saying out loud.
+is not part of anybody's hash. Four things in that table need saying.
 
 **`absl::Hash` is the one to beat, and up to 32 bytes it wins.** It is 9 to 22% lower latency than
 this hash at 8, 16 and 32 bytes, and 12 to 23% higher at 64, 128 and 256, and on the scored mix --
@@ -3596,7 +3596,7 @@ anything of my class overflow past here", [a probe visits between 1.01 and 1.06 
 fresh or long-churned, hit or miss -- and every idea I took from another map to shorten it further,
 [double hashing](#from-f14-probe), [an exact in-home test](#counter-width), [finer
 counters](#counter-width), [a second fingerprint](#from-emhash8), measured as noise or worse. What
-is *not* answered is the part nobody writes papers about: on a **hit**, the plainest index in this
+is *not* answered is the hit. On a **hit**, the plainest index in this
 post executes [48 instructions where mine executes 60](#still-on-the-table), and I cannot account
 for the difference. The axis with all the design ideas on it is closed. The boring one is open.
 
@@ -3632,7 +3632,7 @@ differently. [Question by question](#question-by-question) is as close to an ans
 Everything above was measured on one machine: a Ryzen 9 7950X, Fedora, clang 22.1.8 at `-O3
 -DNDEBUG -std=c++20`, **default `-march`** -- so plain x86-64, SSE2 and nothing newer. (C++20 is the
 harness's dialect rather than any library's: F14 needs it, and every map then gets the same one.)
-That last one matters more than it sounds: `-march=native` silently upgrades these SSE2 intrinsics
+That last one is not a detail. `-march=native` silently upgrades these SSE2 intrinsics
 to AVX-512 on this machine, `vpcmpeqb` into a mask register with no `pmovmskb` at all, so a profile
 taken that way is not the code most callers run.
 
