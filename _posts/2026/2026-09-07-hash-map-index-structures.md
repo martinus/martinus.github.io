@@ -3422,22 +3422,85 @@ into, and an instruction count is the only number in the argument that none of i
 A hash for a map is chosen on **latency**, not throughput, because its result is the address of the
 group to probe and nothing after it can start. That sounds obvious and it orders candidates by more
 than 2x. An AES-NI hash is a quarter faster in a hashing loop and, inside unordered_dense, 9 to 37%
-slower on every single workload -- worst (37%) on the one that cannot overlap anything, a random hit, and
-least bad (9%) on a build, whose rehash hashes sixteen ahead. One hasher per binary, 30M
+slower on every single workload -- worst (37%) on the one that cannot overlap anything, a random hit,
+and least bad (9%) on a build, whose rehash hashes sixteen ahead. One hasher per binary, 30M
 all-hits lookups: AES executes **fewer instructions** (5.15G against 5.35G) and takes **59% more
 cycles**, IPC 1.30 down to 0.79. That is a dependency chain, not extra work.
 
-Four further latency tunings of the string hash -- fewer length branches, the length out of the
-finalizer, both -- looked decisive in a standalone harness (1.40x, clang and gcc agreeing to 0.02 ns)
-and are worth exactly nothing inside unordered_dense. The harness lied in a way worth naming: to make lengths
-unpredictable it chained through key selection, `x = hash(keys[x & mask])`, which puts the key's
-*length* on the dependency chain. A real lookup has no such edge -- the caller already holds the key,
-so its length is known before the hash starts and only the bytes are loaded.
+**So the hash this library ships is a wyhash that has been rewritten for latency**, and it is no
+longer interchangeable with upstream wyhash -- it produces different values. Four changes, all
+shortening the dependent chain rather than removing work:
 
-What did work is restructuring the block range so that every 16 byte block up to 144 bytes is mixed
-independently and folded into one finalizer, instead of chaining blocks through the seed: latency is
-one multiply plus the finalizer for any length in that range. Paired on the suite that is
-13% faster in a hashing loop, 8% on string misses, 9% on string insert-erase, 7% on string builds.
+- **8 to 16 bytes: two overlapping 8 byte reads**, instead of assembling two words out of four
+  4 byte reads and shifts. That one is [rapidhash](https://github.com/Nicoshev/rapidhash)'s, and
+  short keys were the only place rapidhash was ahead.
+- **17 to 144 bytes: every 16 byte block mixed on its own** with its own pair of secrets and xor-folded
+  into one finalizer, where wyhash chains the blocks through `seed`. A 48 byte key used to be three
+  multiplies in a row before the finalizer could start; now it is one multiply plus the finalizer at
+  any length in the range.
+- **Above 192 bytes: six independent lanes** rather than three, so the multiply chain over a long key
+  is half as long.
+- **An independent tail** above 48 bytes: the last 16 bytes are mixed from secrets alone, so that
+  work runs beside the lanes instead of behind them.
+
+What none of it does is drop a multiply. The block range is two dependent multiplies and the second
+one exists only to repair the bits a single product leaves weak -- removing it fails an avalanche
+test outright at every length, so it stays even though it is on the critical path.
+
+Here is what that is worth against the hash each of the other libraries ships: same keys, same
+process, every hasher interleaved round by round. Latency is measured by writing one byte of each
+answer into the *next key before hashing it*, so that no two hashes can overlap and each one waits
+on the last.
+
+*Latency, ns per hash, lower is better; bold is the fastest at each length. `mix` is the scored
+suite's own keys -- 8 to 135 bytes, skewed short, so the length dispatch is unpredictable as it is
+in a real table. Every number includes the chain's own cost, which a hash that does no work
+(`size ^ first byte`) measures at 1.52 to 1.57 ns. Two runs agreed to 0.5%.*
+
+| hash | 8 B | 16 B | 32 B | 64 B | 128 B | 256 B | mix |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| unordered_dense 5.0 | 5.64 | 5.61 | **6.02** | 6.51 | **7.34** | **9.53** | **6.36** |
+| unordered_dense 4.11.0 | 5.64 | 5.64 | 6.77 | **6.35** | 8.81 | 9.61 | 6.99 |
+| `absl::Hash` | **5.26** | **4.86** | 5.09 | 7.08 | 8.75 | 11.19 | 6.40 |
+| `boost::hash` | 6.20 | 9.61 | 10.12 | 10.77 | 12.36 | 19.05 | 9.56 |
+| `folly::hasher` | 8.07 | 13.13 | 13.21 | 17.99 | 27.72 | 32.75 | 15.66 |
+{: .heat-low}
+
+Net of the chain, on the scored mix: **4.8 ns for this hash, 4.9 for abseil's, 5.4 for 4.11.0's, 8.0
+for boost's and 14.1 for folly's**. Every percentage below is net of the chain, since that constant
+is not part of anybody's hash. Four things in that table are worth saying out loud.
+
+**`absl::Hash` is the one to beat, and up to 32 bytes it wins.** It is 9 to 21% lower latency than
+this hash at 8, 16 and 32 bytes, and 11 to 24% higher at 64, 128 and 256, and on the scored mix --
+which is mostly short keys -- the two are level to within the noise. That is the number behind the
+own-hash control rows in [the workload tables](#same-workloads): giving abseil its own hash costs it
+1 to 4% and nothing else, because what it ships is as fast as what the harness hands it.
+
+**`boost::hash<std::string>` is 1.7x**, and that is the whole of boost's own-hash column. It is what
+turns a map that is 13% ahead of unordered_dense on a string hit into one that is 14% behind. Boost's
+index is excellent; its default string hash is what a caller actually gets.
+
+**`folly::hasher<std::string>` is 2.9x**, which surprised me. It is `SpookyHashV2`, a 2012 design
+built for throughput on long inputs, and F14 uses it for every string key unless you say otherwise.
+It is the slowest hash here at every length, by a factor of two over boost's at 128 bytes.
+
+**And the latency rewrite of this hash is worth 12% on the mix, all of it between 17 and 144 bytes.**
+4.11.0 is identical below 17 bytes, where the short path was not touched, and within 1% at 256, where
+the lane loop was not either; the 14% at 32 bytes and 20% at 128 are the independent-block change and
+nothing else. It also lost 3% at 64 bytes, which is the price of mixing a block that a chained
+version would have folded into the seed for free.
+
+In throughput the ordering is the same and the margins are wider: on the mix, 2.21 ns for this hash,
+2.26 for abseil's, 2.38 for 4.11.0's, 4.50 for boost's and 8.83 for folly's. That is the panel most
+hash benchmarks report, and it is not the one a map pays.
+
+**One warning about measuring this**, because I got it wrong first. Four further latency tunings --
+fewer length branches, the length out of the finalizer, both -- looked decisive in a standalone
+harness (1.40x, clang and gcc agreeing to 0.02 ns) and were worth exactly nothing inside the map.
+That harness made lengths unpredictable by chaining through key *selection*, `x = hash(keys[x &
+mask])`, which puts the key's **length and address** on the dependency chain. A real lookup has no
+such edge: the caller already holds the key, so its length is known before the hash starts and only
+the bytes are loaded. The table above chains through the key's *contents* for that reason.
 
 # 20. What is still on the table [&#8593; contents](#contents){:.up} {#still-on-the-table}
 
