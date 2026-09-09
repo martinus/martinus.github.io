@@ -3466,6 +3466,14 @@ in a real table. Every number includes the chain's own cost, which a hash that d
 | `folly::hasher` | 8.07 | 13.13 | 13.21 | 17.99 | 27.72 | 32.75 | 15.66 |
 {: .heat-low}
 
+[![Latency of five string hashes against key length, 4 to 1024 bytes: unordered_dense 5.0 and 4.11.0, absl::Hash, boost::hash and folly::hasher](/img/2026/hashmap-index/hash-latency.svg)](/img/2026/hashmap-index/hash-latency.svg)
+
+The shape is a staircase, because every one of these hashes dispatches on length, and the steps are
+where each changes strategy: boost and folly both step at 16 bytes, this hash at 16 and again every
+16 up to 144, abseil at 32. The band is where this post's string keys live, which is where a real
+table's keys tend to live too -- everything to the right of it is a hash benchmark's territory more
+than a map's.
+
 Net of the chain, on the scored mix: **4.8 ns for this hash, 4.9 for abseil's, 5.4 for 4.11.0's, 8.0
 for boost's and 14.1 for folly's**. Every percentage below is net of the chain, since that constant
 is not part of anybody's hash. Four things in that table are worth saying out loud.
