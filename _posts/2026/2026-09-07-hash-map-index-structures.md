@@ -251,13 +251,17 @@ built, and what it has not answered.
     * [What the compiler decides](#compiler)
     * [The hash it is given](#the-hash)
 20. [What is still on the table](#still-on-the-table)
-    * [What reading eighteen of them changed my mind about](#changed-my-mind)
+
+**What it adds up to**
+
+{:start="21"}
+21. [What reading eighteen indexes changed my mind about](#changed-my-mind)
 
 **How it was measured**
 
-{:start="21"}
-21. [How the numbers were made, and how to remake them](#how-measured)
-22. [Appendix: sources and versions](#appendix)
+{:start="22"}
+22. [How the numbers were made, and how to remake them](#how-measured)
+23. [Appendix: sources and versions](#appendix)
 
 # 1. Five questions every hash map index answers [&#8593; contents](#contents){:.up} {#five-questions}
 
@@ -3429,100 +3433,69 @@ one multiply plus the finalizer for any length in that range. Paired on the suit
 # 20. What is still on the table [&#8593; contents](#contents){:.up} {#still-on-the-table}
 
 Things I know are worth something and have not done. They are all about my own map, with one
-exception: huge pages, where boost gains as much as unordered_dense does and the entry says so.
+exception: huge pages, where boost gains as much as unordered_dense does.
 
 **Twelve instructions per hit, and I do not know where they go.** This is the one new thing writing
 this post handed me, and it came from a map I had never heard of. At 50,000 entries, all hits, one
 map per binary: `indivi::flat_wmap` executes **48.3 instructions** and `ankerl::unordered_dense`
-**60.8**, and the gap is there at 1,000 entries (47.3 against 59.4) and at a million (64.4 against
-73.9) too. Some of it is structural and is not coming back -- the value index is a load a flat map
-does not do. The rest is not obviously structural: one byte of metadata per slot against 5.5, no
-counter load on the path, and slot addressing instead of group-and-lane arithmetic. Twelve
-instructions on a path that retires two per cycle is four or five cycles, which is 15% of a hit in
-cache. I went looking for the answer in the probe *sequence* and in the window *alignment* and both
-were dead ends; the answer, if there is one, is in the instruction stream.
+**60.8**, and the gap holds at a thousand entries and at a million. Some of it is structural and is
+not coming back -- the value index is a load a flat map does not do. The rest is not: one byte of
+metadata per slot against 5.5, no counter load on the path, slot addressing instead of
+group-and-lane arithmetic. Twelve instructions on a path that retires two per cycle is 15% of a hit
+in cache. I went looking in the probe *sequence* and in the window *alignment* and both were dead
+ends; the answer, if there is one, is in the instruction stream.
 
-**It is not inlining**, which is the first guess and the one thing here that has been measured
-twice: force-inlining the lookup moves cycles and leaves the instruction count exactly where it was,
-both on the string path in the F14Vector bullet below and on an insert. What is left is the register
-allocator. On identical source clang executes 106.8 instructions per reserved insert where gcc
-executes 68.9, and 142 against 110 on a string miss, because clang spills the probe's loop state at
-function entry where gcc sinks the same spills into the fingerprint-match branch that a miss never
-takes. That is the same order as the twelve, and the cheap experiment -- both maps under gcc, one
-per binary -- is one I have not run.
+**It is not inlining**, which is the first guess and has been measured twice: force-inlining the
+lookup moves cycles and leaves the instruction count where it was. What is left is the register
+allocator -- on identical source clang executes 106.8 instructions per reserved insert where gcc
+executes 68.9, because clang spills the probe's loop state at function entry where gcc sinks the
+same spills into a branch a miss never takes. That is the same order as the twelve, and the cheap
+experiment -- both maps under gcc, one per binary -- is one I have not run.
 
-**Huge pages are worth 22% of a large lookup and nothing asks for them.** At 800,000 entries and all
-hits, unordered_dense 5.0 takes 1.48 dTLB misses and 7.03 L1 misses per lookup against boost's 0.89 and
-5.15, while executing only 14% more instructions for 33% more cycles. A third of that gap is address
-translation -- a dense map touches two regions per lookup where a flat map touches one.
-`/sys/kernel/mm/transparent_hugepage/enabled` is `madvise` on this machine, which is a common
-default, and neither map nor the benchmark ever madvises, so all of it runs on 4 KB pages.
-Handing both maps an allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s: at 800,000
-entries unordered_dense goes 17.10 to 13.32 ns per hit and boost 9.75 to 7.58, both about 22%. At
-200,000 entries it is nothing. So it is free speed exactly in the regime unordered_dense's own
-suite, whose largest table is 200,000 entries, cannot see, it does not change the ranking, and it belongs in an opt-in allocator
-rather than in the container.
+**Huge pages are worth 22% of a large lookup and nothing asks for them.** A dense map touches two
+regions per lookup where a flat map touches one, and it shows in the translation: at 800,000 entries
+and all hits, unordered_dense 5.0 takes 1.48 dTLB misses per lookup against boost's 0.89. Transparent
+huge pages are set to `madvise` on this machine, a common default, and neither map ever madvises.
+Handing both an allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s takes
+unordered_dense from 17.10 to 13.32 ns per hit and boost from 9.75 to 7.58 -- both about 22%, and
+nothing at 200,000 entries, which is exactly the regime my own suite cannot see. It belongs in an
+opt-in allocator rather than in the container.
 
 **Prefetching should probably be tuned per architecture and is not.** Boost tunes it and says so in
 a comment: *"ARM architectures get a higher speedup when around the first half of the element slots
 in a group are prefetched, whereas for Intel just the first cache line is best."* unordered_dense
-5.0 issues the same two prefetches everywhere. On x86 I did chase it and there is nothing to tune
-that is right for both compilers -- dropping the second prefetch is a clang win of 5-11% and a gcc
-loss of up to 12% at four million entries, because gcc emits the `movdqu` before the prefetches and
-clang emits
-both prefetches before it, so under clang they take load-port slots in front of the load actually on
-the critical path. The ARM half of the question is unasked.
+5.0 issues the same two prefetches everywhere. On x86 there is nothing to tune that is right for
+both compilers -- dropping the second is a clang win of 5 to 11% and a gcc loss of up to 12% at four
+million entries, because the two schedule the prefetches differently against the load that is
+actually on the critical path. The ARM half of the question is unasked.
 
 **A statistics facility.** Boost has one -- `BOOST_UNORDERED_ENABLE_STATS` keeps running mean and
-variance of probe lengths and comparisons per lookup with Welford's algorithm, and indivi has
-`GroupStats` for the same purpose. Every probe-length number in this post was produced by hand
-editing a copy of a header. A built-in equivalent is the one idea I read in another map that is a
-feature rather than a fix.
+variance of probe lengths and comparisons per lookup, and indivi has `GroupStats` for the same
+purpose. Every probe-length number in this post was produced by hand editing a copy of a header. It
+is the one idea I read in another map that is a feature rather than a fix.
 
 **F14VectorMap's string miss, which is the one column I cannot explain away.** It is the closest
-relative `ankerl::unordered_dense` has -- the only other dense map here with the same four byte
-value index in front of the same contiguous vector -- so it is the fairest index comparison in the
-post. Over everything it is 1.27x behind on integer keys and 1.71x behind on a build, and it loses
-every integer workload. On a *string* lookup it is ahead, and that is the interesting part.
-
-One map per binary, 20 million lookups at 32,000 entries, run three times over a day and across a
-header change and its revert, agreeing to a fifth of a nanosecond: **the hit is a tie** -- 24.33,
-24.33 and 24.53 ns against 24.29, 24.22 and 24.51 -- and **the miss is 8 to 9% behind**, 18.68,
-18.59 and 18.79 against 16.95, 17.14 and 17.00. Three explanations are ruled out by construction. The hash
-is not it: the harness hands F14 this map's wyhash and `perf record` puts the identical
-`wyhash::hash` symbol at 44% of both profiles. The load factor is not it: both hold 4,096 groups of
-7.8 entries at that size. And the value indirection cannot be it, because F14Vector has one too.
-
-What the counters say is that the miss costs two things, and the shape of the index is neither.
-**Eight more instructions** (139.6 against 131.7), which is ordinary difference between two probe
-loops. And **1.3 more L1 fills** (5.21 against 3.93), which are [the two index
-prefetches](#probe-assembly) issued before the fingerprints have even been compared: on a miss that
-matches nothing they fetch a line that is never read. They stay, because dropping one costs gcc 12%
-at four million entries. Note what is *not* on that list -- on a miss this map mispredicts *less*
-than F14Vector (1.06 branch misses against 1.14), and on a hit it executes *fewer* instructions
-(167.6 against 172) and still only draws.
-
-Half of what is left is clang leaving this map's lookup out of line for `std::string` keys where it
-inlines it for `uint64_t`; force-inlining it takes the miss from 103.8 to 99.1 cycles at an
-identical instruction count -- and then costs gcc 16% on integer misses, so it is not applied. And
-the twelve-slot, one-cache-line chunk that looked like F14Vector's structural advantage is worth
-exactly nothing when rebuilt here: 1.4 fewer L1 misses per lookup, because the lines it saves were
-already being prefetched, and 5 to 7% lost on churn.
-
-**Re-measured on 2026-09-08, and the way it did not move is worth recording.** The paired harness,
-re-run a day later, reported the string lookup gap halving -- every one of its nine lookup cells
-moved this map's way, geomean 0.92 to 0.96. The three per-binary runs above say otherwise: nothing
-moved. The paired figure did, which is what it does at this magnitude -- and in the same pair of
-runs it also reported this map's integer *build* 15% slower for a change that
-[turned out to be 17% of a build in the other direction](#compiler).
+relative `ankerl::unordered_dense` has -- the only other dense map here with a four byte value index
+in front of a contiguous vector -- and over everything it loses, 1.27x behind on integer keys and
+1.71x on a build. On a *string* lookup it is ahead. One map per binary, 20 million lookups at 32,000
+entries, three runs across a day agreeing to a fifth of a nanosecond: **the hit is a tie** (24.33
+against 24.29 ns) and **the miss is 8 to 9% behind** (18.68 against 16.95). It is not the hash, which
+both are handed; not the load factor, both holding 4,096 groups of 7.8 entries; and not the value
+indirection, which F14Vector has too. What the counters leave is eight instructions of ordinary
+difference between two probe loops, and **1.3 more L1 fills** from [the two index
+prefetches](#probe-assembly) issued before a fingerprint has been compared -- on a miss that matches
+nothing they fetch a line that is never read, and they stay, because dropping one costs gcc 12% at
+four million entries. Half of the rest is clang leaving the lookup out of line for `std::string`
+keys where it inlines it for `uint64_t`; force-inlining it costs gcc 16% on integer misses, so it is
+not applied.
 
 **The string erase's 50 ns.** A dense erase hashes the moved element's key. For an integer that is
-free; for a string it is about 50 ns and it is the largest single avoidable cost I know of in this
-library. The fix is a back-pointer per value and it loses on the suite as a whole. Something
+free; for a string it is about 50 ns, and it is the largest single avoidable cost I know of in this
+library. The fix is a back-pointer per value and it loses on the suite as a whole; something
 narrower -- a back-pointer only when the key is expensive to hash, decided at compile time -- has not
 been tried.
 
-## What reading eighteen of them changed my mind about {#changed-my-mind}
+# 21. What reading eighteen indexes changed my mind about [&#8593; contents](#contents){:.up} {#changed-my-mind}
 
 Three things, and none of them is the one I expected.
 
@@ -3543,7 +3516,7 @@ reason about when it is churning, when the hash is hostile, when the values are 
 table has left cache -- because those are the four places the ranking changes, and they change it
 differently.
 
-# 21. How the numbers were made, and how to remake them [&#8593; contents](#contents){:.up} {#how-measured}
+# 22. How the numbers were made, and how to remake them [&#8593; contents](#contents){:.up} {#how-measured}
 
 Everything above was measured on one machine: a Ryzen 9 7950X, Fedora, clang 22.1.8 at `-O3
 -DNDEBUG -std=c++20`, **default `-march`** -- so plain x86-64, SSE2 and nothing newer. (C++20 is the
