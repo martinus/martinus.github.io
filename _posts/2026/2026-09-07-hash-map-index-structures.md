@@ -1346,8 +1346,8 @@ while (true) {
 ```
 
 SwissTable's shape again, with three differences. The value index replaces the key in the slot, so
-a hit costs one more dependent load. The miss test is a per-class counter. And there is a
-termination bound, which is [boost](#boost)'s story.
+a hit costs one more dependent load. The miss test is a per-class counter. And the probe has a
+termination bound, which [boost](#boost) has had all along and this map did not.
 
 `match_fingerprint` has three backends. [SSE2](https://en.wikipedia.org/wiki/SSE2) is `_mm_cmpeq_epi8` and `_mm_movemask_epi8`, sixteen
 lanes into sixteen bits. NEON has no movemask, and the cheap stand-in -- compare, then a narrowing
@@ -1406,8 +1406,9 @@ mechanism the bound is free: on a 200,000 entry table, 83.6 to 82.7 instructions
 
 The bound has a second effect worth knowing: it converts a missing or wrong erase decrement
 from a hang into a silent slowdown. That fault used to be caught loudly -- counters only grew, a
-miss found no zero, the test suite hung -- and now the table stays correct and gets slower. Which is
-the right trade against a hostile hash, and it is why there is now a test that measures the
+miss found no zero, the test suite hung -- and now the table stays correct and gets slower. Against
+a hostile hash that is the right trade, because a hang is loud and a slowdown is quiet and a library
+has to prefer the quiet one. It is also why there is now a test that measures the
 *lengthening* rather than an answer: the map is given a counting `KeyEqual`, and a table that
 reached its contents by erasing a run of overflowing entries must compare a miss exactly as often as
 a table built from the survivors directly.
@@ -1509,10 +1510,10 @@ unpredictable**, and a branch does not get cheaper because the table left the ca
 
 What that does *not* say is that it helps everybody. `move_home` runs only on a hit inside a path
 that writes, so a program that only reads gets exactly nothing -- the control column *is* that
-program. And the gain is entirely on misses. The shape it pays for is a map that churns at a fixed
-size, is written to by key, and is asked about keys that are not there: a real shape, and not the
-shape of anything in my benchmark suite, which is why the suite reads exactly level on this change
-and always will.
+program. And the gain is entirely on misses. So it pays for one kind of program: one that churns a map at a
+fixed size, writes to it by key, and asks it about keys that are not there. That program is real,
+and it is not any of the workloads in my benchmark suite, which is why the suite reads exactly level
+on this change and always will.
 
 ## Where the indices live: one array or two {#one-array-or-two}
 
@@ -2494,8 +2495,8 @@ figure, and a paired harness cannot resolve a gap that size --
 [measured one map per binary](#still-on-the-table) the hit is a tie and the miss is 8 to 9%, which
 is the figure to quote.
 
-Which is exactly what the own-hash control rows show. On this workload, with the hash a caller gets
-by writing the type name and nothing else:
+The own-hash control rows are where that shows. On this workload, with the hash a caller gets by
+writing the type name and nothing else:
 
 *Time relative to unordered_dense 5.0, lower is faster; bold is the best in each row.*
 
@@ -3178,8 +3179,8 @@ unordered_dense's value index is also a `uint32_t` with spare high bits, and it 
 every hit. Eight bits there cost nothing until a table wants more than 2^24 slots.
 
 Measured, it is **2.5% slower** on the geometric mean, and the losses are precisely on lookups:
-find 9%, big-value find 8%, random hit 7%, churn 8.5%. The reason is the general shape
-this whole exercise keeps running into: **a filter only pays where nothing cheaper filtered first.**
+find 9%, big-value find 8%, random hit 7%, churn 8.5%. The reason is the one this whole exercise keeps
+running into: **a filter only pays where nothing cheaper filtered first.**
 For emhash8 the trick is free because there is no group-level fingerprint and the word has to be
 consulted anyway. Here the sixteen-way fingerprint compare has already rejected everything it is
 going to reject, so a second check adds an xor, a shift and a compare to the dependent chain of
@@ -3327,7 +3328,7 @@ four million entries goes **30.6 to 12.4 ns per element**, and an integer one at
 12.5, which is to say nothing. That loop is not waiting on latency but on the TLB -- 1.15 dTLB
 misses per placement on 4 KB pages -- and no prefetch hides a page walk.
 
-Which is the one thing left on this loop, and it is not fixable inside it. Partitioning the elements
+The TLB is the one thing left on this loop, and it cannot be fixed inside it. Partitioning the elements
 by the top bits of their destination group first, database style, does cut the dTLB misses to 0.24
 and halves the isolated rehash from four million entries up; inside a build it is worth 0 to 7%
 above 32 MB and nothing below, because a rehash is a minority of a large build and the scratch it
@@ -3499,15 +3500,14 @@ been tried.
 
 Four things, and none of them is the one I expected.
 
-**The miss is finished. The hit is not.** Most of a year went into "when can a miss stop", and by the
-end of it the question was worth nothing more: with a group compare and an explicit test for
-"did anything of my class overflow past here", [a probe visits between 1.01 and 1.06
-groups](#drift) -- fresh or long-churned, hit or miss -- and every idea I took from another map to
+**The miss is finished. The hit is not.** Stopping a miss early is the question every design in
+this post is built around, and it is answered. With a group compare and an explicit test for "did
+anything of my class overflow past here", [a probe visits between 1.01 and 1.06 groups](#drift) -- fresh or long-churned, hit or miss -- and every idea I took from another map to
 shorten it further, [double hashing](#from-f14-probe), [an exact in-home test](#counter-width),
 [finer counters](#counter-width), [a second fingerprint](#from-emhash8), measured as noise or worse.
-What is not finished is the part nobody writes papers about: on a *hit*, the plainest index in this
-post executes [48 instructions where mine executes 60](#still-on-the-table), and I cannot yet
-account for the difference. The axis with all the design ideas on it is closed; the boring one is
+What is *not* answered is the part nobody writes papers about: on a **hit**, the plainest index in
+this post executes [48 instructions where mine executes 60](#still-on-the-table), and I cannot
+account for the difference. The axis with all the design ideas on it is closed. The boring one is
 open.
 
 **What the eighteen agree on, if you are writing one.** Four things earn their keep in every map here
@@ -3528,7 +3528,7 @@ move: iteration is an order of magnitude, memory at a 64 byte value is 1.6x, and
 under fixed-size churn is a different *curve* rather than a different constant. The differences
 between two maps of the same family are 3 to 15%, and those do move -- the paired harness got two
 changes' signs backwards in this post and the size of two more badly wrong, in exactly that band.
-Which is the uncomfortable part of publishing this, and also the useful part: **the family is a
+That is the uncomfortable part of publishing this, and also the useful part: **the family is a
 decision you can take from a table like the ones above; the map inside the family is one to take on
 your own workload, or not to bother taking at all.**
 
