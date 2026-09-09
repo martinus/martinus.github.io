@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 348" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">abseil: 16 control bytes for 16 slots</text>
+  <rect x="132.0" y="40" width="600.0" height="16" class="cell fp"/>
+  <text x="432.0" y="52" class="mono" text-anchor="middle" font-size="9">ctrl[]</text>
+  <line x1="132.0" y1="56" x2="132.0" y2="64" stroke="#9ca3af" stroke-width="1"/>
+  <line x1="169.5" y1="56" x2="169.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="207.0" y1="56" x2="207.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="244.5" y1="56" x2="244.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="282.0" y1="56" x2="282.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="319.5" y1="56" x2="319.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="357.0" y1="56" x2="357.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="394.5" y1="56" x2="394.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="432.0" y1="56" x2="432.0" y2="64" stroke="#9ca3af" stroke-width="1"/>
+  <line x1="469.5" y1="56" x2="469.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="507.0" y1="56" x2="507.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="544.5" y1="56" x2="544.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="582.0" y1="56" x2="582.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="619.5" y1="56" x2="619.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="657.0" y1="56" x2="657.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="694.5" y1="56" x2="694.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="732.0" y1="56" x2="732.0" y2="64" stroke="#9ca3af" stroke-width="1"/>
+  <text x="132.0" y="77" class="muted" text-anchor="start" font-size="10">0</text>
+  <text x="732.0" y="77" class="muted" text-anchor="end" font-size="10">16</text>
+  <text x="20" y="106" class="hd" text-anchor="start">the hash, split in two</text>
+  <rect x="132" y="118" width="26" height="30" class="cell fp"/>
+  <text x="145" y="137" class="mono" text-anchor="middle" font-size="11">H2</text>
+  <rect x="158" y="118" width="130" height="30" class="cell "/>
+  <rect x="288" y="118" width="52" height="30" class="cell dist"/>
+  <text x="314" y="137" class="mono" text-anchor="middle" font-size="11">H1</text>
+  <text x="120" y="138" class="muted" text-anchor="end">64 bit hash</text>
+  <text x="354" y="131" class="muted" text-anchor="start">H2: the top 7 bits, stored as the control byte</text>
+  <text x="354" y="147" class="muted" text-anchor="start">H1: the whole hash, masked, picks the group</text>
+  <rect x="132" y="194" width="26" height="30" class="cell "/>
+  <text x="145" y="213" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="158" y="194" width="26" height="30" class="cell fp"/>
+  <text x="171" y="213" class="mono" text-anchor="middle" font-size="11">2C</text>
+  <rect x="184" y="194" width="26" height="30" class="cell "/>
+  <text x="197" y="213" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="210" y="194" width="26" height="30" class="cell fp"/>
+  <text x="223" y="213" class="mono" text-anchor="middle" font-size="11">7A</text>
+  <rect x="236" y="194" width="26" height="30" class="cell ovf"/>
+  <text x="249" y="213" class="mono" text-anchor="middle" font-size="11">FE</text>
+  <rect x="262" y="194" width="26" height="30" class="cell fp"/>
+  <text x="275" y="213" class="mono" text-anchor="middle" font-size="11">2C</text>
+  <rect x="288" y="194" width="26" height="30" class="cell fp"/>
+  <text x="301" y="213" class="mono" text-anchor="middle" font-size="11">11</text>
+  <rect x="314" y="194" width="26" height="30" class="cell "/>
+  <text x="327" y="213" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="340" y="194" width="26" height="30" class="cell fp"/>
+  <text x="353" y="213" class="mono" text-anchor="middle" font-size="11">4D</text>
+  <rect x="366" y="194" width="26" height="30" class="cell "/>
+  <text x="379" y="213" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="392" y="194" width="26" height="30" class="cell fp"/>
+  <text x="405" y="213" class="mono" text-anchor="middle" font-size="11">2C</text>
+  <rect x="418" y="194" width="26" height="30" class="cell ovf"/>
+  <text x="431" y="213" class="mono" text-anchor="middle" font-size="11">FE</text>
+  <rect x="444" y="194" width="26" height="30" class="cell fp"/>
+  <text x="457" y="213" class="mono" text-anchor="middle" font-size="11">63</text>
+  <rect x="470" y="194" width="26" height="30" class="cell "/>
+  <text x="483" y="213" class="mono" text-anchor="middle" font-size="11">80</text>
+  <rect x="496" y="194" width="26" height="30" class="cell fp"/>
+  <text x="509" y="213" class="mono" text-anchor="middle" font-size="11">09</text>
+  <rect x="522" y="194" width="26" height="30" class="cell fp"/>
+  <text x="535" y="213" class="mono" text-anchor="middle" font-size="11">5E</text>
+  <text x="120" y="214" class="muted" text-anchor="end">ctrl[]</text>
+  <path d="M132,224 L132,230 L548,230 L548,224" class="thin"/>
+  <text x="340" y="242" class="muted" text-anchor="middle">one 16 byte load, one compare, one movemask: sixteen verdicts</text>
+  <rect x="132" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="158" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="184" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="210" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="236" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="262" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="288" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="314" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="340" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="366" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="392" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="418" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="444" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="470" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="496" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="522" y="278" width="26" height="30" class="cell payload"/>
+  <text x="120" y="298" class="muted" text-anchor="end">slots[]</text>
+  <path d="M132,308 L132,314 L548,314 L548,308" class="thin"/>
+  <text x="340" y="326" class="muted" text-anchor="middle">the key and the value, in the slot</text>
+</svg>

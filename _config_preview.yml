@@ -1,0 +1,5 @@
+# Local preview only, not committed: jekyll serve rewrites site.url to the address it binds
+# (http://0.0.0.0:4000), and the theme builds the cover-img URL with absolute_url -- so a browser
+# on 127.0.0.1 or a phone on the tunnel asks a different origin for it and gets nothing. An empty
+# url makes absolute_url emit a root-relative path, which works from every origin.
+url: ""

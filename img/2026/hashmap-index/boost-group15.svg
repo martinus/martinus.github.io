@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 348" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .muted{fill:#6b7280}
+    .lbl{fill:#1f2937;font-size:12px}
+    .hd{fill:#1f2937;font-weight:600}
+    .cell{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .fp{fill:#ccfbf1}
+    .dist{fill:#e0f2fe}
+    .idx{fill:#fef3c7}
+    .ovf{fill:#ede9fe}
+    .payload{fill:#f1f5f9}
+    .sent{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2}
+    .arrow{stroke:#0f766e;stroke-width:1.6;fill:none;marker-end:url(#head)}
+    .thin{stroke:#9ca3af;stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <text x="20" y="24" class="hd" text-anchor="start">boost: 16 metadata bytes for 15 slots</text>
+  <rect x="132.0" y="40" width="562.5" height="16" class="cell fp"/>
+  <text x="413.2" y="52" class="mono" text-anchor="middle" font-size="9">h00 .. h14</text>
+  <rect x="694.5" y="40" width="37.5" height="16" class="cell ovf"/>
+  <text x="713.2" y="52" class="mono" text-anchor="middle" font-size="9">ofw</text>
+  <line x1="132.0" y1="56" x2="132.0" y2="64" stroke="#9ca3af" stroke-width="1"/>
+  <line x1="169.5" y1="56" x2="169.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="207.0" y1="56" x2="207.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="244.5" y1="56" x2="244.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="282.0" y1="56" x2="282.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="319.5" y1="56" x2="319.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="357.0" y1="56" x2="357.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="394.5" y1="56" x2="394.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="432.0" y1="56" x2="432.0" y2="64" stroke="#9ca3af" stroke-width="1"/>
+  <line x1="469.5" y1="56" x2="469.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="507.0" y1="56" x2="507.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="544.5" y1="56" x2="544.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="582.0" y1="56" x2="582.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="619.5" y1="56" x2="619.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="657.0" y1="56" x2="657.0" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="694.5" y1="56" x2="694.5" y2="61" stroke="#9ca3af" stroke-width="0.6"/>
+  <line x1="732.0" y1="56" x2="732.0" y2="64" stroke="#9ca3af" stroke-width="1"/>
+  <text x="132.0" y="77" class="muted" text-anchor="start" font-size="10">0</text>
+  <text x="694.5" y="77" class="muted" text-anchor="middle" font-size="10">15</text>
+  <text x="732.0" y="77" class="muted" text-anchor="end" font-size="10">16</text>
+  <rect x="132" y="118" width="26" height="30" class="cell fp"/>
+  <text x="145" y="137" class="mono" text-anchor="middle" font-size="11">h00</text>
+  <rect x="158" y="118" width="26" height="30" class="cell fp"/>
+  <text x="171" y="137" class="mono" text-anchor="middle" font-size="11">h01</text>
+  <rect x="184" y="118" width="26" height="30" class="cell fp"/>
+  <text x="197" y="137" class="mono" text-anchor="middle" font-size="11">h02</text>
+  <rect x="210" y="118" width="26" height="30" class="cell "/>
+  <text x="223" y="137" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="236" y="118" width="26" height="30" class="cell fp"/>
+  <text x="249" y="137" class="mono" text-anchor="middle" font-size="11">h04</text>
+  <rect x="262" y="118" width="26" height="30" class="cell fp"/>
+  <text x="275" y="137" class="mono" text-anchor="middle" font-size="11">h05</text>
+  <rect x="288" y="118" width="26" height="30" class="cell "/>
+  <text x="301" y="137" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="314" y="118" width="26" height="30" class="cell fp"/>
+  <text x="327" y="137" class="mono" text-anchor="middle" font-size="11">h07</text>
+  <rect x="340" y="118" width="26" height="30" class="cell fp"/>
+  <text x="353" y="137" class="mono" text-anchor="middle" font-size="11">h08</text>
+  <rect x="366" y="118" width="26" height="30" class="cell fp"/>
+  <text x="379" y="137" class="mono" text-anchor="middle" font-size="11">h09</text>
+  <rect x="392" y="118" width="26" height="30" class="cell fp"/>
+  <text x="405" y="137" class="mono" text-anchor="middle" font-size="11">h10</text>
+  <rect x="418" y="118" width="26" height="30" class="cell "/>
+  <text x="431" y="137" class="mono" text-anchor="middle" font-size="11">--</text>
+  <rect x="444" y="118" width="26" height="30" class="cell fp"/>
+  <text x="457" y="137" class="mono" text-anchor="middle" font-size="11">h12</text>
+  <rect x="470" y="118" width="26" height="30" class="cell fp"/>
+  <text x="483" y="137" class="mono" text-anchor="middle" font-size="11">h13</text>
+  <rect x="496" y="118" width="26" height="30" class="cell fp"/>
+  <text x="509" y="137" class="mono" text-anchor="middle" font-size="11">h14</text>
+  <rect x="522" y="118" width="26" height="30" class="cell ovf"/>
+  <text x="535" y="137" class="mono" text-anchor="middle" font-size="11">ofw</text>
+  <text x="120" y="138" class="muted" text-anchor="end">group15</text>
+  <path d="M132,148 L132,154 L522,154 L522,148" class="thin"/>
+  <text x="327" y="166" class="muted" text-anchor="middle">0 available, otherwise 2..255 of the hash</text>
+  <text x="20" y="190" class="hd" text-anchor="start">the overflow byte: one bit per hash class</text>
+  <rect x="132" y="202" width="26" height="30" class="cell "/>
+  <text x="145" y="221" class="mono" text-anchor="middle" font-size="11">0</text>
+  <rect x="158" y="202" width="26" height="30" class="cell "/>
+  <text x="171" y="221" class="mono" text-anchor="middle" font-size="11">1</text>
+  <rect x="184" y="202" width="26" height="30" class="cell "/>
+  <text x="197" y="221" class="mono" text-anchor="middle" font-size="11">2</text>
+  <rect x="210" y="202" width="26" height="30" class="cell ovf"/>
+  <text x="223" y="221" class="mono" text-anchor="middle" font-size="11">3</text>
+  <rect x="236" y="202" width="26" height="30" class="cell "/>
+  <text x="249" y="221" class="mono" text-anchor="middle" font-size="11">4</text>
+  <rect x="262" y="202" width="26" height="30" class="cell "/>
+  <text x="275" y="221" class="mono" text-anchor="middle" font-size="11">5</text>
+  <rect x="288" y="202" width="26" height="30" class="cell "/>
+  <text x="301" y="221" class="mono" text-anchor="middle" font-size="11">6</text>
+  <rect x="314" y="202" width="26" height="30" class="cell "/>
+  <text x="327" y="221" class="mono" text-anchor="middle" font-size="11">7</text>
+  <text x="120" y="222" class="muted" text-anchor="end">ofw</text>
+  <text x="354" y="215" class="muted" text-anchor="start">an insert that found this group full set bit 3,</text>
+  <text x="354" y="231" class="muted" text-anchor="start">because its hash is 3 mod 8, and probed on</text>
+  <rect x="132" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="158" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="184" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="210" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="236" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="262" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="288" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="314" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="340" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="366" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="392" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="418" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="444" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="470" y="278" width="26" height="30" class="cell payload"/>
+  <rect x="496" y="278" width="26" height="30" class="cell payload"/>
+  <text x="120" y="298" class="muted" text-anchor="end">slots[]</text>
+  <path d="M132,308 L132,314 L522,314 L522,308" class="thin"/>
+  <text x="327" y="326" class="muted" text-anchor="middle">the key and the value, in the slot</text>
+</svg>
