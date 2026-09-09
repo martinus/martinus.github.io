@@ -3497,24 +3497,45 @@ been tried.
 
 # 21. What reading eighteen indexes changed my mind about [&#8593; contents](#contents){:.up} {#changed-my-mind}
 
-Three things, and none of them is the one I expected.
+Four things, and none of them is the one I expected.
 
-**The index is nearly done.** Between the group compare and a counter that stops a miss at home, a
-probe visits 1.03 groups on a fresh table and 1.06 on a churned one, and every idea I took from
-another map to shorten it further -- double hashing, an exact in-home test, finer counters, a second
-fingerprint -- measured as noise or worse. What is left of a lookup is a hash, a cache miss and a key
-comparison, and none of those is the index's to fix.
+**The miss is finished. The hit is not.** Most of a year went into "when can a miss stop", and by the
+end of it the question was worth nothing more: with a group compare and an explicit test for
+"did anything of my class overflow past here", [a probe visits between 1.01 and 1.06
+groups](#drift) -- fresh or long-churned, hit or miss -- and every idea I took from another map to
+shorten it further, [double hashing](#from-f14-probe), [an exact in-home test](#counter-width),
+[finer counters](#counter-width), [a second fingerprint](#from-emhash8), measured as noise or worse.
+What is not finished is the part nobody writes papers about: on a *hit*, the plainest index in this
+post executes [48 instructions where mine executes 60](#still-on-the-table), and I cannot yet
+account for the difference. The axis with all the design ideas on it is closed; the boring one is
+open.
 
-**The differences between these maps are smaller than the differences between measurements of them.**
-The paired harness got two changes' signs backwards in this post and the size of two more badly
-wrong, always between 3 and 15% -- which is also the size of most of the gaps in the tables above. That is the uncomfortable part of publishing
-this: a good half of the ordering here would survive a re-run, and I could not tell you in advance
-which half.
+**What the eighteen agree on, if you are writing one.** Four things earn their keep in every map here
+that has them. Compare **sixteen slots at once** rather than one, because that is what turns a probe
+from a run of coin flips into a single question -- it is worth more than any probe sequence, any
+fingerprint width, and any of the other tuning in this post. Answer "absent?" **explicitly**, with an
+overflow bit or a counter, rather than by looking for an empty slot: [1.4 to 1.7x of a
+miss](#summary-table) between two otherwise nearly identical SwissTables. Avoid **tombstones** if the
+table will ever churn at a fixed size -- boost, the best of the tombstone designs, is still repairing
+itself with [an in-place rehash every 120,000 to 150,000 erase-insert pairs](#boost-erase), and the
+family's failure mode is [a table that grows while its live count stands still](#ixhtab). And
+**bound the probe**, because a design that stops only when its own metadata says so will not stop at
+all on keys chosen to defeat it -- [two maps in this post, mine included](#miss-bound), shipped
+without that bound.
+
+**What survives a re-measurement is not what I would have guessed.** The structural differences never
+move: iteration is an order of magnitude, memory at a 64 byte value is 1.6x, and a tombstone design
+under fixed-size churn is a different *curve* rather than a different constant. The differences
+between two maps of the same family are 3 to 15%, and those do move -- the paired harness got two
+changes' signs backwards in this post and the size of two more badly wrong, in exactly that band.
+Which is the uncomfortable part of publishing this, and also the useful part: **the family is a
+decision you can take from a table like the ones above; the map inside the family is one to take on
+your own workload, or not to bother taking at all.**
 
 **And the interesting question is no longer which index is fastest.** It is which one you can still
 reason about when it is churning, when the hash is hostile, when the values are large, and when the
 table has left cache -- because those are the four places the ranking changes, and they change it
-differently.
+differently. [Question by question](#question-by-question) is as close to an answer as I have.
 
 # 22. How the numbers were made, and how to remake them [&#8593; contents](#contents){:.up} {#how-measured}
 
