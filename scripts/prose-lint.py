@@ -23,7 +23,13 @@ import re
 import statistics
 import sys
 
-TARGETS = {"median": 19, "over35_pct": 5.0, "no_landing_pct": 10.0}
+# Measured against this blog's own hand-written posts, not against a style guide. The first
+# version of this file asked for a median of 19 and no sentence over 35 words, a pass hit both
+# exactly, and the result read as staccato: optimising a central tendency and a ceiling produces
+# uniformity, and uniform short sentences are as tiring as uniform long ones. Rhythm is the spread,
+# so `long_pct` is a floor rather than a ceiling -- a page with no long sentence in it has no
+# rhythm either.
+TARGETS = {"median": 20, "over35_pct": 12.0, "no_landing_pct": 15.0, "long_pct_min": 20.0}
 
 
 def prose_paragraphs(text):
@@ -93,6 +99,7 @@ def measure(path):
         "numbers": [(line, s) for s, line in sents if len(re.findall(r"\d+[\d.,]*", s)) >= 3],
         "no_landing": no_landing,
         "no_landing_pct": 100 * len(no_landing) / len(paras),
+        "long_pct": 100 * sum(1 for x in lengths if x > 25) / len(lengths),
     }
 
 
@@ -108,7 +115,8 @@ def main():
         if m is None:
             continue
         miss = (m["median"] > TARGETS["median"] or m["over35_pct"] > TARGETS["over35_pct"]
-                or m["no_landing_pct"] > TARGETS["no_landing_pct"])
+                or m["no_landing_pct"] > TARGETS["no_landing_pct"]
+                or m["long_pct"] < TARGETS["long_pct_min"])
         failed = failed or miss
         print(f"{path}")
         print(f"  {m['sentences']:5} sentences in {m['paragraphs']} paragraphs")
@@ -119,6 +127,8 @@ def main():
         print(f"  {m['no_landing_pct']:5.1f}% of paragraphs have no sentence under 18 words"
               f" ({len(m['no_landing'])})   target <= {TARGETS['no_landing_pct']}%")
         print(f"  {m['under12_pct']:5.1f}% of sentences under 12 words")
+        print(f"  {m['long_pct']:5.1f}% over 25 words"
+              f"                    target >= {TARGETS['long_pct_min']}% -- rhythm needs long ones too")
         print(f"  {len(m['asides']):5} sentences with two or more -- asides")
         print(f"  {len(m['numbers']):5} sentences carrying three or more numbers")
         if args.worst:
