@@ -3262,53 +3262,96 @@ reader who wants to know where the group index's build and lookup times actually
 
 ## Growth: the pipelined rehash {#pipelined-rehash}
 
-Placement is shift-free, so a rehash can place in any order. The loop hashes sixteen elements ahead
-of the one it places and prefetches the group each will land in. While the index still fits in cache
-that is 1.26x for the pipelining alone; once it does not it is everything for strings, whose hash
-has work to hide a miss
-behind -- 2.5x at 2M and 4M entries -- and nothing at all for integers at 176 MB, because that loop
-is bound by the TLB rather than by latency (1.15 dTLB misses per placement on 4 KB pages, and a
-prefetch cannot hide a page walk).
+One thing rebuilds the index, and that is growth. Nothing degrades, so there is no repair rehash to
+run; when the load factor is reached the group array doubles and every entry is placed again. What
+gets placed is the cheap half of the map, because **the values do not move.** `m_values` is not
+touched at all -- the loop writes a fingerprint byte and a four byte index per entry, where a flat
+map's growth moves every `value_type` into a hash-scattered slot. Per element rehashed at a million
+`uint64_t` entries, `perf stat`: boost 97.5 instructions and 110.9 cycles against **51.9 and 46.7**
+here, on the same 3.7 to 3.8 L1 load misses. That is the dense layout's clearest single win and it
+owes nothing to the loop being clever.
 
-**Nobody else has one, and it does not transfer.** Folly prefetches the *source* values of the chunk
-it is about to hash (`prefetchBeforeRehash`) and then places each one synchronously; abseil solves a
-different problem in `GrowToNextCapacity`, moving the elements that stay in their home group of the
-doubled array straight across and encoding the ones that would probe as `(h2, source_offset, h1)`
+The loop is unusually free, for two reasons that are the group index's and not the dense vector's.
+Placement is shift-free, so entries can go in **any order**. And every key is known to be unique, so
+no key is ever compared and the value vector is read only for its hash. What is left per element is
+a hash and a walk to the first empty lane:
+
+```cpp
+auto const word = fingerprint_word(mh);
+auto const counter = word & 7U;
+auto group_idx = static_cast<value_idx_type>(mh >> shifts);
+value_idx_type delta = 0;
+while (true) {
+    auto& group = groups[group_idx];
+    auto const empties = match_empty(group);
+    if (empties != 0) {
+        auto const lane = first_lane(empties);
+        group.m_fingerprints[lane] = static_cast<std::uint8_t>(word);
+        group.m_index[lane] = static_cast<value_idx_type>(value_idx);
+        break;
+    }
+    if (group.m_overflows[counter] != 255) {
+        ++group.m_overflows[counter];
+    }
+    group_idx = static_cast<value_idx_type>((group_idx + (++delta)) & mask);
+}
+```
+
+The counters come out of that same walk: an entry that passes a full group increments that group's
+counter for its class on the way past, exactly as an insert does, so the overflow state is rebuilt
+by the pass that places and there is no second one.
+
+The two halves of the element have opposite appetites. A hash is a dependency chain that wants to
+run far ahead of anything; a placement is a random write into an array that may not be in cache. One
+element at a time they wait for each other, so the loop keeps **a ring of sixteen hashes** and stays
+that far in front of itself: before placing element *i* it hashes element *i* + 16 and prefetches
+every line of the block that one will land in.
+
+```cpp
+auto const fetch = [&](std::size_t i) -> void {
+    auto const mh = mixed_hash(get_key(*it));
+    ++it;
+    ring[i] = mh;
+    prefetch_block(groups, static_cast<std::size_t>(mh >> shifts));
+};
+```
+
+In cache the decoupling alone is worth **1.26x** -- 2.05 to 1.63 ns per element at 200,000 entries
+-- with nothing prefetched that was not going to be read anyway. Out of cache what pays is the
+prefetch, and only for a key whose hash gives the miss something to hide behind: a string rehash at
+four million entries goes **30.6 to 12.4 ns per element**, and an integer one at 176 MB goes 12.6 to
+12.5, which is to say nothing. That loop is not waiting on latency but on the TLB -- 1.15 dTLB
+misses per placement on 4 KB pages -- and no prefetch hides a page walk.
+
+Which is the one thing left on this loop, and it is not fixable inside it. Partitioning the elements
+by the top bits of their destination group first, database style, does cut the dTLB misses to 0.24
+and halves the isolated rehash from four million entries up; inside a build it is worth 0 to 7%
+above 32 MB and nothing below, because a rehash is a minority of a large build and the scratch it
+needs is fresh memory faulted in at about a microsecond a page, every time the table doubles. Not
+kept. What the loop wants is 2 MB pages, which is [chapter 20](#still-on-the-table) and not something
+a library can ask for on the caller's behalf.
+
+Two things about how it is written, both the same fact about aliasing. It walks `m_values` with an
+**iterator** rather than indexing it, and it holds the group pointer, the mask and the shift in
+locals and spells the placement out instead of calling `place_group`. Placing an entry stores a
+`std::uint8_t` fingerprint; a byte store may alias any object at all, including the value
+container's own data pointer and everything else reached through `this` -- so an indexed read has to
+load that pointer back out of the container after every placement before it can even form the
+address of the next key. That is a store-to-load chain through the entire rehash costing one memory
+latency per element, because the random group access cannot start until it resolves. Walking with an
+iterator instead took the growth phase from **10.43 ns per insert to 2.74** and the whole 200,000
+element build from 16.72 ms to 8.96. gcc had disambiguated it on its own and did not move -- which
+is why comparing two compilers' absolute times, rather than each against its own baseline, is worth
+doing.
+
+One line on everyone else, since a lookahead sounds like something every map would have: none of
+them does. Folly prefetches the *source* values of the chunk it is about to hash and then places
+synchronously; abseil's `GrowToNextCapacity` answers a different question, moving the elements that
+stay in their home group of the doubled array straight across and encoding the ones that would probe
 into a stack buffer for a second pass, so nothing is hashed twice; boost, indivi, emhash8, emilib,
 Verstable and ihtab hash and place one element at a time with no prefetch at all. Ported into a copy
-of boost's `unchecked_rehash` -- sixteen elements of lookahead, prefetching the destination group
-and all four cache lines of its slots -- it is a wash to a loss: under clang 6.5 to 7.0 ns per
-element at 200,000 integer entries and 10.6 to 11.1 at a million, under gcc 10.2 to 7.0 and 10.4 to
-10.2, where the one real gain is gcc's straight loop being 1.5x slower than clang's on the same
-source and the restructuring taking it to clang's floor.
-
-The reason is that the two loops are not bound by the same thing. Per element rehashed at a million
-`uint64_t` entries, `perf stat`: **boost 97.5 instructions and 110.9 cycles, unordered_dense 51.9
-and 46.7**, on the same 3.7 to 3.8 L1 load misses. A flat map's rehash *moves the `value_type`* into a
-hash-scattered slot -- that is where the extra instructions go, and the random writes that follow
-are write-allocate misses a load prefetch does not help -- where a dense map's moves a four byte
-index and leaves the values where they are. The lookahead hides a load's latency behind a hash
-chain, and boost's growth is not waiting on a load.
-
-Two things around it are worth recording, and the first is what a rehash is *not* bound by. A
-database-style **radix partition** of the elements by the top bits of their group cuts the dTLB
-misses to 0.24 and halves the isolated loop from 4M entries up -- and end to end it is
-indistinguishable, because the scratch array is fresh memory every time and faulting it in costs
-about a microsecond a page, and a rehash is a minority of a large build anyway. Ported into boost,
-where growth is three quarters of a build rather than a quarter, it fails the same way and further:
-1.7 to 2x slower at every size with a fresh scratch, a 19% win on the isolated rehash at four million
-integer entries once the scratch is kept warm across rehashes, and a 5 to 10% *slower* build, because
-a build doubles twenty-odd times and the scratch grows with it.
-
-The second is a single line of source. The loop used to index the value container,
-`m_values[value_idx]`, which cost clang **a memory latency per element**: placing an entry stores a
-`std::uint8_t` fingerprint,
-that store may alias any object including the container's own data pointer, so the next iteration
-had to reload the pointer before it could form the address of the next key -- and the random group
-access could not start until that resolved. Walking with an iterator instead took the growth phase
-from 10.43 ns per insert to 2.74 and the whole 200,000 element build from 16.72 ms to 8.96. gcc had
-disambiguated it on its own, which is exactly why comparing two compilers' absolute times is worth
-doing.
+of boost's rehash the ring is a wash to a loss, and the instruction counts above say why: that loop
+is not waiting on a load, it is doing twice the work.
 
 ## What the compiler decides {#compiler}
 
