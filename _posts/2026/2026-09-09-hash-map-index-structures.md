@@ -841,7 +841,7 @@ boost's overflow bits accumulate, misses walk further and further, and the only 
 them is a rehash. Measured with boost's own statistics facility, a table of 200,000 entries at load
 0.81, erasing one and inserting one:
 
-*Groups visited by an unsuccessful lookup. 1.00 means it stopped in its home group. One turnover is 200,000 erase-insert pairs, so a table that has replaced every element it holds. The sample points are not evenly spaced: they are placed either side of the two in-place rehashes, which is where the number moves. Tinted cells, here and below, are coloured by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense; a table with no tint is one where no axis is a common scale or where every difference is too small to be worth a colour.*
+*How many groups -- the 16 byte metadata blocks -- an unsuccessful lookup probes on average. 1.00 means every miss stopped in its home group and never loaded a second one, 1.50 would mean half of them loaded a second one. One turnover is 200,000 erase-insert pairs, so a table that has replaced every element it holds. The sample points are not evenly spaced: they are placed either side of the two in-place rehashes, which is where the number moves. Tinted cells, here and below, are coloured by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense; a table with no tint is one where no axis is a common scale or where every difference is too small to be worth a colour.*
 
 | erase-insert pairs, in turnovers of the table | groups visited per miss |
 |---|---:|
