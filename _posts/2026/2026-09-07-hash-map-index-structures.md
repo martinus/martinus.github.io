@@ -1818,6 +1818,7 @@ bold cell in each row is the choice that makes that design what it is.
 | map | keys live | metadata per slot | compared at once | fingerprint | empty / deleted |
 |---|---|---:|---|---|---|
 | unordered_dense 4.11.0 | dense | 8 B | 1, or 4 with SSE2 | 8 bits, low byte | **distance 0 / none** |
+| unordered_dense 5.0 | dense | 5.5 B | 16 | 8 bits, low byte | 0 / **none** |
 | abseil `flat_hash_map` | flat | **1 B** | 16 | 7 bits, top | −128 / −2 |
 | boost `unordered_flat_map` | flat | 1.07 B | 15 | ~8 bits (2..255), low byte | 0 / **none** |
 | folly F14 | flat, dense or node | 1.14 B | 14 | 8 bits, top | 0 / **none** |
@@ -1827,7 +1828,6 @@ bold cell in each row is the choice that makes that design what it is.
 | indivi `flat_wmap` | flat | 1 B | **16, unaligned from the home slot** | 7 bits | 0x7F / 0x7E |
 | Verstable | flat | 2 B | 1 | **4 bits, top** | 0 / none |
 | ihtab | dense | 5 B | 8 | 7 bits, top | 0xc0 / 0x80 |
-| unordered_dense 5.0 | dense | 5.5 B | 16 | 8 bits, low byte | 0 / **none** |
 | `std::unordered_map` | node | 8 B (a pointer) | 1 | **none** | null / none |
 | boost / abseil / F14 node | node | as the flat sibling | as the flat sibling | as the flat sibling | as the flat sibling |
 
@@ -1836,6 +1836,7 @@ bold cell in each row is the choice that makes that design what it is.
 | map | probe | a miss stops on | tombstones | moves after placement | max load | bounded on a hostile hash |
 |---|---|---|---|---|---:|---|
 | unordered_dense 4.11.0 | linear | **the distance ordering** | no | **shifts on insert and erase** | 0.80 | yes |
+| unordered_dense 5.0 | triangular over groups | a per-class overflow counter | no | **only a hit inside a write, to its own home** | 0.80 | yes |
 | abseil `flat_hash_map` | triangular over groups | an empty byte in the group | **yes** | no | 0.875 | yes |
 | boost `unordered_flat_map` | triangular over groups | **an overflow bit for its hash class** | no | no | 0.875 | yes |
 | folly F14 | **double hashing** | an outbound counter of zero | no | no | 0.857 | yes |
@@ -1845,7 +1846,6 @@ bold cell in each row is the choice that makes that design what it is.
 | indivi `flat_wmap` | triangular in steps of 16 slots, from the home slot | an empty byte in the window | **yes** | no | 0.80 | not checked |
 | Verstable | quadratic chain | **an exact in-home-bucket bit** | no | evicts at most one key | **0.90** | yes |
 | ihtab | linear over groups | an empty tag in the group | **yes** | no | **0.50** | yes |
-| unordered_dense 5.0 | triangular over groups | a per-class overflow counter | no | **only a hit inside a write, to its own home** | 0.80 | yes |
 | `std::unordered_map` | **a linked list per bucket** | the end of the list | n/a | no | 1.0 | yes |
 
 Three ways to read those tables.
@@ -1930,15 +1930,6 @@ values in L3, which is where most maps in most programs live:
 <th scope="col">insert/erase</th>
 </tr></thead>
 <tbody>
-<tr><th scope="row">unordered_dense 5.0</th>
-<td><b>1.00</b></td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td><b>1.00</b></td>
-<td>1.00</td>
-<td>1.00</td>
-</tr>
 <tr><th scope="row">unordered_dense 4.11</th>
 <td class="s4">2.32</td>
 <td class="s3">1.52</td>
@@ -1947,6 +1938,15 @@ values in L3, which is where most maps in most programs live:
 <td>1.04</td>
 <td class="s3">1.46</td>
 <td class="s2">1.38</td>
+</tr>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
 </tr>
 <tr><th scope="row">boost flat</th>
 <td class="s3">1.66</td>
@@ -2148,15 +2148,6 @@ At an octave from 500,000 entries -- the index out of L2, the values out of L3 -
 <th scope="col">insert/erase</th>
 </tr></thead>
 <tbody>
-<tr><th scope="row">unordered_dense 5.0</th>
-<td><b>1.00</b></td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-</tr>
 <tr><th scope="row">unordered_dense 4.11</th>
 <td class="s4">2.05</td>
 <td class="s3">1.46</td>
@@ -2165,6 +2156,15 @@ At an octave from 500,000 entries -- the index out of L2, the values out of L3 -
 <td><b>1.00</b></td>
 <td class="s2">1.27</td>
 <td class="s2">1.21</td>
+</tr>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
 </tr>
 <tr><th scope="row">boost flat</th>
 <td class="s2">1.38</td>
@@ -2345,15 +2345,6 @@ worth very little.
 <th scope="col">insert/erase</th>
 </tr></thead>
 <tbody>
-<tr><th scope="row">unordered_dense 5.0</th>
-<td><b>1.00</b></td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-</tr>
 <tr><th scope="row">unordered_dense 4.11</th>
 <td class="s2">1.21</td>
 <td class="s1">1.12</td>
@@ -2362,6 +2353,15 @@ worth very little.
 <td>1.01</td>
 <td>1.03</td>
 <td>1.05</td>
+</tr>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td><b>1.00</b></td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
 </tr>
 <tr><th scope="row">boost flat</th>
 <td class="s2">1.41</td>
@@ -2544,15 +2544,6 @@ dense and nothing else changes:
 <th scope="col">insert/erase</th>
 </tr></thead>
 <tbody>
-<tr><th scope="row">unordered_dense 5.0</th>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-<td>1.00</td>
-</tr>
 <tr><th scope="row">unordered_dense 4.11</th>
 <td class="s3">1.95</td>
 <td class="s2">1.39</td>
@@ -2561,6 +2552,15 @@ dense and nothing else changes:
 <td><b>1.00</b></td>
 <td class="s2">1.39</td>
 <td class="s2">1.26</td>
+</tr>
+<tr><th scope="row">unordered_dense 5.0</th>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
+<td>1.00</td>
 </tr>
 <tr><th scope="row">boost flat</th>
 <td class="s3">1.73</td>
