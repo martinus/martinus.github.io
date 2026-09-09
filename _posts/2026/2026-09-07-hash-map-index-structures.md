@@ -2,11 +2,17 @@
 layout: post
 title: The Index Structures of Fast C++ Hash Maps
 subtitle: "What SwissTable, Boost, F14, emhash8, emilib, indivi, Verstable, ihtab and unordered_dense put in front of their keys: every design read from its source, drawn to one scale, and measured on one machine"
-cover-img: /img/2026/hashmap-index/cover.png
+cover-img: /img/2026/hashmap-index/cover.jpg
 share-img: /img/2026/hashmap-index/share.png
 ---
 
 <style>
+/* The cover photo has pale drawer fronts in it, and the theme's header text is white with nothing
+   but a 3px shadow behind it -- which is not enough over the bright patches, worst at phone width
+   where the subtitle wraps onto them. An inset shadow paints over the background image and under
+   the text, so one line darkens the photo without touching anything else. */
+.intro-header.big-img { box-shadow: inset 0 0 0 100vh rgba(0, 0, 0, 0.35); }
+
 /* Eighteen maps by seven workloads does not fit a phone; let the wide ones scroll sideways
    instead of being clipped. */
 .blog-post table { display: block; width: fit-content; max-width: 100%; overflow-x: auto; }
