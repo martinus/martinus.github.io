@@ -758,7 +758,7 @@ cache-line-aligning the metadata, which costs 0.7%.
 
 # 7. Boost's unordered_flat_map: fifteen slots and an overflow byte [&#8593; contents](#contents){:.up} {#boost}
 
-[boost::unordered_flat_map](https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered/structures.html)
+[boost::unordered_flat_map](https://www.boost.org/doc/libs/latest/libs/unordered/doc/html/unordered/structures.html#structures_open_addressing_containers)
 is a SwissTable descendant with one change that turns out to matter a great deal: it spends its
 sixteenth metadata byte on the answer to "absent?" instead of on a sixteenth slot.
 
@@ -772,11 +772,10 @@ describes them as:
 > `hi` is 0 if the i-th element slot is available, 1 to mark a sentinel and, when the slot is
 > occupied, a value in the range [2,255] obtained from the element's original hash value.
 
-**The sentinel is not a tombstone**, though the two words get used for the same thing elsewhere. A
-tombstone is per slot and means "something was here and was erased"; boost has none. Boost's
-sentinel is a single byte written once at the very end of the *whole* slot array -- `set_sentinel()`
-writes it into the last slot of the last group -- and it exists so that iteration knows where to
-stop without carrying a separate end pointer. One byte in the table, not one per erase.
+**The sentinel is not a tombstone.** A tombstone is one per slot and means "something was here and
+was erased"; boost has none at all. The sentinel is one byte in the whole table, written by
+`set_sentinel()` into the last group of the *metadata* array, and it exists so that iteration knows
+where to stop without carrying a separate end pointer. One byte per table, not one per erase.
 
 The sixteenth byte of each group is the interesting one:
 
@@ -784,9 +783,12 @@ The sixteenth byte of each group is the interesting one:
 > full group, then the `(h%8)`-th bit of the overflow byte is set to 1 and a further group is
 > probed.
 
-Two consequences, and the header names both. First, **no value has to be reserved for a tombstone**,
-so a reduced hash keeps log2(254) = 7.99 bits where a design that spends one on
-available-or-deleted keeps seven. Second, and much more important:
+Two consequences, and the header names both. First, **no value has to be reserved for a
+tombstone**, so a reduced hash keeps all log2(254) = 7.99 bits of it. The saving is smaller than it
+looks: a design that reserves one more value for a tombstone still keeps 253 of them, or 7.98 bits.
+What a tombstone really costs is the encoding around it. abseil spends the *top bit* of its control
+byte on markers so that "empty or deleted" is one SIMD test at insertion, and that is what leaves it
+seven bits of hash rather than eight. Second, and much more important:
 
 > When doing an unsuccessful lookup (i.e. the element is not present in the table), probing stops at
 > the first non-overflowed group. Having 8 bits for signalling overflow makes it very likely that we
@@ -839,7 +841,7 @@ boost's overflow bits accumulate, misses walk further and further, and the only 
 them is a rehash. Measured with boost's own statistics facility, a table of 200,000 entries at load
 0.81, erasing one and inserting one:
 
-*Groups visited per miss; 1.00 would be a miss that never leaves its home group. The turnover points straddle the in-place rehash rather than being evenly spaced, because the point is the saw's shape rather than its average. Tinted cells, here and below, are coloured by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense; a table with no tint is one where no axis is a common scale or where every difference is too small to be worth a colour.*
+*Groups visited by an unsuccessful lookup. 1.00 means it stopped in its home group. One turnover is 200,000 erase-insert pairs, so a table that has replaced every element it holds. The sample points are not evenly spaced: they are placed either side of the two in-place rehashes, which is where the number moves. Tinted cells, here and below, are coloured by how far they are from the best value in their column -- or from parity, where the table is a ratio to unordered_dense; a table with no tint is one where no axis is a common scale or where every difference is too small to be worth a colour.*
 
 | erase-insert pairs, in turnovers of the table | groups visited per miss |
 |---|---:|
@@ -851,10 +853,11 @@ them is a rehash. Measured with boost's own statistics facility, a table of 200,
 | 1.25 | 1.058 |
 {: .heat-low}
 
-**It is a saw, and the teeth are about two thirds of a turnover apart** -- at 200,000 entries, one
-repair per 120,000 to 150,000 erase-insert pairs. The repair is an **in-place rehash**: the bucket
-count is 245,759 before and after, so the table does not grow, it is rebuilt at the same size to
-clear the bits.
+**The number climbs and then drops back.** It climbs while the overflow bits accumulate, from 1.104
+groups per miss on the fresh table to 1.269 half a turnover later. Then boost rehashes and it
+returns to 1.104, and the climb starts again. That happened twice in this run, once per 120,000 to
+150,000 erase-insert pairs. The repair is an **in-place rehash**: the bucket count is 245,759 before
+and after, so the table is not growing, it is being rebuilt at the same size to clear the bits.
 
 (Those probe lengths are from a build with `BOOST_UNORDERED_ENABLE_STATS` defined, which adds
 Welford accounting to every lookup and makes a miss take 10.4 ns instead of 3.9. The counts are
@@ -875,17 +878,19 @@ table, worst point over one turnover of erase-and-insert:
 
 The difference is *what* the erase leaves behind, and it comes down to three things.
 
-**A tombstone occupies a slot; an overflow bit does not.** After abseil erases, that slot is not
-available to the next insert of any key -- it holds `kDeleted`, and only a rehash converts it back.
-Boost's erase frees its slot completely: the very next key that lands in that group can have it. So
-under churn abseil's table gets *effectively fuller* while its size stays the same, and everything
-that a rising load factor costs, it pays.
+**A tombstone costs capacity; an overflow bit does not.** A later insert can take the slot -- abseil
+places into the first empty *or* deleted slot on the probe sequence -- but the erase does not hand
+the capacity back. `OverwriteFullAsDeleted()` sets a flag and leaves `growth_left` alone, so a
+tombstoned slot still counts against the load factor until a rehash reclaims it. Boost's erase frees
+its slot outright. So under churn abseil's table behaves as though it were fuller than it is, and
+pays what a rising load factor costs.
 
-**A tombstone stops every miss; a bit stops one in eight.** abseil's miss ends at the first group
-containing an empty control byte, and a tombstone is not empty, so a single tombstone anywhere in a
-group makes *every* miss that reaches that group continue -- whatever its hash. Boost's bit is one of
-eight, chosen by `h % 8`, so a group that has overflowed for one class still stops seven eighths of
-the misses arriving at it. That is the whole reason the overflow byte is a *byte* and not a flag.
+**A miss stops on an empty slot, and an erase does not make one.** abseil's miss ends at the first
+group holding an empty control byte. Erasing writes `kDeleted`, which is not empty, so churn keeps
+consuming empty slots through inserts without ever producing one, and misses walk further as the
+supply runs down. Boost stops a miss on the overflow bit instead, and the bit is one of eight chosen
+by `h % 8`, so a group that has overflowed for one class still stops seven eighths of the misses
+arriving at it. That is the whole reason the overflow byte is a *byte* and not a flag.
 
 **And a tombstone makes the miss longer in a second way**: the probe that continues has to
 `Match(h2)` the next group and compare any key whose tag collides, where boost's continuation is
