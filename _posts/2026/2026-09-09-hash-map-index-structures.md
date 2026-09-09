@@ -1,8 +1,10 @@
 ---
-layout: post title: The Index Structures of Fast C++ Hash Maps subtitle: "What SwissTable, Boost,
-F14, emhash8, emilib, indivi, Verstable, ihtab and unordered_dense put in front of their keys: every
-design read from its source, drawn to one scale, and measured on one machine" cover-img:
-/img/2026/hashmap-index/cover.jpg share-img: /img/2026/hashmap-index/share.jpg ---
+layout: post
+title: The Index Structures of Fast C++ Hash Maps
+subtitle: "What SwissTable, Boost, F14, emhash8, emilib, indivi, Verstable, ihtab and unordered_dense put in front of their keys: every design read from its source, drawn to one scale, and measured on one machine"
+cover-img: /img/2026/hashmap-index/cover.jpg
+share-img: /img/2026/hashmap-index/cover.jpg
+---
 
 <style>
 /* The cover photo has pale drawer fronts in it, and the theme's header text is white with nothing
@@ -1136,10 +1138,10 @@ static constexpr uint8_t SETMAX_FRAG{ 0x7D };    // 125
 
 Every occupied slot holds a fragment that is `< 126` as `int8_t`, and every free one holds either
 126 or 127. So `match_available` is one `_mm_cmpgt_epi8` against 125, and `match_set` one
-`_mm_cmplt_epi8` against 126. The fragment comes from the *low* byte of the hash through a 256 entry table of
-pre-broadcast words, which is boost's trick and the one [the group index](#group-index) also took.
-Here it does double duty, because the table is also what remaps a hash byte that would collide with
-the two markers.
+`_mm_cmplt_epi8` against 126. The fragment comes from the *low* byte of the hash through a 256 entry
+table of pre-broadcast words, which is boost's trick and the one [the group index](#group-index)
+also took. Here it does double duty, because the table is also what remaps a hash byte that would
+collide with the two markers.
 
 The home is a **slot**, not a group: `hash_position` is `hash >> shift`, the top bits, and the
 sixteen bytes compared are the sixteen bytes *starting at that slot*, read with `_mm_loadu_si128`.
@@ -1798,11 +1800,11 @@ Half the load factor is a blunt instrument and not a *cheap* one, but it is not 
 
 The element array is never compacted. Erased elements are marked in a `deleted` bitmap and
 `els_bound` only grows, so a table that churns rebuilds itself periodically instead of filling a
-hole. That has two measurable consequences, and both are in [the measurements](#same-workloads). First,
-memory across a turnover goes from 36.1 to **72.3** bytes per entry and stays there, because the
-table carries one dead element for every live one until it rebuilds. Second, it is the one dense map
-here that does *not* get the dense map's iteration: an iterator has to consult the deleted bit for
-every element, and that branch stops the loop from vectorising, so it iterates at 7.3x
+hole. That has two measurable consequences, and both are in [the measurements](#same-workloads).
+First, memory across a turnover goes from 36.1 to **72.3** bytes per entry and stays there, because
+the table carries one dead element for every live one until it rebuilds. Second, it is the one dense
+map here that does *not* get the dense map's iteration: an iterator has to consult the deleted bit
+for every element, and that branch stops the loop from vectorising, so it iterates at 7.3x
 unordered_dense 5.0 rather than at 1.0. Being dense buys the fast iteration only when the array
 holds live entries and nothing else.
 
