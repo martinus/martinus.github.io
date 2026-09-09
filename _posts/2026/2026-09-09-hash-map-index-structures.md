@@ -1341,6 +1341,7 @@ while (true) {
     auto lanes = match_fingerprint(group, word);
     while (lanes != 0) {
         auto const lane = first_lane(lanes);
+        auto const slot = static_cast<value_idx_type>(std::size_t{group_idx} * slots_per_group + lane);
         auto const value_idx = group.m_index[lane];
         if (m_equal(key, get_key(m_values[value_idx]))) {
             return {slot, value_idx, true};
