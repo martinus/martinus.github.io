@@ -202,7 +202,7 @@ are only the parts particular to that design.
     * [What it would cost the group index](#wmap-steal)
 11. [The group index: unordered_dense 5.0](#group-index)
     * [Eight counters, by fingerprint class](#counters-by-class)
-    * [The miss bound](#miss-bound)
+    * [The miss bound, and eight keys that hang a map without one](#miss-bound)
     * [Erase: decrement, do not tombstone](#group-erase)
     * [Drift, and moving home](#drift)
     * [Where the indices live: one array or two](#one-array-or-two)
@@ -1389,29 +1389,31 @@ fails to filter is **siblings** -- keys whose home *is* this group and which gen
 so they walk the same sequence a later miss for it walks -- which an exact counter has to follow as
 well.
 
-## The miss bound {#miss-bound}
+## The miss bound, and eight keys that hang a map without one {#miss-bound}
 
-`|| delta == m_group_mask`: a key that exists was placed within one cycle of its probe sequence, so
-a walk that has seen every group can stop. [Boost](#boost)'s prober has always had it -- `return
-step<=mask` -- and until the review before release this one did not. It stopped only at a group
-whose counter for the key's class was zero, on the argument that an exact counter puts a zero right
-after the furthest entry of that class. The argument is wrong, because a counter counts entries that
-overflowed past its group on *their* probe sequences, not on the one being walked. Eight chosen keys
-are enough to make `contains()` on an absent key loop forever: fill a group, send one key of class 1
-past it, erase the fillers -- the passer stays, so the counter stays -- and repeat for every group.
-Any hash the caller controls reaches it, and the default hash with chosen keys does too. By
-mechanism the bound is free: on a 200,000 entry table, 83.6 to 82.7 instructions on a hit and 69.5 to
-67.6 on a miss, cycles and mispredictions unchanged. `indivi::flat_umap`, where the counters came from, had the same hole;
-[reported](https://github.com/gaujay/indivi_collection/issues/2), it was fixed the same day.
+A miss that stops on a counter has a failure mode that a miss stopping on an empty slot does not:
+every counter on the sequence can be nonzero, and then nothing ever tells the probe to stop. Eight
+chosen keys are enough to make `contains()` on an absent key loop forever -- fill a group, send one
+key of class 1 past it, then erase the fillers, so the passer stays and the counter it incremented
+stays with it, and repeat for every group. Any hash the caller controls reaches that state, and so
+does the default hash with keys chosen for it.
 
-The bound has a second effect worth knowing: it converts a missing or wrong erase decrement
-from a hang into a silent slowdown. That fault used to be caught loudly -- counters only grew, a
-miss found no zero, the test suite hung -- and now the table stays correct and gets slower. Against
-a hostile hash that is the right trade, because a hang is loud and a slowdown is quiet and a library
-has to prefer the quiet one. It is also why there is now a test that measures the
-*lengthening* rather than an answer: the map is given a counting `KeyEqual`, and a table that
-reached its contents by erasing a run of overflowing entries must compare a miss exactly as often as
-a table built from the survivors directly.
+So the probe needs a second exit, one that does not depend on the counters being informative:
+`|| delta == m_group_mask`. A key that exists was placed within one cycle of its probe sequence, so
+a walk that has seen every group can stop. [Boost](#boost)'s prober has always had this --
+`return step<=mask` -- and until the review before release this one did not, on the argument that an
+exact counter puts a zero right after the furthest entry of its class. That argument is wrong,
+because a counter counts entries that overflowed past its group on *their* probe sequences, not on
+the one being walked. `indivi::flat_umap`, where the counters came from, had the same hole;
+[reported](https://github.com/gaujay/indivi_collection/issues/2), it was fixed the same day. The
+bound itself is free: on a 200,000 entry table, 83.6 to 82.7 instructions on a hit and 69.5 to 67.6
+on a miss, with cycles and mispredictions unchanged.
+
+It has one side effect worth knowing, because it is a trade and not a free lunch: a bug in the
+erase's counter decrement used to hang the test suite loudly and now only makes the table slower.
+That is the right way round against a hostile hash and the wrong way round for a test suite, and it
+is why unordered_dense now has one that measures how much *longer* a miss probes rather than what it
+answers.
 
 ## Erase: decrement, do not tombstone {#group-erase}
 
