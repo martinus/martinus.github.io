@@ -136,35 +136,44 @@ share-img: /img/2026/hashmap-index/share.png
 }());
 </script>
 
-Every fast hash map is decided by a few bytes you never see. Before it touches a key it reads
-something smaller: a control byte, a tag, a fingerprint, a distance, a counter. That metadata is
-where the differences between the fast C++ hash maps live. The rest -- open addressing, a power of
-two capacity, a good hash -- they all agree on.
+Two hash maps can agree on everything you would think matters -- open addressing, a power of two
+capacity, the same good hash -- and still be twice as far apart on a lookup that finds nothing. The
+difference is in a few bytes you never see. Before either map touches a key it reads something
+smaller: a control byte, a tag, a fingerprint, a distance, a counter. That metadata, and the handful
+of instructions that read it, is where the last ten years of hash map work has actually happened.
 
-This post reads the index of every fast C++ hash map I could get to compile, draws it to the same
-scale, and asks each one the same five questions. It is meant as a reference: if you want to know
-what `absl::flat_hash_map` does when a lookup misses, or why `boost::unordered_flat_map` slows down
-in a table that only churns, or what folly's `outboundOverflowCount_` is for, the chapter is there
-and it quotes the source. At the end there is a table with every design in it, and the same
-workloads run on all of them on one machine.
+Almost nobody writes it down. There are benchmark round-ups, and there are release notes, and there
+is source code with a comment or two -- but there is no single place that opens up
+`absl::flat_hash_map`, `boost::unordered_flat_map`, folly's F14, emhash8, emilib, indivi, Verstable
+and ihtab, draws what each of them puts in front of its keys at the same scale, and asks all of them
+the same questions. That is what this is.
 
-unordered_dense appears here in two versions and both are mine: 4.11.0, which is the released
-robin hood design, and 5.0, which replaces its index and is **unreleased at the time of writing**.
-Take my measurements of my own map with whatever salt that deserves.
+**What you will get out of it.** By the end you should be able to look at any of these maps and say
+what happens on a miss, what an erase leaves behind, and what that costs -- and to predict, before
+running anything, which of them will suffer on a table that churns, which will fall apart on a big
+value, and which is quietly spending memory you did not know about. You should also be able to read
+someone else's hash map benchmark and see what it is not telling you, which is a more useful skill
+than knowing this year's winner.
 
-Numbers appear where they make a design easier to understand, not as a ranking. They are all from
-one desktop, every map is handed the same hash, and every ratio is a geometric mean over a range of
-table sizes rather than a measurement at one size, wherever it compares one map with another --
-which matters more than it sounds like it should. [How the numbers were made](#how-measured) says why, and how to reproduce all of it.
+**How it is arranged.** The first four chapters set up the five questions every index answers and
+the three families that answer them differently -- read those, and the rest is navigable in any
+order. The middle is one chapter per design: the layout drawn to scale, the probe loop quoted from
+the source, what its erase leaves behind, and what it is good at and pays for. Then everything side
+by side -- one summary table, eighteen maps on seven workloads, hardware counters, and three probe
+loops disassembled, because the whole argument comes down to about two instructions. The last part
+is my own map: what it borrowed and what that was worth, and what I still cannot explain.
 
-**They come in two kinds, and it is worth knowing which one you are reading.** A number about a
-*design* comes from running every map on the same workload, and it names the maps it compares. A
-number about an *idea* comes from building that idea into unordered_dense 5.0 and measuring the
-header against itself; those say so, and where one says **on the suite** it means the geometric mean
-of the fifteen workloads of unordered_dense's own benchmark. The second kind says what an idea was
-worth in one map, which is a weaker claim than what it is worth in general. The three chapters made
-of it are gathered at the end: [what it took from the others](#borrowed),
-[how it was built](#building), and [what it has not answered](#still-on-the-table).
+**A word about that.** `ankerl::unordered_dense` appears here in two versions and both are mine:
+4.11.0, the released robin hood design, and 5.0, which replaces its index and is **unreleased at the
+time of writing**. Everything else is somebody else's work, read from their source and quoted with
+the file and the symbol. Take my measurements of my own map with whatever salt that deserves; the
+last chapter tells you how to rerun any of them.
+
+**And a word about the numbers.** They appear where they make a design easier to understand, not as
+a ranking. All of them come from one desktop, every map is handed the same hash, and every ratio
+that compares two maps is a geometric mean over a range of table sizes rather than a measurement at
+one size -- which matters more than it sounds like it should, and
+[the last chapter](#how-measured) is about why.
 
 # Contents {#contents}
 
