@@ -3472,7 +3472,8 @@ The shape is a staircase, because every one of these hashes dispatches on length
 where each changes strategy: boost and folly both step at 16 bytes, this hash at 16 and again every
 16 up to 144, abseil at 32. The band is where this post's string keys live, which is where a real
 table's keys tend to live too -- everything to the right of it is a hash benchmark's territory more
-than a map's.
+than a map's. The two slow lines cross the top of the axis in the last few dozen bytes: at a
+kilobyte boost is at 62.8 ns and folly at 61.1.
 
 Net of the chain, on the scored mix: **4.8 ns for this hash, 4.9 for abseil's, 5.4 for 4.11.0's, 8.0
 for boost's and 14.1 for folly's**. Every percentage below is net of the chain, since that constant
