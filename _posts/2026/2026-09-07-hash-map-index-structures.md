@@ -3455,15 +3455,16 @@ on the last.
 *Latency, ns per hash, lower is better; bold is the fastest at each length. `mix` is the scored
 suite's own keys -- 8 to 135 bytes, skewed short, so the length dispatch is unpredictable as it is
 in a real table. Every number includes the chain's own cost, which a hash that does no work
-(`size ^ first byte`) measures at 1.52 to 1.57 ns. Two runs agreed to 0.5%.*
+(`size ^ first byte`) measures at 1.51 to 1.55 ns. Median of three runs in fresh processes, which
+agreed with each other to within 0.9% on every cell.*
 
 | hash | 8 B | 16 B | 32 B | 64 B | 128 B | 256 B | mix |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| unordered_dense 5.0 | 5.64 | 5.61 | **6.02** | 6.51 | **7.34** | **9.53** | **6.36** |
-| unordered_dense 4.11.0 | 5.64 | 5.64 | 6.77 | **6.35** | 8.81 | 9.61 | 6.99 |
-| `absl::Hash` | **5.26** | **4.86** | 5.09 | 7.08 | 8.75 | 11.19 | 6.40 |
-| `boost::hash` | 6.20 | 9.61 | 10.12 | 10.77 | 12.36 | 19.05 | 9.56 |
-| `folly::hasher` | 8.07 | 13.13 | 13.21 | 17.99 | 27.72 | 32.75 | 15.66 |
+| unordered_dense 5.0 | 5.60 | 5.59 | 5.99 | 6.41 | **7.33** | **9.50** | **6.29** |
+| unordered_dense 4.11.0 | 5.58 | 5.59 | 6.74 | **6.29** | 8.68 | 9.50 | 6.94 |
+| `absl::Hash` | **5.23** | **4.84** | **5.03** | 6.98 | 8.66 | 11.14 | 6.35 |
+| `boost::hash` | 6.16 | 9.55 | 10.02 | 10.68 | 12.27 | 18.91 | 9.48 |
+| `folly::hasher` | 8.02 | 13.06 | 13.08 | 17.83 | 27.51 | 32.52 | 15.51 |
 {: .heat-low}
 
 [![Latency of five string hashes against key length, 4 to 1024 bytes: unordered_dense 5.0 and 4.11.0, absl::Hash, boost::hash and folly::hasher](/img/2026/hashmap-index/hash-latency.svg)](/img/2026/hashmap-index/hash-latency.svg)
@@ -3473,14 +3474,14 @@ where each changes strategy: boost and folly both step at 16 bytes, this hash at
 16 up to 144, abseil at 32. The band is where this post's string keys live, which is where a real
 table's keys tend to live too -- everything to the right of it is a hash benchmark's territory more
 than a map's. The two slow lines cross the top of the axis in the last few dozen bytes: at a
-kilobyte boost is at 62.8 ns and folly at 61.1.
+kilobyte boost is at 66.9 ns and folly at 59.7.
 
-Net of the chain, on the scored mix: **4.8 ns for this hash, 4.9 for abseil's, 5.4 for 4.11.0's, 8.0
-for boost's and 14.1 for folly's**. Every percentage below is net of the chain, since that constant
+Net of the chain, on the scored mix: **4.8 ns for this hash and for abseil's, 5.4 for 4.11.0's, 8.0
+for boost's and 14.0 for folly's**. Every percentage below is net of the chain, since that constant
 is not part of anybody's hash. Four things in that table are worth saying out loud.
 
-**`absl::Hash` is the one to beat, and up to 32 bytes it wins.** It is 9 to 21% lower latency than
-this hash at 8, 16 and 32 bytes, and 11 to 24% higher at 64, 128 and 256, and on the scored mix --
+**`absl::Hash` is the one to beat, and up to 32 bytes it wins.** It is 9 to 22% lower latency than
+this hash at 8, 16 and 32 bytes, and 12 to 23% higher at 64, 128 and 256, and on the scored mix --
 which is mostly short keys -- the two are level to within the noise. That is the number behind the
 own-hash control rows in [the workload tables](#same-workloads): giving abseil its own hash costs it
 1 to 4% and nothing else, because what it ships is as fast as what the harness hands it.
@@ -3494,13 +3495,13 @@ built for throughput on long inputs, and F14 uses it for every string key unless
 It is the slowest hash here at every length, by a factor of two over boost's at 128 bytes.
 
 **And the latency rewrite of this hash is worth 12% on the mix, all of it between 17 and 144 bytes.**
-4.11.0 is identical below 17 bytes, where the short path was not touched, and within 1% at 256, where
-the lane loop was not either; the 14% at 32 bytes and 20% at 128 are the independent-block change and
+4.11.0 is identical below 17 bytes, where the short path was not touched, and identical at 256, where
+the lane loop was not either; the 17% at 32 bytes and 23% at 128 are the independent-block change and
 nothing else. It also lost 3% at 64 bytes, which is the price of mixing a block that a chained
 version would have folded into the seed for free.
 
-In throughput the ordering is the same and the margins are wider: on the mix, 2.21 ns for this hash,
-2.26 for abseil's, 2.38 for 4.11.0's, 4.50 for boost's and 8.83 for folly's. That is the panel most
+In throughput the ordering is the same and the margins are wider: on the mix, 2.22 ns for this hash,
+2.25 for abseil's, 2.37 for 4.11.0's, 4.48 for boost's and 8.80 for folly's. That is the panel most
 hash benchmarks report, and it is not the one a map pays.
 
 **One warning about measuring this**, because I got it wrong first. Four further latency tunings --
