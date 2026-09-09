@@ -532,8 +532,8 @@ struct standard {
 };
 ```
 
-Eight bytes per slot, and no key in them. Four of those eight are `m_dist_and_fingerprint`, and it
-is that `uint32_t` the rest of this section is about: **its** low byte is the fingerprint and **its**
+Eight bytes per slot, and no key in them. Four of those eight are `m_dist_and_fingerprint`, and
+that `uint32_t` is what the rest of this section is about. Its low byte is the fingerprint. Its
 upper three bytes are the distance from home, incremented by adding `dist_inc`, which is exactly
 `1 << 8`. Zero means the bucket is empty; distance 1 means the key is at home. The other four bytes
 are `m_value_idx` and take no part in any of it.
@@ -1677,7 +1677,7 @@ bottom -- the same independence every design here arranges some way. One bit say
 here belongs here". Eleven bits of quadratic displacement to the next key in *this bucket's* chain.
 
 So every key homed at a bucket sits on one linked list threaded through otherwise-unused buckets,
-and a lookup visits **only** buckets holding keys that belong to it. Key and value are inline in a
+and a lookup visits *only* buckets holding keys that belong to it. Key and value are inline in a
 flat bucket array, both arrays out of one `malloc`, maximum load 0.9, tombstone-free, and an insert
 evicts at most one key to keep the invariant that a chain starts at its home.
 
@@ -3147,7 +3147,7 @@ step does break that lockstep and takes the churned miss from 1.262 groups to 1.
 as noise, because it is 2% of the probe work on a path 17.5% of churned misses reach.
 
 And the fifth point on the axis, from [Verstable](#verstable): an **exact** counter, a second set of
-eight per group holding "entries of class *c* whose home **is** this group and which did not fit",
+eight per group holding "entries of class *c* whose home *is* this group and which did not fit",
 which is its in-home bit generalised. Measured before writing any of it, on an instrumented header
 that rebuilds the exact answer offline by hashing every occupied slot: at load 0.79 after 200
 turnovers it takes a churned miss from 1.242 groups to 1.201. That is a quarter of what moving
