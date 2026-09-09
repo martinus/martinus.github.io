@@ -168,6 +168,12 @@ quoted from their source. Every number comes from one desktop, every map is hand
 and every ratio between two maps is a geometric mean over a range of table sizes -- which matters
 more than it sounds like, and [the last chapter](#how-measured) says why.
 
+**If you are not going to read all of it.** [The summary table](#summary-table) is every design in
+two tables, and the three paragraphs under it are the argument in miniature. [Question by
+question](#question-by-question) answers "which of these should I use" for ten different situations.
+[What reading eighteen indexes changed my mind about](#changed-my-mind) is the conclusion, in four
+paragraphs. Every design chapter stands on its own, so the list below is a menu rather than an order.
+
 # Contents {#contents}
 
 **What an index has to do**
