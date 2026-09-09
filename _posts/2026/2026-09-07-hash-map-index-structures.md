@@ -138,42 +138,29 @@ share-img: /img/2026/hashmap-index/share.png
 
 Two hash maps can agree on everything you would think matters -- open addressing, a power of two
 capacity, the same good hash -- and still be twice as far apart on a lookup that finds nothing. The
-difference is in a few bytes you never see. Before either map touches a key it reads something
-smaller: a control byte, a tag, a fingerprint, a distance, a counter. That metadata, and the handful
-of instructions that read it, is where the last ten years of hash map work has actually happened.
+difference is a few bytes you never see: before either map touches a key it reads something smaller,
+a control byte or a tag or a fingerprint or a counter. That metadata is where the last ten years of
+hash map work has happened, and no one place writes it down. This one does -- every design read from
+its source, drawn to the same scale, asked the same five questions.
 
-Almost nobody writes it down. There are benchmark round-ups, and there are release notes, and there
-is source code with a comment or two -- but there is no single place that opens up
-`absl::flat_hash_map`, `boost::unordered_flat_map`, folly's F14, emhash8, emilib, indivi, Verstable
-and ihtab, draws what each of them puts in front of its keys at the same scale, and asks all of them
-the same questions. That is what this is.
+**What you should get out of it** is the ability to look at any of these maps and say what happens
+on a miss, what an erase leaves behind, and what that costs -- and to predict which of them suffers
+on a churning table, on a large value, or on memory, before running anything. And to read someone
+else's hash map benchmark and see what it is not telling you, which lasts longer than knowing this
+year's winner.
 
-**What you will get out of it.** By the end you should be able to look at any of these maps and say
-what happens on a miss, what an erase leaves behind, and what that costs -- and to predict, before
-running anything, which of them will suffer on a table that churns, which will fall apart on a big
-value, and which is quietly spending memory you did not know about. You should also be able to read
-someone else's hash map benchmark and see what it is not telling you, which is a more useful skill
-than knowing this year's winner.
+**How it is arranged.** Four chapters of setup: the five questions every index answers, and the
+three families that answer them differently. Then one chapter per design, each in the same shape --
+layout, one lookup, what an erase leaves, what it is good at and pays for -- so they read in any
+order and compare column by column. Then all of them side by side: a summary table, eighteen maps
+on seven workloads, hardware counters, and three probe loops disassembled, because the argument
+comes down to about two instructions.
 
-**How it is arranged.** The first four chapters set up the five questions every index answers and
-the three families that answer them differently -- read those, and the rest is navigable in any
-order. The middle is one chapter per design: the layout drawn to scale, the probe loop quoted from
-the source, what its erase leaves behind, and what it is good at and pays for. Then everything side
-by side -- one summary table, eighteen maps on seven workloads, hardware counters, and three probe
-loops disassembled, because the whole argument comes down to about two instructions. The last part
-is my own map: what it borrowed and what that was worth, and what I still cannot explain.
-
-**A word about that.** `ankerl::unordered_dense` appears here in two versions and both are mine:
-4.11.0, the released robin hood design, and 5.0, which replaces its index and is **unreleased at the
-time of writing**. Everything else is somebody else's work, read from their source and quoted with
-the file and the symbol. Take my measurements of my own map with whatever salt that deserves; the
-last chapter tells you how to rerun any of them.
-
-**And a word about the numbers.** They appear where they make a design easier to understand, not as
-a ranking. All of them come from one desktop, every map is handed the same hash, and every ratio
-that compares two maps is a geometric mean over a range of table sizes rather than a measurement at
-one size -- which matters more than it sounds like it should, and
-[the last chapter](#how-measured) is about why.
+The last part is my own map, which is also the disclosure: `ankerl::unordered_dense` is here in two
+versions and both are mine, 4.11.0 released and 5.0 not yet. Everything else is someone else's work,
+quoted from their source. Every number comes from one desktop, every map is handed the same hash,
+and every ratio between two maps is a geometric mean over a range of table sizes -- which matters
+more than it sounds like, and [the last chapter](#how-measured) says why.
 
 # Contents {#contents}
 
