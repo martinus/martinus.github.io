@@ -1303,6 +1303,8 @@ of it and which hash it is handed](#building) is not about the index at all.
 [![The 88 byte block to byte scale, then its 16 fingerprints, 8 counters and 16 value indices, and the values vector](/img/2026/hashmap-index/group-block.svg)](/img/2026/hashmap-index/group-block.svg)
 
 ```cpp
+// The group: what the caller names. bucket_type::group is basic_group<std::uint32_t>,
+// bucket_type::group_big is basic_group<std::size_t>.
 template <typename ValueIdx>
 struct basic_group {
     using value_idx_type = ValueIdx;
@@ -1310,16 +1312,25 @@ struct basic_group {
     std::array<std::uint8_t, 8> m_overflows;     // how many entries with (fingerprint & 7) == i probed past this group
 };
 
-struct block : Group {
-    std::array<value_idx_type, slots> m_index;
+// The block: what the index array is made of. It inherits, so that every use of a group's
+// fingerprints and counters reads unchanged and a block converts to the group the compare takes.
+struct block : basic_group<std::uint32_t> {
+    std::array<std::uint32_t, 16> m_index;       // where in the value vector each occupied slot's element is
 };
+
+std::vector<block> m_blocks;                     // 24 + 64 = 88 bytes per group, one array, no padding
 ```
 
 Sixteen fingerprints, eight overflow counters, sixteen value indices: 88 bytes per sixteen slots,
-**5.5 bytes per slot**, in one allocation. The group comes from the top bits of the hash and the
-fingerprint from the low byte, so the two are independent. Zero means empty, and a hash whose low
-byte is zero is remapped to 8. That keeps the low three bits, which are the counter class,
-unchanged. The remap is boost's, and so is the way it is done:
+**5.5 bytes per slot**, in one allocation. The group and the block are two types because the group
+is a template parameter a caller can choose and the block is the storage that holds one — but there
+is only ever one array, and the indices live in it beside the fingerprints they belong to. That is
+not how this started, and [what it was worth to merge them](#one-array-or-two) is measured below.
+
+The group comes from the top bits of the hash and the fingerprint from the low byte, so the two are
+independent. Zero means empty, and a hash whose low byte is zero is remapped to 8. That keeps the
+low three bits, which are the counter class, unchanged. The remap is boost's, and so is the way it
+is done:
 
 ```cpp
 [[nodiscard]] constexpr auto make_fingerprint_words() -> std::array<std::uint32_t, 256> {
