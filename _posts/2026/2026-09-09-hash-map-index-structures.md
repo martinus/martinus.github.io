@@ -1027,7 +1027,8 @@ F14 ships three maps over one table. `F14ValueMap` is flat. `F14NodeMap` is node
 it is, besides `ankerl::unordered_dense` and emhash8, the only mainstream dense map, so it is the
 closest relative unordered_dense has. Its items are four bytes, so it gets the twelve-slot chunk,
 with tags, counters and indices in exactly one cache line. It is measured in [the
-measurements](#same-workloads) alongside the rest, and [the string workloads](#string-keys) say what the comparison found.
+measurements](#same-workloads) alongside the rest, and [the string workloads](#string-keys) say what
+the comparison found.
 
 ## Good at, pays for
 
@@ -1243,9 +1244,9 @@ displaced key lands as close to home as any design here puts it.
 
 Pays for: tombstones, and everything that follows from them. A miss that stops on an empty fragment
 degrades under churn, and only a rehash repairs it. The build is slower than its grouped sibling's
-at every size. And it has the widest load-factor sawtooth of anything in this post: swept at
+at every size. And it has the widest load-factor sawtooth of anything in this post. Swept at
 fifty-seven sizes across the 32,000 octave, a hit swings **2.91x** between the cheapest and the
-dearest point, where the group designs swing 2.0 to 2.2x and nothing else reaches 2.9. So a number
+dearest point of it. The group designs swing 2.0 to 2.2x there, and nothing else reaches 2.9. So a number
 quoted for it at one size says less than it would for anything else here.
 
 ## What it would cost the group index {#wmap-steal}
@@ -1322,7 +1323,7 @@ std::vector<block> m_blocks;                     // 24 + 64 = 88 bytes per group
 
 Sixteen fingerprints, eight overflow counters, sixteen value indices: 88 bytes per sixteen slots,
 **5.5 bytes per slot**, in one allocation. The group and the block are two types because the group
-is a template parameter a caller can choose and the block is the storage that holds one — but there
+is a template parameter a caller can choose and the block is the storage that holds one, but there
 is only ever one array, and the indices live in it beside the fingerprints they belong to. That is
 not how this started, and [what it was worth to merge them](#one-array-or-two) is measured below.
 
@@ -1377,14 +1378,19 @@ slot, so a hit costs one more dependent load. The miss test is a per-class count
 has a termination bound, which [boost](#boost) has had all along and unordered_dense did not.
 
 There is a fourth difference that is not visible in the loop, because it is about where the loop
-*begins*. {#probe-split} When the key comparison is a call -- a `memcmp` for a `std::string` -- everything the loop
-keeps live has to survive it, so the compiler builds a frame and spills the counter, the mask, the
-delta, the hash and the broadcast fingerprint before the first group is even compared. About 3% of
-lookups ever leave their home group, so that frame is paid by every lookup for a path almost none of
-them take. So the home group is compared inline and everything past it is a separate out-of-line
-function, entered by a tail call -- but only for key types whose comparison really is a call, since
-where it is a register compare there is nothing to spill and a split would only add one. The switch
-is `detail::key_compare_is_call<Key>`, it is worth 8 to 9% of a string lookup, and integer codegen is
+*begins*.
+{: #probe-split}
+
+When the key comparison is a call, e.g. a `memcmp` for a `std::string`, everything the loop keeps
+live has to survive it. So the compiler builds a frame and spills the counter, the mask, the delta,
+the hash and the broadcast fingerprint, all before the first group is compared. Only about 3% of
+lookups ever leave their home group, which means that frame is paid by every lookup for a path
+almost none of them take.
+
+The home group is therefore compared inline, and everything past it sits in a separate out-of-line
+function entered by a tail call. Only for key types whose comparison really is a call, though: where
+it is a register compare there is nothing to spill and a split would only add one. The switch is
+`detail::key_compare_is_call<Key>`. It is worth 8 to 9% of a string lookup, and integer codegen is
 byte-identical with it and without.
 
 `match_fingerprint` has three backends. [SSE2](https://en.wikipedia.org/wiki/SSE2) is
@@ -2562,7 +2568,8 @@ gets by writing the type name and nothing else:
 
 `boost::hash<std::string>` costs boost 32% on a hit and 49% on a miss, which turns a map that is
 ahead of unordered_dense 5.0 into one that is behind it. `absl::Hash<std::string>` costs abseil 1 to
-3%, and on a miss it is fractionally the cheaper of the two, so it changes nothing else. So the often-quoted "boost is faster on string lookups" is a statement
+3%, and on a miss it is fractionally the cheaper of the two. So the often-quoted "boost is faster on
+string lookups" is a statement
 about boost *given unordered_dense's hash*. Out of the box it is not, and abseil's default is the
 one that holds up. For an integer key it goes the other way, but only for one of the two:
 `absl::Hash<uint64_t>` is 1.4x cheaper on a build and shows plainly in the integer table, while
@@ -2819,10 +2826,10 @@ unordered_dense leads the field on. So 2 stays the default, and the trade is the
 scarce resource is the other one. Every map here doubles, by the way: folly's much-quoted 1.406
 growth factor binds only on an explicit `reserve`, never on insertion.
 
-**By resident pages the order reverses, and the reversal is the whole point of printing both.**
-abseil asks for 26.4 bytes an entry and occupies 48.8; unordered_dense asks for 31.8 and occupies
-42.0. A map that doubles frees the superseded array, and glibc does not hand it back to the kernel,
-so it stays resident and counts against the process at its high-water mark. What a flat map
+**By resident pages the order reverses.** abseil asks for 26.4 bytes an entry and occupies 48.8,
+where unordered_dense asks for 31.8 and occupies 42.0. A map that doubles frees the superseded
+array, and glibc does not hand it back to the kernel, so it stays resident and counts against the
+process at its high-water mark. What a flat map
 supersedes is its whole slot array at `sizeof(value_type)` a slot; what a dense map supersedes is a
 5.5 byte index and a vector of values. **The ratio between the two columns sorts the field by family
 more cleanly than any other number in this post:**
@@ -2841,9 +2848,9 @@ a little more than the pages do.
 **At a 64 byte value the order reverses again and the node maps win, on both metrics.** A flat map
 pays for every empty slot at the full width of the value. At load 0.875 that is 82 bytes of slot for
 72 bytes of data, before any metadata. A dense map pays 72 bytes plus 5.5 of index. A node map pays
-72 plus a pointer plus the allocator's header, and is the leanest of the three however you count:
-94.2 asked and 84.9 resident, against 107.6 and 166.5 here and 113 to 130 and 218 to 257 for the
-flat maps. This is the one column where `std::unordered_map` is competitive with anything.
+72 plus a pointer plus the allocator's header, and is the leanest of the three however you count.
+A node map asks for 94.2 bytes an entry and occupies 84.9. unordered_dense asks 107.6 and occupies
+166.5, and the flat maps ask 113 to 130 and occupy 218 to 257. This is the one column where `std::unordered_map` is competitive with anything.
 
 **The churn column is where tombstones show up as bytes, and only the asked column shows it
 cleanly.** Everything with `no` in the tombstone column of [the summary table](#summary-table) is
@@ -2949,12 +2956,12 @@ a prefetch cannot hide a page walk, which is why huge pages are worth 22% here.
 
 ### Huge pages, which nothing asked for and now something does {#huge-pages}
 
-A dense map touches two regions per
-lookup where a flat map touches one, and that shows up in the translation: at 800,000 entries and
-all hits, unordered_dense takes 1.48 dTLB misses per lookup against boost's 0.89. Handing both an
-allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s took unordered_dense from 17.10 to
-13.32 ns per hit and boost from 9.75 to 7.58, both about 22%. That allocator now exists as an opt-in
-header rather than a paragraph here, and measured across the size axis it is worth more on the
+A dense map touches two regions per lookup where a flat map touches one, and that shows up in the
+translation: at 800,000 entries and all hits, unordered_dense takes 1.48 dTLB misses per lookup
+against boost's 0.89. Handing both an allocator that `mmap`s 2 MB-aligned and
+`madvise(MADV_HUGEPAGE)`s took unordered_dense from 17.10 to 13.32 ns per hit and boost from 9.75 to
+7.58, both about 22%. That allocator is now an opt-in header, and measured across the size axis it
+is worth more on the
 *build* than on the lookup: an integer build gains **1.53x at 200,000 entries, 1.73x at 800,000 and
 1.56x at four million**, because a doubling vector faults in every new block and 2 MB pages mean 512
 times fewer faults. Below about 200,000 it does nothing at all, since nothing the map allocates
@@ -3326,18 +3333,19 @@ So it is a real win for a real pattern. But the pattern needs an expensive key *
 iterator, and a caller with both can call `erase(key)` with the hash their own `find` already paid
 for.
 
-**The other half of that idea was re-tested across the cache boundary, and closed there.** A dense erase hashes the moved element's key, which for a string costs about 50 ns and was the
-largest single avoidable cost I knew of in this library. The back-pointer removes it, and the
-rejection above was scored on a suite whose string tables are cache-resident -- the regime where the
-second hash costs least. The win is exactly where it was
-predicted and it is the only one: erasing a string key by key is **9 to 11% cheaper at every size**,
-and the absolute saving grows with the table as the 50 ns implied, from 5.4 ns at fifty thousand
-entries to **40.8 ns at four million**. It still does not ship, because every element erased had to
-be inserted first: the back-pointer charges every insert a store and the value vector a parallel
-growth, `build` goes 6.9 to 23.3% slower for integer keys, and **churn -- holding a table at a fixed
-size by erasing one and inserting one, which is the shape a real cache has -- comes out a wash**. The
-erase win and the insert tax are the same size. That is a better answer than the old one, which was
-that it lost on a suite; it loses on the mechanism.
+**The back-pointer half of that idea was re-tested across the cache boundary, and closed there.** A
+dense erase hashes the moved element's key, which for a string costs about 50 ns and was the largest
+single avoidable cost I knew of in this library. The rejection above was scored on a suite whose
+string tables are cache-resident, and that is the regime where the second hash costs least. So it
+had to be measured where the cost is largest.
+
+The win is exactly where it was predicted, and it is the only one. Erasing a string key by key is
+**9 to 11% cheaper at every size**, and the absolute saving grows with the table as the 50 ns
+implied: 5.4 ns at fifty thousand entries, **40.8 ns at four million**. Unfortunately every element
+erased had to be inserted first. The back-pointer charges every insert a store and the value vector
+a parallel growth, `build` goes 6.9 to 23.3% slower for integer keys, and **churn comes out a wash**.
+Churn holds a table at a fixed size by erasing one and inserting one, which is the shape a real cache
+has. The erase win and the insert tax are the same size.
 
 ## From abseil: a per-table seed {#from-abseil-seed}
 
@@ -3555,7 +3563,7 @@ instruction counts are what settle it, because neither code layout nor drift can
 The obvious follow-up is dead, and that is the useful half of it. The callgrind table says the
 placement code makes `do_try_emplace` too big for its caller, so every `operator[]` buys a call
 boundary; so put the attribute on `do_try_emplace` as well. Measured, that is **identical to the
-shipped header in every column** -- not close, identical -- and the binaries differ: the out-of-line
+shipped header in every column**, not close but identical, and the binaries differ: the out-of-line
 symbol moves from `do_try_emplace` to `try_emplace`. Forcing the inner function into its caller moves
 the boundary outward by one level and changes nothing, because the outermost function without the
 attribute is the one that pays and there is always one. You cannot inline your way to the caller's
@@ -3681,7 +3689,7 @@ were dead ends. If there is an answer, it is in the instruction stream.
 **Inlining is not it**, which is the first guess and has been measured twice: force-inlining the
 lookup moves cycles and leaves the instruction count where it was. Nor is it the register allocator.
 The clang/gcc gap on the insert path is the obvious reason to suspect one, and that gap turns out to
-be [the function-call boundary](#compiler), which a profile removes completely -- so it says nothing
+be [the function-call boundary](#compiler), which a profile removes completely, so it says nothing
 about this. The cheap experiment left is to build both maps under gcc, one per binary, and I have not
 run it.
 
@@ -3785,17 +3793,17 @@ of *identical* work came out 140% apart in an earlier version of my own sweep to
 **Five independent runs of everything, combined by the median.** Not the mean: a mean lets one bad
 cell drag the answer, and a bad cell is exactly what the third, fourth and fifth runs are taken to
 find. One did turn up. Integer `insert/erase` at 32,000 entries read 29.44, 24.52, 26.82, 26.64 and
-26.73 ns on the map itself, a 20% spread where its twenty neighbours span 2%, and the first two runs
-were the two tails; the median has three samples supporting it and the mean of the first pair would
-have been luck.
+26.73 ns on the map itself. That is a 20% spread where its twenty neighbours span 2%, and the first
+two runs turned out to be the two tails. The median has three samples holding it up. The mean of the
+first pair would have been luck.
 
 The honest way to say how much that median can be trusted is not the spread between runs, which gets
 *wider* the more runs you take and so cannot compare a five-run campaign with a two-run one. It is
 to recompute every ratio with one run left out. **Dropping any one of the five moves no integer ratio
 by more than 4.3%, no big-value ratio by more than 3.0%, and no string ratio by more than 6.8%.** The
-string figure is larger for the reason it always was -- a string workload spends most of itself in
-the hash and the allocator -- and it is concentrated at the half-million octave, where the worst cell
-is abseil given its own hash. I would not defend any single number above to better than 5%.
+string figure is larger for the reason it always was: a string workload spends most of itself in the
+hash and the allocator. It is concentrated at the half-million octave, where the worst cell is
+abseil given its own hash. I would not defend any single number above to better than 5%.
 
 **Anything under 10% is decided with one map per binary, and hardware counters.** A binary holding
 several maps has a code layout that moves every time any of them changes, by more than the effect
@@ -3834,7 +3842,7 @@ home it just left.
 **Memory is measured twice, because there are two honest answers.** `count_alloc.h` interposes
 `malloc`, `calloc`, `realloc`, `aligned_alloc`, `posix_memalign` and `mmap` and counts what the map
 asked for and never gave back, charging `malloc_usable_size` plus glibc's eight byte header rather
-than the request -- counting the request instead reports every node map as cheaper per entry than a
+than the request. Counting the request instead reports every node map as cheaper per entry than a
 dense one. All six matter: counting only `operator new` reports emilib, which calls `malloc`
 directly, at zero, and missing `aligned_alloc` reports ihtab at 8.3 bytes an entry against a true
 35.3, with its element array counted and its whole index invisible. `max_rss.h` reads `VmHWM` in a
@@ -3896,7 +3904,8 @@ the file and the symbol do not.
 | `std::unordered_map` | libstdc++, gcc 16 | -- | -- |
 
 The harness is `scripts/ab/maps.h`, `maps.cpp`, `maps_one.cpp`, `maps.sh` and `maps_one.sh` in the
-unordered_dense repository, with `max_rss.h` and `count_alloc.h` behind the memory panels, and the figures are generated by `scripts/ab/diagrams.py` and
+unordered_dense repository, with `max_rss.h` and `count_alloc.h` behind the memory panels, and the
+figures are generated by `scripts/ab/diagrams.py` and
 `scripts/ab/mapsplot.py` in the same place, so every chart in this post can be redrawn from its CSV.
 
 Thanks to the authors of all of these for writing headers that explain themselves. Boost's
