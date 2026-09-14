@@ -509,7 +509,7 @@ two are one question asked from both ends, and no two of these maps answer it th
 
 Where a design has an idea worth stealing, its chapter says so, and
 [the borrowed ideas](#borrowed) say what happened when I stole it: twelve of them, implemented in
-unordered_dense 5.0 and measured, four kept, one optional, seven not.
+unordered_dense 5.0 and measured, four kept and eight not.
 
 # 5. Robin hood with an ordered word: unordered_dense 4.11.0 [&#8593; contents](#contents){:.up} {#robin-hood}
 
@@ -754,9 +754,10 @@ Pays for: tombstones. A table held at a constant size by erasing one and inserti
 workload where SwissTable's answer to "gone?" is the weakest of the field, which is why
 [the measurements](#same-workloads) include it on purpose.
 
-Two things from this chapter were tried inside unordered_dense 5.0, and they are measured with the
-others in [the borrowed ideas](#borrowed): the per-table seed, which costs nothing on a lookup, and
-cache-line-aligning the metadata, which costs 0.7%.
+Two things from this chapter were tried inside unordered_dense 5.0 and neither was kept, and they
+are measured with the others in [the borrowed ideas](#borrowed): the per-table seed, which costs
+nothing on a lookup and is not in the shipped header, and cache-line-aligning the metadata, which
+costs 0.7%.
 
 # 7. Boost's unordered_flat_map: fifteen slots and an overflow byte [&#8593; contents](#contents){:.up} {#boost}
 
@@ -3137,8 +3138,9 @@ The question is whether it terminates. `indivi::flat_umap` did not until [Septem
 2026](https://github.com/gaujay/indivi_collection/issues/2), and neither did unordered_dense 5.0
 until the review before its release. Eight chosen keys were enough to hang either one. abseil
 additionally salts each table with a per-table seed, which is the only defence here aimed at an
-adversary rather than at an accident. [Measured in unordered_dense](#borrowed) it costs zero cycles
-on a lookup, so the argument against it is about reproducible iteration order and not about speed.
+adversary rather than at an accident. No other map in this post has one, unordered_dense included.
+[Built and measured there](#from-abseil-seed) it costs zero cycles on a lookup, so the argument
+against it is about reproducible iteration order and not about speed.
 
 **Erase by iterator.** indivi, thanks to the distance nibbles: no hash, no key access. Everything
 else re-derives the home from the key.
@@ -3163,9 +3165,9 @@ answer faster than a table does.
 
 I read every design above with one question in mind: is there something in it that belongs in
 [the group index](#group-index)? Twelve ideas were then built into unordered_dense 5.0 and measured
-against the same header without them. Four are in the shipped index, one is there behind a switch,
-and seven are not. The seven are the more interesting part, because a negative result with a
-mechanism behind it says more about a design than a positive one does.
+against the same header without them. Four are in the shipped index and eight are not. The eight
+are the more interesting part, because a negative result with a mechanism behind it says more about
+a design than a positive one does.
 
 **Read a row as "unordered_dense 5.0 already had a way of doing this", not as "this was a bad
 idea".** None of it is a verdict on an idea, and even less on the map it came from. An idea that
@@ -3184,7 +3186,7 @@ arrangement, and the measuring; the shoulders are theirs.
 | an erase that decrements the counter | [folly F14](#f14) | it is the design | **yes** |
 | the pre-broadcast fingerprint word table | [boost](#boost) | integer misses 5 to 6% faster | **yes** |
 | a probe that terminates | [boost](#boost) | free, by instruction count | **yes** |
-| a per-table seed | [abseil](#swisstable) | 0 cycles a lookup, 3.5% slower to build | behind a switch |
+| a per-table seed | [abseil](#swisstable) | 0 cycles a lookup, 3.5% slower to build | no |
 | one counter per group instead of eight | [folly F14](#f14) | 4% slower on the suite | no |
 | double hashing instead of a triangular probe | [folly F14](#f14) | 9% slower on integer misses | no |
 | a second fingerprint in the spare index bits | [emhash8](#emhash8) | 2.5% slower on the suite | no |
@@ -3351,25 +3353,30 @@ has. The erase win and the insert tax are the same size.
 
 [abseil](#swisstable) mixes a seed of its own into every hash, so that keys chosen against a known
 hash cannot be aimed at a particular table. It is the one idea in this post that aims at an
-adversary rather than at a workload, and it is cheap enough to report precisely. Here it works the
-same way: `mixed_hash` returns `hash ^ m_seed`, with the seed scrambled from the table's own
-address, so two live tables differ and ASLR makes two processes differ. One map per binary at 50,000
-entries, that costs **one instruction and zero cycles** per lookup, 21.4 cycles against 21.4 on a
-miss and 29.6 against 29.6 on a hit, with ns per operation identical to two decimals. On a *build*
-it costs 3.5%, 7.13 to 7.38 ns per element, because the pipelined rehash is latency-bound and the
-xor lands between the hash and the group address.
+adversary rather than at a workload, and it is cheap enough to report precisely. **unordered_dense
+5.0 does not have one.** It was built as a prototype and measured, and this section is what the
+measurement said.
 
-The rest of it is what makes this a feature rather than a patch. The seed has to travel with the
+In the prototype `mixed_hash` returned `hash ^ m_seed`, with the seed scrambled from the table's own
+address, so two live tables differed and ASLR made two processes differ. One map per binary at
+50,000 entries, that cost **one instruction and zero cycles** per lookup, 21.4 cycles against 21.4
+on a miss and 29.6 against 29.6 on a hit, with ns per operation identical to two decimals. On a
+*build* it cost 3.5%, 7.13 to 7.38 ns per element, because the pipelined rehash is latency-bound and
+the xor lands between the hash and the group address.
+
+The rest of it is what would make this a feature rather than a patch. A seed has to travel with the
 index it built, through both allocator-aware constructors, both branches of the move assignment, the
 copy assignment and `swap`. That is six sites, and the test suite failed in 85 places until all six
 were right, which says something good about the suite and is a fair statement of the surface area.
-Eleven tests then still fail because they assert that `mixed_hash` returns an avalanching hash
+Eleven tests then still failed because they assert that `mixed_hash` returns an avalanching hash
 *unchanged*, which a seed contradicts by design. Also, iteration order stops being reproducible
 between runs.
 
-So it sits behind a switch and is not the default, because the cost is paid by everyone and the
-threat is not everyone's. abseil makes the opposite call, which is defensible for a library used at
-a scale where somebody is always feeding you keys.
+So it is not in unordered_dense 5.0. The cost is paid by everyone and the threat is not everyone's,
+and giving up reproducible iteration order is a real price for a caller who has no adversary. abseil
+makes the opposite call, which is defensible for a library used at a scale where somebody is always
+feeding you keys. If that is your situation, a seeded hash is something you can pass in yourself:
+the map takes the hasher as a template parameter and mixes whatever it returns.
 
 ## From abseil and boost: cache-line-aligned metadata {#from-aligned}
 
@@ -3826,8 +3833,8 @@ one binary, it read **6% slower on builds, 6% on random misses and 3% on random 
 workloads all pointing the same way, which is exactly what a real regression looks like. One map per
 binary says it costs **zero cycles** on both lookup paths. The control in that same paired run, a
 hash benchmark that never touches a map, read 2.7%. If I had stopped at the paired numbers I would
-have written up a 4% lookup regression that does not exist. (Its 3.5% on a build is real, and is why
-the seed is offered behind a switch rather than dismissed.)
+have written up a 4% lookup regression that does not exist. Its 3.5% on a build is real, and is part
+of why the seed was not taken.
 
 **No workload replays.** Every lookup rng lives in a state that outlives the epochs. A benchmark
 whose per-epoch batch is small enough to memorise will have its hit-or-miss sequence learned by a
