@@ -175,9 +175,9 @@ question](#question-by-question) answers "which of these should I use" for ten d
 [What reading eighteen indexes changed my mind about](#changed-my-mind) is the conclusion, in four
 paragraphs. Every design chapter stands on its own, so the list below is a menu rather than an order.
 
-**Two corrections since this went up**, both found by a reader: the lookup numbers are throughput
-rather than latency, and a million entries is not past the last level cache on this machine.
-[The errata](#errata) has the measurements and what changes. The tables are unchanged.
+**One thing here was wrong and one was unstated**, both raised by a reader: the cache sentences
+put tables past L3 that fit in it, and the lookup numbers are throughput rather than latency, which
+this never said either way. [The errata](#errata) has the measurements. No table or ranking moves.
 
 # Contents {#contents}
 
@@ -401,8 +401,9 @@ sampled at one size, and **22% in boost's** averaged over the octave. The sign r
 **And the seven workloads, once, because they are used by name from here on.** **Build** from empty
 with no reserve. **Hit**, **miss** and **50% hits**: random lookups on a freshly built table, with
 an rng that never replays. Each lookup picks its key independently, so several are in flight at
-once and what comes out is **reciprocal throughput, not latency**: see [the errata](#errata) for
-what the difference is worth, which on a flat map at a million entries is 3x. **Iterate**, summing every mapped value. **Churn**, erasing one and
+once and what comes out is **reciprocal throughput, not latency**. That is what a program looking up
+in a loop gets. [The errata](#errata) has what the difference is worth, which on a flat map at a
+million entries is 3x. **Iterate**, summing every mapped value. **Churn**, erasing one and
 inserting one at a constant size, always with a key the map has never held. And **insert/erase**, a
 mix of `operator[]` and `erase` on a table that grows and shrinks. Each is run on
 `map<uint64_t, size_t>`, on `map<std::string, size_t>` with keys 8 to 135 bytes, and on a `uint64_t`
@@ -2186,8 +2187,11 @@ hash` builds at 1.12 where `absl flat` with unordered_dense's wyhash builds at 1
 workload that hashes most. Same map, same index, same everything else, and 1.4x apart on the hash
 alone. That is why the "same hash for all" convention needs the own-hash control rows beside it.
 
-At an octave from 500,000 entries, with the index out of L2 and the values out of L3, the picture
-tilts:
+At an octave from 500,000 entries, with the index out of L2 and both arrays past what one core's
+share of L3 will hold comfortably, the picture tilts. It is worth being exact, because the first
+version of this sentence said the values were out of L3 and they are not: this octave is 13.1 MB at
+the bottom and 24.3 MB at the top, against 32 MB of L3 reaching a pinned core. What changes over it
+is that the index leaves L2 and the two arrays start competing for L3, not that either leaves it.
 
 *Time relative to unordered_dense 5.0, lower is faster, bold is the fastest map in each column.*
 
@@ -3845,10 +3849,10 @@ have written up a 4% lookup regression that does not exist. Its 3.5% on a build 
 of why the seed was not taken.
 
 **The lookup workloads measure throughput, not latency.** Each lookup draws its key from an rng, so
-several run at once and the figure is reciprocal throughput. On a flat map at a million entries a
-dependent chain is 3x slower than the same lookups run independently, so a number lifted out of a
-table here is not the latency of one lookup. [The errata](#errata) has both columns. The ratios are
-unaffected, since every map is measured the same way.
+several run at once. A program that looks up in a loop gets the same overlap, which is why it is
+measured this way, and a dependent chain is a different number: 3x slower on a flat map at a million
+entries. [The errata](#errata) has both columns. The ratios are unaffected, since every map is
+measured the same way.
 
 **No workload replays.** Every lookup rng lives in a state that outlives the epochs. A benchmark
 whose per-epoch batch is small enough to memorise will have its hit-or-miss sequence learned by a
@@ -3936,33 +3940,34 @@ me reading them.
 
 # Errata [&#8593; contents](#contents){:.up} {#errata}
 
-Two things a reader caught that I got wrong, and both are about what the lookup numbers mean rather
-than about the numbers themselves. The tables above are unchanged; what they measure is narrower
-than the text implied.
+A reader raised two things. One of them this post got wrong. The other it never said, which is a
+different problem and worth separating.
 
-## A million entries is not past the cache on this machine
+## Wrong: the cache sentences
 
-The machine has 64 MB of L3 as two 32 MB slices, and the measured process is pinned to one core, so
-32 MB is what it gets. A million entries of `map<uint64_t, uint64_t>`:
+Three places put a table past a cache level that it fits inside. The machine has 64 MB of L3 as two
+32 MB slices and the measured process is pinned to one core, so **32 MB** is what it gets.
+`map<uint64_t, size_t>`, index plus values:
 
-| map | index | values | total |
-|---|---:|---:|---:|
-| the group index | 11.0 MB | 15.3 MB | **26.3 MB** |
-| `boost::unordered_flat_map` | 2.0 MB | 30.0 MB | **32.0 MB** |
+| entries | index | values | total |
+|---:|---:|---:|---:|
+| 500,000 | 5.50 MB | 7.63 MB | **13.1 MB** |
+| 870,550 | 11.00 MB | 13.28 MB | **24.3 MB** |
+| 1,000,000 | 11.00 MB | 15.26 MB | **26.3 MB** |
 
-So the million-entry table in [where the time goes](#where-the-time-goes) is mostly served out of
-L3, and boost sits exactly on the line. Two million is the first size that is clearly past it. The
-sentence in that chapter about every design waiting on memory is true of four million and not of
-one, and the same claim in the repository's own benchmark page was wrong the same way and is fixed.
+So [the 500,000 octave](#integer-keys) is not "the values out of L3", and the million-entry table in
+[where the time goes](#where-the-time-goes) is not the case where every design is waiting on memory.
+Both sentences are corrected above. Two million entries is the first size clearly past L3, and four
+million, which several measurements here use, comfortably is. The same claim in the repository's
+benchmark page was wrong the same way and is fixed there too.
 
-## The lookup numbers are throughput, not latency
+## Unstated: these are throughput numbers
 
-Every lookup workload picks its key from an rng, so nothing stops the processor from running
-several at once. That is reciprocal throughput. A real program that looks up in a loop gets the same
-overlap, so it is a fair thing to measure, and it is not what "nanoseconds per lookup" makes a
-reader think. The post argues elsewhere that [a hash must be chosen on
-latency](#the-hash) and chains its hash benchmark on purpose. The map benchmark does not chain, and
-I never said so.
+Every lookup workload draws its key from an rng, so several lookups are in flight at once and what
+comes out is reciprocal throughput. That is what a program looking up in a loop gets, and it is a
+fair thing to measure. It is not the latency of one lookup, and this post never said which it was,
+which is how a reader arrived at the question. Nothing above claimed latency, so nothing above is
+false; a number lifted out of a table is just narrower than it looks.
 
 Measured both ways over the same map with the same keys, where the chain takes each key from the
 value the last lookup returned and nothing else differs:
@@ -3975,19 +3980,17 @@ value the last lookup returned and nothing else differs:
 | `boost::unordered_flat_map` | 22.02 | 7.26 | 81.27 | 20.45 | 101.21 | 27.79 |
 {: .heat-low}
 
-For boost that is 3.0x at a million and 4.0x at four million. For the group index it is 1.4x and
-1.5x.
+For boost that is 3.0x at a million and 4.0x at four million. For the group index, 1.4x and 1.5x.
 
-**And the gap runs the wrong way for me, which is the part worth saying.** On throughput boost takes
-an integer hit 1.69x faster at a million entries. On a dependent chain the group index is ahead,
-16.63 ns against 22.02. A flat map has one region and one dependent load, so there is more of it to
-overlap; a dense map's second load is already on the chain and overlapping buys it less. So the
-published framing understates my own map, and that is not a defence of the framing. It answers a
-different question than the surrounding text asks.
+**The two do not order the maps the same way, and the published one is the unflattering one.** On
+throughput boost takes an integer hit 1.69x faster at a million entries. On a dependent chain the
+group index is ahead, 16.63 ns against 22.02. A flat map has one region and one dependent load, so
+there is more of it to overlap; a dense map's second load is already on the chain and gains less. So
+the framing here understates my own map, which is not a defence of leaving it unlabelled.
 
-Neither of these changes a table, a chart or a ranking in [the workload
-tables](#same-workloads), which are ratios between maps measured the same way. What they change is
-what a single number means when it is lifted out of one.
+Neither of these moves a table, a chart or a ranking in [the workload tables](#same-workloads).
+Those are ratios between maps measured the same way, and every map is measured the same way.
 
-Thanks to the reader who asked. The fair summary of the complaint is that this is too long for what
-it says, and I am not going to pretend that is wrong either.
+The harness that runs both is `scripts/ab/latency.cpp` in the unordered_dense repository. Thanks to
+the reader who asked, and the other half of the complaint, that this is longer than it needs to be,
+is also fair.
