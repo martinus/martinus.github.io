@@ -376,8 +376,8 @@ averaged over.
 That is a hit measured at fifty-seven table sizes from 1,673 to 3,636 entries, small enough that all
 of it is in L1, so nothing in the picture is the cache. Every line ramps as the table fills and drops
 when it doubles, and **the amplitude differs by more than a factor of two between designs**: within
-the octave unordered_dense 4.11.0 swings 1.83x between its cheapest and dearest size, boost 1.52x,
-abseil 1.35x and unordered_dense 5.0 1.25x. Of the four maps drawn here robin hood has the largest
+the octave unordered_dense 4.11.0 swings 1.84x between its cheapest and dearest size, boost 1.57x,
+abseil 1.41x and unordered_dense 5.0 1.25x. Of the four maps drawn here robin hood has the largest
 tooth, and [the robin hood chapter](#robin-hood) says why. Those four are not the whole field.
 [`indivi::flat_wmap`](#flat-wmap) is not on this chart and swings wider than any of them. Also, an
 amplitude is only comparable to another one taken on the same workload at the same sizes.
@@ -1027,8 +1027,7 @@ F14 ships three maps over one table. `F14ValueMap` is flat. `F14NodeMap` is node
 it is, besides `ankerl::unordered_dense` and emhash8, the only mainstream dense map, so it is the
 closest relative unordered_dense has. Its items are four bytes, so it gets the twelve-slot chunk,
 with tags, counters and indices in exactly one cache line. It is measured in [the
-measurements](#same-workloads) alongside the rest, and [what is still on the
-table](#still-on-the-table) says what the comparison found.
+measurements](#same-workloads) alongside the rest, and [the string workloads](#string-keys) say what the comparison found.
 
 ## Good at, pays for
 
@@ -1244,10 +1243,10 @@ displaced key lands as close to home as any design here puts it.
 
 Pays for: tombstones, and everything that follows from them. A miss that stops on an empty fragment
 degrades under churn, and only a rehash repairs it. The build is slower than its grouped sibling's
-at every size. And it has the widest load-factor sawtooth of anything in this post: at the 32,000
-octave a hit swings 2.12x between the cheapest and the dearest point of the octave, where the group
-designs swing 1.5 to 1.6x. So a number quoted for it at one size says less than it would for
-anything else here.
+at every size. And it has the widest load-factor sawtooth of anything in this post: swept at
+fifty-seven sizes across the 32,000 octave, a hit swings **2.91x** between the cheapest and the
+dearest point, where the group designs swing 2.0 to 2.2x and nothing else reaches 2.9. So a number
+quoted for it at one size says less than it would for anything else here.
 
 ## What it would cost the group index {#wmap-steal}
 
@@ -1350,28 +1349,24 @@ and every erase.
 ## One lookup
 
 ```cpp
-auto const word = fingerprint_word(mh);
-auto const counter = word & 7U;
-auto group_idx = group_idx_from_hash(mh);
+// probe() computes the word, the counter class and the home group, and calls this.
 auto const* groups = m_buckets.data();
-value_idx_type delta = 0;
 while (true) {
     prefetch_index(groups, group_idx);
     auto const& group = groups[group_idx];
     auto lanes = match_fingerprint(group, word);
     while (lanes != 0) {
         auto const lane = first_lane(lanes);
-        auto const slot = static_cast<value_idx_type>(std::size_t{group_idx} * slots_per_group + lane);
         auto const value_idx = group.m_index[lane];
         if (m_equal(key, get_key(m_values[value_idx]))) {
-            return {slot, value_idx, true};
+            return {group_idx, value_idx, static_cast<std::uint8_t>(lane), true};
         }
         lanes &= lanes - 1;
     }
     // Not here if nothing of this class ever overflowed past this group, and not anywhere
     // once every group has been looked at: see the miss bound below.
     if (group.m_overflows[counter] == 0 || delta == m_group_mask) {
-        return {0, 0, false};
+        return {0, 0, 0, false};
     }
     group_idx = next_group(group_idx, delta);
 }
@@ -1380,6 +1375,17 @@ while (true) {
 That is SwissTable's shape again, with three differences. The value index replaces the key in the
 slot, so a hit costs one more dependent load. The miss test is a per-class counter. And the probe
 has a termination bound, which [boost](#boost) has had all along and unordered_dense did not.
+
+There is a fourth difference that is not visible in the loop, because it is about where the loop
+*begins*. {#probe-split} When the key comparison is a call -- a `memcmp` for a `std::string` -- everything the loop
+keeps live has to survive it, so the compiler builds a frame and spills the counter, the mask, the
+delta, the hash and the broadcast fingerprint before the first group is even compared. About 3% of
+lookups ever leave their home group, so that frame is paid by every lookup for a path almost none of
+them take. So the home group is compared inline and everything past it is a separate out-of-line
+function, entered by a tail call -- but only for key types whose comparison really is a call, since
+where it is a register compare there is nothing to spill and a split would only add one. The switch
+is `detail::key_compare_is_call<Key>`, it is worth 8 to 9% of a string lookup, and integer codegen is
+byte-identical with it and without.
 
 `match_fingerprint` has three backends. [SSE2](https://en.wikipedia.org/wiki/SSE2) is
 `_mm_cmpeq_epi8` and `_mm_movemask_epi8`, sixteen lanes into sixteen bits. NEON has no movemask. The
@@ -1720,12 +1726,12 @@ and an exact test has to follow those too.
 
 |  | instructions | cycles | branch misses | L1 misses |
 |---|---:|---:|---:|---:|
-| miss, group index | 57.2 | 20.7 | **0.108** | 3.41 |
-| miss, boost | 54.2 | **20.4** | 0.164 | **1.90** |
-| miss, Verstable | **44.6** | 40.8 | 0.806 | 1.96 |
+| miss, group index | 57.2 | 21.0 | **0.108** | 3.27 |
+| miss, boost | 54.3 | **20.8** | 0.164 | **1.89** |
+| miss, Verstable | **46.5** | 42.1 | 0.808 | 1.96 |
 {: .heat-low}
 
-A Verstable miss executes **22% fewer instructions than a group probe and takes twice the cycles**.
+A Verstable miss executes **19% fewer instructions than a group probe and takes twice the cycles**.
 The design delivers what it advertises, fewest instructions and fewest cache lines touched, and then
 hands all of it back at the branch predictor. "Is my home bucket a chain head, and how long is the
 chain" is a data-dependent decision on every lookup, where a group compare is not. At load 0.9 about
@@ -1904,7 +1910,7 @@ turned on its head.
 **Down "compared at once"** is what the branch predictor sees, and it explains more of the
 measurements than anything else in either table. A design that asks one question of sixteen slots
 has one unpredictable branch per group. A design that asks a question per slot, or walks a chain,
-has one per element visited. Verstable executes 22% fewer instructions per miss than the group index
+has one per element visited. Verstable executes 19% fewer instructions per miss than the group index
 and takes twice as many cycles, entirely for this reason.
 
 ## What one lookup touches {#what-one-lookup-touches}
@@ -1967,166 +1973,166 @@ in L3, which is where most maps in most programs live:
 </tr></thead>
 <tbody>
 <tr><th scope="row">unordered_dense 4.11</th>
-<td class="s4">2.32</td>
+<td class="s4">2.33</td>
 <td class="s3">1.52</td>
-<td class="s3">1.57</td>
+<td class="s3">1.55</td>
 <td class="s3">1.42</td>
-<td>1.04</td>
-<td class="s3">1.46</td>
-<td class="s2">1.38</td>
+<td><b>0.98</b></td>
+<td class="s3">1.47</td>
+<td class="s3">1.43</td>
 </tr>
 <tr><th scope="row">unordered_dense 5.0</th>
 <td><b>1.00</b></td>
 <td>1.00</td>
 <td>1.00</td>
 <td>1.00</td>
-<td><b>1.00</b></td>
+<td>1.00</td>
 <td>1.00</td>
 <td>1.00</td>
 </tr>
 <tr><th scope="row">boost flat</th>
-<td class="s3">1.66</td>
-<td class="f2">0.79</td>
+<td class="s3">1.69</td>
+<td class="f2">0.80</td>
 <td class="f2"><b>0.83</b></td>
 <td class="f1">0.87</td>
-<td class="s4">12.52</td>
-<td class="f2">0.76</td>
-<td class="f1">0.87</td>
+<td class="s4">10.19</td>
+<td class="f2">0.77</td>
+<td class="f1">0.92</td>
 </tr>
 <tr><th scope="row">boost flat, own hash</th>
 <td class="s3">1.68</td>
 <td class="f2">0.80</td>
 <td class="f2">0.83</td>
 <td class="f1">0.87</td>
-<td class="s4">10.67</td>
-<td class="f2">0.75</td>
-<td class="f1">0.89</td>
+<td class="s4">10.45</td>
+<td class="f2">0.77</td>
+<td class="f1">0.91</td>
 </tr>
 <tr><th scope="row">absl flat</th>
-<td class="s3">1.61</td>
-<td class="f2">0.73</td>
-<td class="s2">1.38</td>
-<td>0.99</td>
-<td class="s4">13.68</td>
+<td class="s3">1.62</td>
+<td class="f2">0.75</td>
+<td class="s3">1.42</td>
+<td class="f1">0.93</td>
+<td class="s4">14.36</td>
 <td class="s2">1.19</td>
-<td class="s2">1.23</td>
+<td class="s2">1.28</td>
 </tr>
 <tr><th scope="row">absl flat, own hash</th>
 <td class="s1">1.12</td>
-<td class="f2">0.76</td>
+<td class="f2">0.77</td>
 <td class="s3">1.43</td>
 <td class="f1">0.94</td>
-<td class="s4">14.68</td>
+<td class="s4">13.04</td>
 <td class="s2">1.19</td>
-<td class="s2">1.23</td>
+<td class="s2">1.28</td>
 </tr>
 <tr><th scope="row">F14Value</th>
-<td class="s3">1.69</td>
-<td class="f1">0.91</td>
+<td class="s3">1.71</td>
+<td class="f1">0.93</td>
 <td class="s3">1.47</td>
-<td class="s1">1.08</td>
-<td class="s4">8.65</td>
-<td class="s2">1.22</td>
-<td class="s2">1.27</td>
+<td class="s1">1.07</td>
+<td class="s4">8.43</td>
+<td class="s2">1.24</td>
+<td class="s2">1.32</td>
 </tr>
 <tr><th scope="row">F14Vector</th>
-<td class="s3">1.76</td>
-<td class="s1">1.06</td>
+<td class="s3">1.77</td>
+<td class="s1">1.07</td>
 <td class="s1">1.10</td>
-<td class="s1">1.06</td>
-<td class="s3">1.56</td>
-<td class="s2">1.34</td>
-<td class="s2">1.36</td>
+<td class="s1">1.08</td>
+<td class="s3">1.48</td>
+<td class="s2">1.35</td>
+<td class="s2">1.38</td>
 </tr>
 <tr><th scope="row">emhash8</th>
-<td class="s4">2.87</td>
-<td class="s2">1.19</td>
-<td class="s4">2.13</td>
-<td class="s3">1.50</td>
-<td class="s1">1.07</td>
-<td class="s2">1.22</td>
+<td class="s4">2.88</td>
+<td class="s2">1.20</td>
+<td class="s4">2.12</td>
+<td class="s3">1.51</td>
+<td>1.00</td>
 <td class="s2">1.23</td>
+<td class="s2">1.27</td>
 </tr>
 <tr><th scope="row">emilib</th>
-<td class="s3">1.89</td>
-<td class="s1">1.09</td>
-<td class="s1">1.13</td>
-<td class="s1">1.11</td>
-<td class="s4">6.15</td>
-<td class="f1">0.94</td>
-<td class="s1">1.08</td>
+<td class="s3">1.91</td>
+<td class="s1">1.10</td>
+<td class="s1">1.12</td>
+<td class="s1">1.10</td>
+<td class="s4">5.07</td>
+<td class="f1">0.93</td>
+<td class="s1">1.10</td>
 </tr>
 <tr><th scope="row">indivi flat_umap</th>
 <td class="s3">1.62</td>
 <td class="f2">0.82</td>
-<td>0.97</td>
-<td class="f1">0.89</td>
-<td class="s4">6.25</td>
-<td class="f3"><b>0.69</b></td>
-<td class="f1"><b>0.86</b></td>
+<td class="f1">0.92</td>
+<td class="f1">0.88</td>
+<td class="s4">6.11</td>
+<td class="f3"><b>0.70</b></td>
+<td class="f1"><b>0.89</b></td>
 </tr>
 <tr><th scope="row">indivi flat_wmap</th>
-<td class="s3">1.86</td>
-<td class="f2"><b>0.71</b></td>
+<td class="s3">1.88</td>
+<td class="f2"><b>0.72</b></td>
 <td class="f2">0.83</td>
 <td class="f2"><b>0.82</b></td>
-<td class="s4">9.68</td>
-<td class="f1">0.93</td>
+<td class="s4">9.15</td>
 <td class="f1">0.94</td>
+<td>0.97</td>
 </tr>
 <tr><th scope="row">Verstable</th>
-<td class="s4">3.12</td>
-<td class="s1">1.07</td>
-<td class="s4">2.10</td>
-<td class="s2">1.36</td>
-<td class="s4">11.64</td>
-<td class="s1">1.10</td>
-<td class="s1">1.13</td>
+<td class="s4">3.14</td>
+<td class="s1">1.08</td>
+<td class="s4">2.05</td>
+<td class="s2">1.38</td>
+<td class="s4">11.03</td>
+<td class="s1">1.09</td>
+<td class="s1">1.16</td>
 </tr>
 <tr><th scope="row">ihtab</th>
-<td class="s1">1.08</td>
-<td>0.99</td>
-<td class="s1">1.08</td>
-<td>1.03</td>
-<td class="s4">7.32</td>
+<td class="s1">1.10</td>
+<td>1.00</td>
+<td class="s1">1.10</td>
+<td>1.02</td>
+<td class="s4">7.95</td>
 <td class="s1">1.13</td>
-<td class="s1">1.11</td>
+<td class="s1">1.13</td>
 </tr>
 <tr><th scope="row">std::unordered_map</th>
-<td class="s4">5.54</td>
-<td class="s3">1.91</td>
-<td class="s4">3.97</td>
+<td class="s4">5.55</td>
+<td class="s3">1.88</td>
+<td class="s4">4.04</td>
 <td class="s4">2.23</td>
-<td class="s4">34.16</td>
-<td class="s4">2.08</td>
-<td class="s4">2.08</td>
+<td class="s4">32.53</td>
+<td class="s4">2.13</td>
+<td class="s4">2.14</td>
 </tr>
 <tr><th scope="row">boost node</th>
-<td class="s4">4.45</td>
+<td class="s4">4.53</td>
 <td class="s1">1.15</td>
-<td class="f1">0.86</td>
-<td class="s1">1.14</td>
-<td class="s4">14.28</td>
-<td class="s2">1.35</td>
-<td class="s2">1.39</td>
+<td class="f1">0.87</td>
+<td class="s1">1.12</td>
+<td class="s4">13.82</td>
+<td class="s2">1.38</td>
+<td class="s3">1.46</td>
 </tr>
 <tr><th scope="row">absl node</th>
-<td class="s4">3.95</td>
+<td class="s4">3.94</td>
 <td class="s1">1.06</td>
-<td class="s2">1.38</td>
-<td class="s1">1.12</td>
-<td class="s4">15.54</td>
-<td class="s3">1.90</td>
-<td class="s3">1.68</td>
+<td class="s2">1.39</td>
+<td class="s1">1.11</td>
+<td class="s4">16.37</td>
+<td class="s3">1.88</td>
+<td class="s3">1.75</td>
 </tr>
 <tr><th scope="row">F14Node</th>
 <td class="s4">4.15</td>
-<td class="s1">1.14</td>
-<td class="s2">1.33</td>
+<td class="s1">1.15</td>
+<td class="s2">1.34</td>
 <td class="s2">1.22</td>
-<td class="s4">12.47</td>
+<td class="s4">11.96</td>
 <td class="s4">2.06</td>
-<td class="s3">1.84</td>
+<td class="s3">1.90</td>
 </tr>
 </tbody>
 </table>
@@ -2134,34 +2140,34 @@ in L3, which is where most maps in most programs live:
 Read it by column, and the earlier chapters fall out of it.
 
 **The miss column answers the third of the five questions.** abseil is the quickest grouped
-SwissTable on a hit (0.73) and the *slowest* flat SwissTable on a miss (1.38). Its miss has to find
+SwissTable on a hit (0.75) and the *slowest* flat SwissTable on a miss (1.42). Its miss has to find
 an empty control byte, and at load 7/8 that is often not in the home group. boost (0.83), indivi's
-`flat_umap` (0.97) and unordered_dense 5.0 almost always stop at home, because all three have an
+`flat_umap` (0.92) and unordered_dense 5.0 almost always stop at home, because all three have an
 explicit test for "did anything of my class overflow past here" instead of relying on an empty slot.
 This is what the overflow byte and the overflow counter were invented for, and between two otherwise
-nearly identical SwissTables it is worth 1.4 to 1.7x.
+nearly identical SwissTables it is worth 1.5 to 1.7x.
 
 **And the churn column does not say what the design chapters say.**
-Boost is 0.76 here and 0.53 at half a million entries, while [its own chapter](#boost-erase) has its
+Boost is 0.77 here and 0.52 at half a million entries, while [its own chapter](#boost-erase) has its
 misses degrading 1.46x under exactly this workload. Both are true. What degrades is *probe length*,
 measured in groups, and boost degrades from so far ahead that it is still the faster map once it
 gets there. A counter that comes back down does not buy a faster churn. It buys a number that does
 not move at all, with no rehash scheduled to make it stop moving. You care about tail latency? Then
 that is the property you want. For throughput on this workload, read the column and pick boost.
 
-**The chained designs pay for the miss too, and pay more.** emhash8 at 2.13 and Verstable at 2.10
+**The chained designs pay for the miss too, and pay more.** emhash8 at 2.12 and Verstable at 2.05
 are the two slowest misses of any modern design here, and [the counters below](#counters) say the
 instructions are not the reason. A chain has to be walked to its end, and whether there is one at
 all is unpredictable.
 
-**The iterate column is very nearly the family split.** 1.00 to 1.56 for the dense maps, 6 to 15x
-for every flat map, 12 to 34x for the node maps. Those are the largest ratios in the post by a
+**The iterate column is very nearly the family split.** 0.98 to 1.48 for the dense maps, 5 to 14x
+for every flat map, 12 to 33x for the node maps. Those are the largest ratios in the post by a
 factor of ten, and they come entirely from a flat map having to walk its empty slots. The exception
-is ihtab at 7.32, which is dense and still iterates like a flat map. [Its own section](#ihtab) has
+is ihtab at 7.95, which is dense and still iterates like a flat map. [Its own section](#ihtab) has
 the reason: the element array is append-only, so an iterator has to test a deleted bit per element.
 
 **The build column has a surprise in it**, and the index has nothing to do with it. `absl flat, own
-hash` builds at 1.12 where `absl flat` with unordered_dense's wyhash builds at 1.61.
+hash` builds at 1.12 where `absl flat` with unordered_dense's wyhash builds at 1.62.
 `absl::Hash<uint64_t>` is much cheaper than a wyhash multiply for an integer key, and a build is the
 workload that hashes most. Same map, same index, same everything else, and 1.4x apart on the hash
 alone. That is why the "same hash for all" convention needs the own-hash control rows beside it.
@@ -2184,12 +2190,12 @@ tilts:
 <tbody>
 <tr><th scope="row">unordered_dense 4.11</th>
 <td class="s4">2.05</td>
-<td class="s3">1.46</td>
-<td class="s3">1.51</td>
 <td class="s3">1.47</td>
+<td class="s3">1.50</td>
+<td class="s3">1.49</td>
 <td><b>1.00</b></td>
-<td class="s2">1.27</td>
-<td class="s2">1.21</td>
+<td class="s2">1.26</td>
+<td class="s2">1.26</td>
 </tr>
 <tr><th scope="row">unordered_dense 5.0</th>
 <td><b>1.00</b></td>
@@ -2202,160 +2208,160 @@ tilts:
 </tr>
 <tr><th scope="row">boost flat</th>
 <td class="s2">1.38</td>
+<td class="f2">0.78</td>
+<td class="f3">0.69</td>
 <td class="f2">0.76</td>
-<td class="f3">0.65</td>
-<td class="f2">0.76</td>
-<td class="s4">6.04</td>
-<td class="f3"><b>0.53</b></td>
-<td class="f3">0.66</td>
+<td class="s4">6.16</td>
+<td class="f3"><b>0.52</b></td>
+<td class="f3">0.70</td>
 </tr>
 <tr><th scope="row">boost flat, own hash</th>
 <td class="s2">1.37</td>
-<td class="f2">0.77</td>
-<td class="f3">0.65</td>
-<td class="f2">0.75</td>
-<td class="s4">5.74</td>
-<td class="f3">0.53</td>
-<td class="f3">0.66</td>
+<td class="f2">0.78</td>
+<td class="f3">0.70</td>
+<td class="f2">0.76</td>
+<td class="s4">6.22</td>
+<td class="f3">0.52</td>
+<td class="f3">0.69</td>
 </tr>
 <tr><th scope="row">absl flat</th>
 <td class="s3">1.42</td>
-<td class="f3">0.70</td>
 <td class="f2">0.73</td>
-<td class="f2">0.72</td>
-<td class="s4">8.15</td>
+<td class="f2">0.77</td>
+<td class="f2">0.74</td>
+<td class="s4">8.83</td>
 <td class="f3">0.64</td>
-<td class="f2">0.78</td>
+<td class="f2">0.81</td>
 </tr>
 <tr><th scope="row">absl flat, own hash</th>
-<td class="s1">1.08</td>
-<td class="f3">0.70</td>
-<td class="f2">0.75</td>
-<td class="f2">0.71</td>
-<td class="s4">8.33</td>
+<td class="s1">1.07</td>
+<td class="f2">0.72</td>
+<td class="f2">0.78</td>
+<td class="f2">0.72</td>
+<td class="s4">8.72</td>
 <td class="f3">0.64</td>
-<td class="f2">0.77</td>
+<td class="f2">0.81</td>
 </tr>
 <tr><th scope="row">F14Value</th>
 <td class="s3">1.95</td>
-<td class="f1">0.86</td>
-<td class="s2">1.18</td>
-<td>0.96</td>
-<td class="s4">4.31</td>
-<td>0.99</td>
-<td>1.01</td>
+<td class="f1">0.88</td>
+<td class="s2">1.17</td>
+<td>0.95</td>
+<td class="s4">4.56</td>
+<td>1.02</td>
+<td class="s1">1.06</td>
 </tr>
 <tr><th scope="row">F14Vector</th>
-<td class="s3">1.93</td>
-<td class="s1">1.15</td>
+<td class="s3">1.92</td>
+<td class="s1">1.16</td>
 <td class="s1">1.09</td>
-<td class="s1">1.13</td>
+<td class="s1">1.12</td>
 <td>1.02</td>
-<td>1.04</td>
-<td class="s1">1.11</td>
+<td>1.02</td>
+<td class="s1">1.15</td>
 </tr>
 <tr><th scope="row">emhash8</th>
-<td class="s4">2.55</td>
-<td>1.03</td>
-<td class="s1">1.14</td>
-<td class="s1">1.07</td>
+<td class="s4">2.57</td>
+<td>1.04</td>
+<td class="s1">1.13</td>
+<td class="s1">1.06</td>
 <td>1.00</td>
-<td class="f1">0.92</td>
-<td class="f1">0.92</td>
+<td class="f1">0.91</td>
+<td>0.96</td>
 </tr>
 <tr><th scope="row">emilib</th>
-<td class="s3">1.61</td>
-<td>1.00</td>
-<td class="f2">0.74</td>
-<td class="f1">0.95</td>
-<td class="s4">3.52</td>
-<td class="f2">0.71</td>
-<td class="f2">0.77</td>
+<td class="s3">1.62</td>
+<td>1.04</td>
+<td class="f2">0.80</td>
+<td>0.98</td>
+<td class="s4">3.69</td>
+<td class="f3">0.70</td>
+<td class="f2">0.81</td>
 </tr>
 <tr><th scope="row">indivi flat_umap</th>
-<td class="s2">1.39</td>
-<td class="f2">0.81</td>
-<td class="f2">0.85</td>
-<td class="f2">0.83</td>
-<td class="s4">3.60</td>
+<td class="s2">1.38</td>
+<td class="f2">0.82</td>
+<td class="f1">0.88</td>
+<td class="f2">0.82</td>
+<td class="s4">3.89</td>
 <td class="f3">0.55</td>
-<td class="f3">0.70</td>
+<td class="f2">0.73</td>
 </tr>
 <tr><th scope="row">indivi flat_wmap</th>
 <td class="s3">1.75</td>
-<td class="f3"><b>0.64</b></td>
-<td class="f3"><b>0.60</b></td>
 <td class="f3"><b>0.63</b></td>
-<td class="s4">4.65</td>
-<td class="f3">0.63</td>
-<td class="f3"><b>0.58</b></td>
+<td class="f3"><b>0.64</b></td>
+<td class="f3"><b>0.64</b></td>
+<td class="s4">4.95</td>
+<td class="f3">0.62</td>
+<td class="f3"><b>0.61</b></td>
 </tr>
 <tr><th scope="row">Verstable</th>
-<td class="s4">2.59</td>
-<td class="f2">0.74</td>
-<td class="f1">0.92</td>
-<td class="f2">0.78</td>
-<td class="s4">5.37</td>
-<td class="f3">0.67</td>
-<td class="f3">0.69</td>
+<td class="s4">2.58</td>
+<td class="f2">0.75</td>
+<td class="f1">0.94</td>
+<td class="f2">0.80</td>
+<td class="s4">5.63</td>
+<td class="f3">0.66</td>
+<td class="f2">0.73</td>
 </tr>
 <tr><th scope="row">ihtab</th>
 <td class="s2">1.28</td>
-<td>1.00</td>
-<td class="s1">1.11</td>
-<td class="s1">1.05</td>
-<td class="s4">2.92</td>
-<td class="f3">0.70</td>
-<td class="f2">0.78</td>
+<td>1.01</td>
+<td class="s1">1.09</td>
+<td>1.04</td>
+<td class="s4">3.54</td>
+<td class="f3">0.68</td>
+<td class="f2">0.81</td>
 </tr>
 <tr><th scope="row">std::unordered_map</th>
-<td class="s4">5.99</td>
-<td class="s3">1.72</td>
-<td class="s4">3.47</td>
-<td class="s4">2.08</td>
-<td class="s4">60.40</td>
-<td class="s3">1.84</td>
+<td class="s4">6.04</td>
+<td class="s3">1.73</td>
+<td class="s4">3.46</td>
+<td class="s4">2.10</td>
+<td class="s4">64.43</td>
 <td class="s3">1.89</td>
+<td class="s3">1.94</td>
 </tr>
 <tr><th scope="row">boost node</th>
-<td class="s4">4.83</td>
-<td class="s1">1.15</td>
-<td class="f2">0.80</td>
+<td class="s4">4.86</td>
+<td class="s1">1.16</td>
+<td class="f2">0.84</td>
 <td class="s1">1.11</td>
-<td class="s4">29.51</td>
-<td>0.96</td>
-<td class="s1">1.12</td>
+<td class="s4">31.14</td>
+<td class="f1">0.95</td>
+<td class="s2">1.17</td>
 </tr>
 <tr><th scope="row">absl node</th>
-<td class="s4">4.48</td>
-<td>1.05</td>
-<td class="f1">0.93</td>
+<td class="s4">4.54</td>
+<td class="s1">1.07</td>
+<td>0.96</td>
 <td>1.04</td>
-<td class="s4">15.91</td>
-<td class="s1">1.12</td>
-<td class="s2">1.19</td>
+<td class="s4">16.99</td>
+<td class="s1">1.10</td>
+<td class="s2">1.27</td>
 </tr>
 <tr><th scope="row">F14Node</th>
-<td class="s4">5.10</td>
-<td class="s1">1.07</td>
+<td class="s4">5.09</td>
+<td class="s1">1.08</td>
 <td class="s2">1.20</td>
-<td class="s1">1.13</td>
-<td class="s4">22.46</td>
-<td class="s3">1.49</td>
-<td class="s3">1.44</td>
+<td class="s1">1.14</td>
+<td class="s4">23.76</td>
+<td class="s3">1.47</td>
+<td class="s3">1.50</td>
 </tr>
 </tbody>
 </table>
 
-**The dense penalty grows with the table.** boost goes from 0.79 to 0.76 on a hit and from 0.83 to
-**0.65** on a miss, abseil from 0.73 to 0.70 and from 1.38 to 0.73. The extra dependent load of [the
+**The dense penalty grows with the table.** boost goes from 0.80 to 0.78 on a hit and from 0.83 to
+**0.69** on a miss, abseil from 0.75 to 0.73 and from 1.42 to 0.77. The extra dependent load of [the
 dense family](#three-families) turns from a few cycles into a cache miss and a TLB entry, and no
 amount of index work removes it. It is also why boost's *miss* improves so much. Once every lookup
 is waiting on memory, the number of regions touched matters more than where the probe stops.
 
 **And the load factor stops being the story.** `indivi::flat_wmap` has the quickest integer hit at
-every size measured, and it reads 0.64 here. It is also the map with [the widest sawtooth in the
-post](#flat-wmap), 2.12x across the 32,000 octave where the group designs are 1.5 to 1.6x. A single
+every size measured, and it reads 0.63 here. It is also the map with [the widest sawtooth in the
+post](#flat-wmap), 2.91x across the 32,000 octave where the group designs are 2.0 to 2.2x. A single
 number at a single size would have been worth very little for it.
 
 ## String keys {#string-keys}
@@ -2378,13 +2384,13 @@ number at a single size would have been worth very little for it.
 </tr></thead>
 <tbody>
 <tr><th scope="row">unordered_dense 4.11</th>
-<td class="s2">1.21</td>
+<td class="s2">1.23</td>
 <td class="s1">1.12</td>
-<td>0.97</td>
-<td class="s1">1.07</td>
-<td>1.01</td>
-<td>1.03</td>
-<td>1.05</td>
+<td>1.04</td>
+<td class="s1">1.09</td>
+<td>1.00</td>
+<td>1.04</td>
+<td class="s1">1.06</td>
 </tr>
 <tr><th scope="row">unordered_dense 5.0</th>
 <td><b>1.00</b></td>
@@ -2396,144 +2402,150 @@ number at a single size would have been worth very little for it.
 <td>1.00</td>
 </tr>
 <tr><th scope="row">boost flat</th>
-<td class="s2">1.41</td>
+<td class="s3">1.43</td>
 <td class="f1">0.87</td>
-<td class="f2"><b>0.84</b></td>
+<td class="f1"><b>0.90</b></td>
+<td class="f1">0.89</td>
+<td class="s4">4.17</td>
 <td class="f1">0.88</td>
-<td class="s4">4.08</td>
-<td class="f1">0.87</td>
-<td class="f1"><b>0.87</b></td>
+<td class="f1"><b>0.89</b></td>
 </tr>
 <tr><th scope="row">boost flat, own hash</th>
-<td class="s3">1.60</td>
-<td class="s1">1.14</td>
-<td class="s2">1.25</td>
-<td class="s1">1.10</td>
-<td class="s4">3.86</td>
-<td class="f1">0.92</td>
-<td>1.00</td>
+<td class="s3">1.65</td>
+<td class="s1">1.15</td>
+<td class="s2">1.34</td>
+<td class="s1">1.12</td>
+<td class="s4">3.99</td>
+<td class="f1">0.93</td>
+<td>1.02</td>
 </tr>
 <tr><th scope="row">absl flat</th>
-<td class="s2">1.25</td>
-<td class="f1">0.92</td>
-<td>0.98</td>
-<td class="f1">0.88</td>
-<td class="s4">5.08</td>
+<td class="s2">1.26</td>
 <td class="f1">0.93</td>
-<td>0.96</td>
+<td class="s1">1.06</td>
+<td class="f1">0.90</td>
+<td class="s4">5.35</td>
+<td class="f1">0.94</td>
+<td>0.97</td>
 </tr>
 <tr><th scope="row">absl flat, own hash</th>
-<td class="s2">1.24</td>
-<td class="f1">0.95</td>
-<td>0.99</td>
-<td class="f1">0.90</td>
-<td class="s4">5.31</td>
-<td class="f1">0.93</td>
+<td class="s2">1.25</td>
 <td>0.96</td>
+<td class="s1">1.05</td>
+<td class="f1">0.92</td>
+<td class="s4">5.23</td>
+<td class="f1">0.93</td>
+<td>0.97</td>
 </tr>
 <tr><th scope="row">F14Value</th>
-<td class="s2">1.36</td>
-<td>0.98</td>
+<td class="s2">1.40</td>
 <td>0.99</td>
-<td class="f1">0.95</td>
-<td class="s4">3.48</td>
-<td class="f1">0.93</td>
-<td>1.00</td>
+<td class="s1">1.06</td>
+<td>0.97</td>
+<td class="s4">3.44</td>
+<td class="f1">0.94</td>
+<td>1.01</td>
 </tr>
 <tr><th scope="row">F14Vector</th>
-<td class="s2">1.24</td>
+<td class="s2">1.26</td>
+<td>0.98</td>
+<td class="f1">0.94</td>
 <td>0.97</td>
-<td class="f1">0.88</td>
-<td>0.96</td>
-<td>0.99</td>
-<td>1.01</td>
-<td>1.01</td>
+<td>1.00</td>
+<td>1.02</td>
+<td>1.03</td>
 </tr>
 <tr><th scope="row">emhash8</th>
-<td class="s3">1.73</td>
-<td>0.96</td>
-<td class="s1">1.12</td>
-<td>0.98</td>
-<td><b>0.96</b></td>
-<td class="s1">1.09</td>
+<td class="s3">1.75</td>
+<td>0.97</td>
+<td class="s2">1.21</td>
+<td>1.00</td>
+<td><b>0.98</b></td>
 <td class="s1">1.10</td>
+<td class="s1">1.12</td>
 </tr>
 <tr><th scope="row">emilib</th>
-<td class="s3">1.55</td>
-<td class="f1">0.94</td>
-<td class="f1">0.92</td>
-<td>0.96</td>
-<td class="s4">3.39</td>
-<td class="f1">0.91</td>
+<td class="s3">1.59</td>
+<td>0.95</td>
 <td>0.98</td>
+<td>0.97</td>
+<td class="s4">3.48</td>
+<td class="f1">0.92</td>
+<td>0.99</td>
 </tr>
 <tr><th scope="row">indivi flat_umap</th>
-<td class="s3">1.45</td>
+<td class="s3">1.44</td>
 <td>0.96</td>
-<td>1.02</td>
-<td class="f1">0.95</td>
-<td class="s4">2.77</td>
+<td class="s1">1.08</td>
+<td>0.95</td>
+<td class="s4">2.83</td>
 <td class="f2"><b>0.80</b></td>
 <td>0.99</td>
 </tr>
 <tr><th scope="row">indivi flat_wmap</th>
-<td class="s2">1.38</td>
-<td class="f1">0.89</td>
+<td class="s3">1.41</td>
 <td class="f1">0.90</td>
-<td class="f1">0.90</td>
+<td>0.97</td>
+<td class="f1">0.91</td>
 <td class="s4">3.64</td>
-<td class="f1">0.95</td>
-<td class="f1">0.95</td>
+<td class="f1">0.93</td>
+<td>0.96</td>
 </tr>
 <tr><th scope="row">std::unordered_map</th>
-<td class="s4">2.62</td>
-<td class="s1">1.13</td>
-<td class="s4">2.39</td>
-<td class="s2">1.38</td>
-<td class="s4">45.36</td>
+<td class="s4">2.64</td>
+<td class="s1">1.15</td>
+<td class="s4">2.52</td>
+<td class="s3">1.41</td>
+<td class="s4">45.97</td>
 <td class="s3">1.64</td>
-<td class="s3">1.54</td>
+<td class="s3">1.56</td>
 </tr>
 <tr><th scope="row">boost node</th>
-<td class="s3">1.90</td>
+<td class="s3">1.93</td>
 <td class="f2"><b>0.83</b></td>
-<td class="f1">0.89</td>
-<td class="f2"><b>0.85</b></td>
-<td class="s4">10.42</td>
+<td class="f1">0.92</td>
+<td class="f1"><b>0.86</b></td>
+<td class="s4">10.27</td>
 <td class="s1">1.10</td>
-<td>1.02</td>
+<td>1.03</td>
 </tr>
 <tr><th scope="row">absl node</th>
-<td class="s3">1.92</td>
-<td class="f1">0.87</td>
-<td>1.02</td>
-<td class="f2">0.85</td>
-<td class="s4">7.80</td>
-<td class="s1">1.12</td>
+<td class="s3">1.94</td>
+<td class="f1">0.88</td>
 <td class="s1">1.08</td>
+<td class="f1">0.86</td>
+<td class="s4">8.20</td>
+<td class="s1">1.13</td>
+<td class="s1">1.09</td>
 </tr>
 <tr><th scope="row">F14Node</th>
-<td class="s3">1.70</td>
+<td class="s3">1.72</td>
 <td class="f1">0.87</td>
-<td>0.97</td>
-<td class="f2">0.85</td>
-<td class="s4">8.42</td>
-<td class="s1">1.08</td>
+<td>1.04</td>
+<td class="f1">0.87</td>
+<td class="s4">8.28</td>
 <td class="s1">1.09</td>
+<td class="s1">1.10</td>
 </tr>
 </tbody>
 </table>
 
 **On every lookup and churn column, nearly all of the modern maps are within 15% of each other**,
 because the hash and the key comparison are most of the work and every map is handed the same hash.
-`std::unordered_map` at 2.39 on a miss is the exception, and boost given its own hash at 1.25 is the
+`std::unordered_map` at 2.52 on a miss is the exception, and boost given its own hash at 1.34 is the
 control that the next table is about. So for string keys, the index you pick is close to irrelevant,
 and the hash you pick is not.
 
-One number in that table is not what it looks like. F14Vector's **0.88** on the miss is a paired
-figure, and a paired harness cannot resolve a gap that size. [Measured one map per
-binary](#still-on-the-table), the hit is a tie and the miss is 8 to 9%, and that is the figure to
-quote.
+One number in that table used to be the map's worst result and no longer is. F14Vector takes the
+string miss at **0.94**, and a paired harness cannot resolve a gap that size anyway. Measured one map
+per binary at 32,000 entries, `unordered_dense` now executes **129.7 instructions against F14Vector's
+132.7** and takes 18.01 ns against 17.61: ahead on work, 2.3% behind on time, where it used to be 8
+to 9% behind on both. [What closed it](#probe-split) is splitting the part of the probe past
+the home group out of line for keys whose comparison is a call, which takes the frame off the path
+almost every lookup actually runs. What is left is **1.2 more L1 fills**, from the two index
+prefetches issued before any fingerprint has been compared: on a miss that matches nothing they
+fetch a line that is never read. They stay, because dropping one costs gcc 12% at four million
+entries.
 
 The own-hash control rows are where that shows up. Here is the same workload with the hash a caller
 gets by writing the type name and nothing else:
@@ -2542,15 +2554,15 @@ gets by writing the type name and nothing else:
 
 |  | boost, this wyhash | boost, its own hash | abseil, this wyhash | abseil, its own hash |
 |---|---:|---:|---:|---:|
-| hit | **0.87** | 1.14 | 0.92 | 0.95 |
-| miss | **0.84** | 1.25 | 0.98 | 0.99 |
-| build | 1.41 | 1.60 | 1.25 | **1.24** |
-| churn | **0.87** | 0.92 | 0.93 | 0.93 |
+| hit | **0.87** | 1.15 | 0.93 | 0.96 |
+| miss | **0.90** | 1.34 | 1.06 | 1.05 |
+| build | 1.43 | 1.65 | 1.26 | **1.25** |
+| churn | **0.88** | 0.93 | 0.94 | 0.93 |
 {: .heat-par}
 
-`boost::hash<std::string>` costs boost 31% on a hit and 49% on a miss, which turns a map that is
+`boost::hash<std::string>` costs boost 32% on a hit and 49% on a miss, which turns a map that is
 ahead of unordered_dense 5.0 into one that is behind it. `absl::Hash<std::string>` costs abseil 1 to
-4% and changes nothing else. So the often-quoted "boost is faster on string lookups" is a statement
+3%, and on a miss it is fractionally the cheaper of the two, so it changes nothing else. So the often-quoted "boost is faster on string lookups" is a statement
 about boost *given unordered_dense's hash*. Out of the box it is not, and abseil's default is the
 one that holds up. For an integer key it goes the other way, but only for one of the two:
 `absl::Hash<uint64_t>` is 1.4x cheaper on a build and shows plainly in the integer table, while
@@ -2577,13 +2589,13 @@ the value, which is the axis that separates flat from dense:
 </tr></thead>
 <tbody>
 <tr><th scope="row">unordered_dense 4.11</th>
-<td class="s3">1.95</td>
+<td class="s3">1.98</td>
+<td class="s2">1.38</td>
+<td class="s3">1.54</td>
+<td class="s2">1.36</td>
+<td><b>0.99</b></td>
 <td class="s2">1.39</td>
-<td class="s3">1.56</td>
-<td class="s2">1.35</td>
-<td><b>1.00</b></td>
-<td class="s2">1.39</td>
-<td class="s2">1.26</td>
+<td class="s2">1.27</td>
 </tr>
 <tr><th scope="row">unordered_dense 5.0</th>
 <td>1.00</td>
@@ -2595,173 +2607,199 @@ the value, which is the axis that separates flat from dense:
 <td>1.00</td>
 </tr>
 <tr><th scope="row">boost flat</th>
-<td class="s3">1.73</td>
-<td class="f1">0.90</td>
-<td class="f2"><b>0.83</b></td>
-<td class="f1">0.94</td>
-<td class="s4">4.07</td>
-<td class="f2">0.75</td>
-<td class="f2">0.84</td>
-</tr>
-<tr><th scope="row">boost flat, own hash</th>
 <td class="s3">1.72</td>
 <td class="f1">0.90</td>
 <td class="f2">0.83</td>
-<td class="f1">0.93</td>
-<td class="s4">3.87</td>
-<td class="f2">0.75</td>
-<td class="f2">0.83</td>
+<td class="f1">0.94</td>
+<td class="s4">3.89</td>
+<td class="f2">0.76</td>
+<td class="f2">0.84</td>
+</tr>
+<tr><th scope="row">boost flat, own hash</th>
+<td class="s3">1.71</td>
+<td class="f1">0.90</td>
+<td class="f2"><b>0.83</b></td>
+<td class="f1">0.95</td>
+<td class="s4">3.90</td>
+<td class="f2">0.76</td>
+<td class="f2">0.84</td>
 </tr>
 <tr><th scope="row">absl flat</th>
-<td class="s2">1.22</td>
-<td class="f2">0.81</td>
+<td class="s2">1.23</td>
+<td class="f2">0.80</td>
 <td class="s2">1.40</td>
 <td class="f2">0.83</td>
-<td class="s4">3.07</td>
-<td class="f1">0.88</td>
-<td class="f1">0.95</td>
+<td class="s4">3.10</td>
+<td class="f1">0.89</td>
+<td>0.95</td>
 </tr>
 <tr><th scope="row">absl flat, own hash</th>
-<td class="f1"><b>0.94</b></td>
+<td class="f1"><b>0.93</b></td>
 <td class="f2">0.83</td>
-<td class="s3">1.42</td>
+<td class="s2">1.38</td>
 <td class="f2"><b>0.82</b></td>
 <td class="s4">3.12</td>
-<td class="f1">0.88</td>
+<td class="f1">0.89</td>
 <td class="f1">0.95</td>
 </tr>
 <tr><th scope="row">F14Value</th>
-<td class="s3">1.76</td>
-<td>1.05</td>
-<td class="s3">1.56</td>
+<td class="s3">1.74</td>
+<td class="s1">1.06</td>
+<td class="s3">1.53</td>
 <td class="s1">1.07</td>
-<td class="s4">3.35</td>
-<td class="s1">1.13</td>
+<td class="s4">3.36</td>
+<td class="s1">1.14</td>
 <td class="s2">1.17</td>
 </tr>
 <tr><th scope="row">F14Vector</th>
-<td class="s3">1.78</td>
-<td class="s1">1.08</td>
-<td class="s1">1.10</td>
-<td class="s1">1.08</td>
+<td class="s3">1.77</td>
+<td class="s1">1.07</td>
+<td class="s1">1.09</td>
+<td class="s1">1.07</td>
 <td>1.02</td>
-<td class="s2">1.17</td>
-<td class="s2">1.19</td>
+<td class="s2">1.18</td>
+<td class="s2">1.18</td>
 </tr>
 <tr><th scope="row">emhash8</th>
-<td class="s4">2.53</td>
+<td class="s4">2.58</td>
 <td>1.04</td>
-<td class="s4">2.16</td>
-<td class="s1">1.13</td>
+<td class="s4">2.09</td>
+<td class="s1">1.12</td>
 <td>1.05</td>
-<td class="s1">1.09</td>
-<td>1.02</td>
+<td class="s1">1.10</td>
+<td>1.03</td>
 </tr>
 <tr><th scope="row">emilib</th>
-<td class="s3">1.76</td>
+<td class="s3">1.75</td>
 <td class="s1">1.10</td>
+<td class="s1">1.11</td>
 <td class="s1">1.14</td>
-<td class="s1">1.14</td>
-<td class="s4">2.81</td>
-<td class="f1">0.89</td>
-<td>1.00</td>
+<td class="s4">2.79</td>
+<td class="f1">0.90</td>
+<td>1.01</td>
 </tr>
 <tr><th scope="row">indivi flat_umap</th>
-<td class="s3">1.61</td>
+<td class="s3">1.62</td>
 <td class="f1">0.89</td>
-<td class="f1">0.95</td>
 <td class="f1">0.94</td>
-<td class="s4">2.80</td>
-<td class="f2"><b>0.72</b></td>
-<td class="f1">0.88</td>
+<td class="f1">0.94</td>
+<td class="s4">2.78</td>
+<td class="f2"><b>0.73</b></td>
+<td class="f1">0.87</td>
 </tr>
 <tr><th scope="row">indivi flat_wmap</th>
-<td class="s3">1.80</td>
+<td class="s3">1.79</td>
 <td class="f2"><b>0.76</b></td>
-<td class="f2">0.84</td>
+<td class="f2">0.83</td>
 <td class="f2">0.85</td>
-<td class="s4">3.21</td>
+<td class="s4">3.20</td>
 <td class="f1">0.89</td>
 <td class="f2"><b>0.81</b></td>
 </tr>
 <tr><th scope="row">std::unordered_map</th>
-<td class="s4">5.26</td>
+<td class="s4">5.34</td>
 <td class="s3">1.44</td>
-<td class="s4">4.21</td>
-<td class="s3">1.55</td>
-<td class="s4">25.41</td>
-<td class="s3">1.84</td>
-<td class="s3">1.77</td>
+<td class="s4">4.27</td>
+<td class="s3">1.56</td>
+<td class="s4">25.07</td>
+<td class="s3">1.83</td>
+<td class="s3">1.76</td>
 </tr>
 <tr><th scope="row">boost node</th>
-<td class="s4">3.91</td>
+<td class="s4">3.95</td>
 <td class="s1">1.08</td>
-<td class="f1">0.88</td>
+<td class="f1">0.87</td>
 <td class="s1">1.08</td>
-<td class="s4">5.89</td>
+<td class="s4">5.87</td>
 <td class="s1">1.12</td>
-<td class="s2">1.17</td>
+<td class="s2">1.18</td>
 </tr>
 <tr><th scope="row">absl node</th>
-<td class="s4">3.49</td>
-<td>1.01</td>
+<td class="s4">3.47</td>
+<td>1.00</td>
 <td class="s2">1.36</td>
-<td class="s1">1.05</td>
-<td class="s4">4.71</td>
+<td>1.02</td>
+<td class="s4">4.74</td>
 <td class="s2">1.40</td>
 <td class="s2">1.24</td>
 </tr>
 <tr><th scope="row">F14Node</th>
-<td class="s4">3.55</td>
+<td class="s4">3.63</td>
 <td class="s1">1.05</td>
-<td class="s2">1.33</td>
+<td class="s2">1.34</td>
 <td class="s1">1.10</td>
-<td class="s4">4.82</td>
-<td class="s3">1.67</td>
-<td class="s3">1.42</td>
+<td class="s4">4.72</td>
+<td class="s3">1.65</td>
+<td class="s3">1.43</td>
 </tr>
 </tbody>
 </table>
 
 **Building is 1.6 to 1.8x faster dense** than boost, F14Value, emilib and indivi given the same
-hash, because growth copies four byte indices rather than 72 byte slots. **Iteration is 2.8 to 4.1x
+hash, because growth copies four byte indices rather than 72 byte slots. **Iteration is 2.8 to 3.9x
 faster dense**, because there are no empty 72 byte slots to walk. Both gaps grow with the value. The
-exception in the build column is abseil, at 1.22 with this wyhash and 0.94 with its own integer
+exception in the build column is abseil, at 1.23 with this wyhash and 0.93 with its own integer
 hash. That is the same 1.4x hash effect as in the integer table, showing through a workload that is
 half hashing.
 
-Against that, the flat maps keep their lookup and churn advantage, with boost still at 0.75 on
+Against that, the flat maps keep their lookup and churn advantage, with boost still at 0.76 on
 churn. So the trade is exactly the one [the three families](#three-families) describes, at the value
 size where it is easiest to see.
 
 ## Memory {#memory}
 
-[![Bytes per entry with a 64 byte value, before and after churning](/img/2026/hashmap-index/memory-big.svg)](/img/2026/hashmap-index/memory-big.svg)
+[![Bytes per entry with a 64 byte value: what each map asked for beside what the kernel backed](/img/2026/hashmap-index/memory-big.svg)](/img/2026/hashmap-index/memory-big.svg)
 
-Bytes of heap per live entry, counted by `mallinfo2` around a build and then around a full turnover
-of churn, geometric mean over the same octave. There are two columns because the second one is the
-memory cost of whatever an erase leaves behind.
+Memory has two honest answers and they disagree about who wins, so both are here. **Bytes asked
+for** is what the map requested and never gave back, counted through interposed `malloc`, `mmap`
+and `aligned_alloc`. **Peak resident bytes** is what the kernel actually backed at the high-water
+mark, read from `VmHWM` in a forked child. The first is the number a design argument is made in; the
+second is the number a machine runs out of. Both are the geometric mean over the same octave, and
+the second column of each pair is after a full turnover of churn, which is the memory cost of
+whatever an erase leaves behind.
 
-*Bytes of heap per live entry, lower is better, bold is the leanest in each column. Rows are grouped by family (flat, then dense, then node) and sorted within each group, so a number that looks out of order down the page is a family boundary rather than a mistake.*
+*Bytes of heap asked for per live entry, lower is better, bold is the leanest in each column. Rows are grouped by family (flat, then dense, then node) and sorted within each group, so a number that looks out of order down the page is a family boundary rather than a mistake.*
 
 | map | 8 byte value, steady | after churn | 64 byte value, steady | after churn |
 |---|---:|---:|---:|---:|
-| absl flat | **27.0** | 31.0 | 113.3 | 130.2 |
-| emilib | **27.0** | **27.0** | 130.2 | 130.2 |
-| indivi `flat_umap` | 28.6 | 28.6 | 114.9 | 114.9 |
-| Verstable | 28.6 | 28.6 | -- | -- |
-| boost flat | 29.2 | 29.2 | 122.1 | 122.1 |
-| F14Value | 29.2 | 29.2 | 114.1 | 114.1 |
-| indivi `flat_wmap` | 31.0 | 35.7 | 130.2 | 149.5 |
-| unordered_dense 5.0 | 32.6 | 32.6 | 107.6 | 107.6 |
-| F14Vector | 33.7 | 33.7 | 115.3 | 115.3 |
-| ihtab | 36.1 | 72.3 | -- | -- |
-| unordered_dense 4.11 | 37.3 | 37.3 | 112.3 | 112.3 |
-| emhash8 | 38.0 | 38.0 | 117.0 | 117.0 |
-| `std::unordered_map` | 43.6 | 43.6 | 108.4 | 108.4 |
-| absl node | 46.5 | 48.6 | **94.2** | 96.3 |
-| F14Node | 46.8 | 46.8 | 94.5 | **94.5** |
-| boost node | 47.7 | 47.7 | 95.4 | 95.4 |
+| absl flat | **26.4** | 30.3 | 113.3 | 130.2 |
+| Verstable | 27.9 | **27.9** | -- | -- |
+| indivi `flat_umap` | 27.9 | **27.9** | 114.9 | 114.9 |
+| boost flat | 28.5 | 28.5 | 122.1 | 122.1 |
+| F14Value | 28.5 | 28.5 | 114.1 | 114.1 |
+| indivi `flat_wmap` | 30.3 | 34.8 | 130.2 | 149.5 |
+| emilib | 30.3 | 30.3 | 130.2 | 130.2 |
+| unordered_dense 5.0 | 31.8 | 31.8 | 107.6 | 107.6 |
+| F14Vector | 32.9 | 32.9 | 115.3 | 115.3 |
+| ihtab | 35.3 | 70.6 | -- | -- |
+| unordered_dense 4.11 | 36.4 | 36.4 | 112.3 | 112.3 |
+| emhash8 | 37.1 | 37.1 | 117.0 | 117.0 |
+| `std::unordered_map` | 44.4 | 44.4 | 108.4 | 108.4 |
+| absl node | 46.2 | 48.3 | **94.2** | 96.3 |
+| F14Node | 46.5 | 46.5 | 94.5 | **94.5** |
+| boost node | 47.4 | 47.4 | 95.4 | 95.4 |
+{: .heat-low}
+
+*And the same maps by peak resident set, same octave, same ordering convention.*
+
+| map | 8 byte value, steady | after churn | 64 byte value, steady | after churn |
+|---|---:|---:|---:|---:|
+| Verstable | 42.6 | 62.1 | -- | -- |
+| emilib | 45.5 | 63.5 | 242.1 | 261.5 |
+| F14Value | 48.7 | 68.2 | 218.3 | 237.8 |
+| absl flat | 48.8 | 75.0 | 218.1 | 271.5 |
+| boost flat | 52.7 | 75.5 | 236.8 | 275.4 |
+| indivi `flat_umap` | 54.9 | 72.9 | 225.8 | 243.6 |
+| indivi `flat_wmap` | 58.6 | 85.8 | 256.8 | 315.3 |
+| emhash8 | **39.1** | 57.0 | 166.0 | 185.2 |
+| unordered_dense 5.0 | 42.0 | **54.0** | 166.5 | 178.2 |
+| unordered_dense 4.11 | 42.0 | 61.3 | 158.9 | 178.2 |
+| ihtab | 49.4 | 126.5 | -- | -- |
+| F14Vector | 50.6 | 70.0 | 188.0 | 207.3 |
+| F14Node | 39.6 | 57.2 | **84.9** | **104.1** |
+| absl node | 45.3 | 65.7 | 89.4 | 111.2 |
+| boost node | 45.4 | 65.5 | 91.2 | 112.7 |
+| `std::unordered_map` | 46.1 | 63.7 | 108.1 | 127.3 |
 {: .heat-low}
 
 `uint64_t` keys, octave from 32,000 entries. The flat maps hold a 16 or 72 byte `value_type`, and
@@ -2769,37 +2807,59 @@ the dense ones hold the same in a vector plus their index. Verstable and ihtab h
 figure, because the adapter that measures memory holds the mapped value by value, and neither
 library's C interface takes one that large without changes I did not make.
 
-**At an eight byte value the flat maps win, and it is close.** 27 to 29 bytes per entry against 32.6
-for unordered_dense 5.0. That is one byte of metadata per slot at load 0.875 against 5.5 bytes at
-0.8, plus the doubling overhang of a `std::vector`, which is where most of the gap actually comes
-from. The overhang is a knob rather than a property. The value container is a template parameter,
-and one that grows by 1.5x instead of 2 measures **10% less per entry, for 14% of the build** (and
-13% less at a 64 byte value, for 19%). Those figures come from a separate experiment with its own
-baseline, 33.2 and 113.3 bytes per entry where this table reads 32.6 and 107.6, so read the
-percentages against the rows above rather than the absolutes. It buys memory level with boost, and
-pays for it out of the build, which is the column unordered_dense leads the field on. So 2 stays the
-default, and the trade is there for anyone whose scarce resource is the other one. Every map here
-doubles, by the way: folly's much-quoted 1.406 growth factor binds only on an explicit `reserve`,
-never on insertion.
+**By bytes asked for, at an eight byte value, the flat maps win and it is close.** 26 to 30 bytes
+per entry against 31.8 for unordered_dense 5.0. That is one byte of metadata per slot at load 0.875
+against 5.5 bytes at 0.8, plus the doubling overhang of a `std::vector`, which is where most of the
+gap actually comes from. The overhang is a knob rather than a property. The value container is a
+template parameter, and one that grows by 1.5x instead of 2 measures **10% less per entry, for 14%
+of the build** (and 13% less at a 64 byte value, for 19%). Those figures come from a separate
+experiment with its own baseline, so read the percentages against the rows above rather than the
+absolutes. It buys memory level with boost, and pays for it out of the build, which is the column
+unordered_dense leads the field on. So 2 stays the default, and the trade is there for anyone whose
+scarce resource is the other one. Every map here doubles, by the way: folly's much-quoted 1.406
+growth factor binds only on an explicit `reserve`, never on insertion.
 
-**At a 64 byte value the order reverses completely and the node maps win.** A flat map pays for
-every empty slot at the full width of the value. At load 0.875 that is 82 bytes of slot for 72 bytes
-of data, before any metadata. A dense map pays 72 bytes plus 5.5 of index. A node map pays 72 plus a
-pointer plus the allocator's header, and is the leanest of the three. This is the one column where
-`std::unordered_map` is competitive with anything.
+**By resident pages the order reverses, and the reversal is the whole point of printing both.**
+abseil asks for 26.4 bytes an entry and occupies 48.8; unordered_dense asks for 31.8 and occupies
+42.0. A map that doubles frees the superseded array, and glibc does not hand it back to the kernel,
+so it stays resident and counts against the process at its high-water mark. What a flat map
+supersedes is its whole slot array at `sizeof(value_type)` a slot; what a dense map supersedes is a
+5.5 byte index and a vector of values. **The ratio between the two columns sorts the field by family
+more cleanly than any other number in this post:**
 
-**The churn column is where tombstones show up as bytes.** Everything with `no` in the tombstone
-column of [the summary table](#summary-table) is flat across a turnover, to the byte. abseil goes
-27.0 to 31.0 and 113.3 to 130.2, because its tombstones count against the growth budget, so a
-churning table rehashes into a bigger one. `indivi::flat_wmap` does the same, 31.0 to 35.7. emilib
-has tombstones and does *not* grow, because it counts only live elements against its limit. It pays
-in probe length instead, which is the same trade the other way round.
+| family | resident / asked, 8 byte value | at a 64 byte value |
+|---|---|---|
+| node | 0.85 to 1.04x | 0.90 to 1.00x |
+| dense | 1.05 to 1.55x | 1.41 to 1.63x |
+| flat | 1.50 to 1.97x | 1.86 to 1.97x |
+{: .heat-low}
 
-**And ihtab doubles**, 36.1 to 72.3, and stays there. That is the append-only element array again,
-carrying one dead element for every live one until it rebuilds. It is a design choice rather than a
-fault. In its extendible-hashing sibling [ixhtab](#ixhtab) the same property meets a bin-splitting
-test that compares a table-wide count against a per-bin size, and there the memory does not stop
-growing at all.
+Below 1.00 is not a mistake either: a node map's allocations are small and contiguous in the arena,
+and the counted figure charges `malloc_usable_size` plus glibc's eight byte header, which rounds up
+a little more than the pages do.
+
+**At a 64 byte value the order reverses again and the node maps win, on both metrics.** A flat map
+pays for every empty slot at the full width of the value. At load 0.875 that is 82 bytes of slot for
+72 bytes of data, before any metadata. A dense map pays 72 bytes plus 5.5 of index. A node map pays
+72 plus a pointer plus the allocator's header, and is the leanest of the three however you count:
+94.2 asked and 84.9 resident, against 107.6 and 166.5 here and 113 to 130 and 218 to 257 for the
+flat maps. This is the one column where `std::unordered_map` is competitive with anything.
+
+**The churn column is where tombstones show up as bytes, and only the asked column shows it
+cleanly.** Everything with `no` in the tombstone column of [the summary table](#summary-table) is
+flat across a turnover, to the byte. abseil goes 26.4 to 30.3 and 113.3 to 130.2, because its
+tombstones count against the growth budget, so a churning table rehashes into a bigger one.
+`indivi::flat_wmap` does the same, 30.3 to 34.8. emilib has tombstones and does *not* grow, because
+it counts only live elements against its limit. It pays in probe length instead, which is the same
+trade the other way round. In resident pages every map rises 25 to 40% across a turnover, because
+churning is itself a stream of allocations and frees that leaves the arena larger, so the property
+is real and that column cannot see it.
+
+**And ihtab doubles**, 35.3 to 70.6 asked and 49.4 to 126.5 resident, and stays there. That is the
+append-only element array again, carrying one dead element for every live one until it rebuilds. It
+is a design choice rather than a fault. In its extendible-hashing sibling [ixhtab](#ixhtab) the same
+property meets a bin-splitting test that compares a table-wide count against a per-bin size, and
+there the memory does not stop growing at all.
 
 # 16. Where the time actually goes [&#8593; contents](#contents){:.up} {#where-the-time-goes}
 
@@ -2813,51 +2873,51 @@ field as the chapter before, asked why instead of how much.
 
 Times are ratios, counters are not. These runs are their own campaign, so their absolute nanoseconds
 are not the ones in [chapter 7's degradation table](#bit-vs-tombstone) or in [the huge-pages
-note](#still-on-the-table). Different sizes, different binaries, different days. One map per binary,
+note](#huge-pages). Different sizes, different binaries, different days. One map per binary,
 `perf stat`, 30 million lookups on a table of 50,000 entries, so the index sits in L1 and L2 and what
 gets counted is the work rather than the memory system. Per lookup:
 
-*Per lookup, lower is better except for IPC, and bold is the best in each column of each half. The harness's timer quantises the ns column of the upper half to a third of a nanosecond, which is why several maps read exactly level there. The cycle counts are the ones with enough resolution to separate them.*
+*Per lookup, lower is better except for IPC, and bold is the best in each column of each half.*
 
 |  | ns | instructions | cycles | branch misses | L1 misses | IPC |
 |---|---:|---:|---:|---:|---:|---:|
 | **all hits** |  |  |  |  |  |  |
-| indivi `flat_wmap` | **3.67** | 48.0 | **19.8** | 0.035 | 3.29 | 2.42 |
-| absl flat | 4.00 | 56.1 | 21.4 | 0.044 | 3.52 | **2.62** |
-| boost flat | 4.33 | 57.0 | 24.8 | 0.094 | 3.84 | 2.30 |
-| indivi `flat_umap` | 4.33 | 54.3 | 23.8 | 0.065 | 3.73 | 2.28 |
-| F14Value | 4.67 | 64.0 | 25.2 | **0.022** | 3.80 | 2.54 |
-| ihtab | 5.33 | 53.8 | 28.7 | **0.022** | 3.23 | 1.87 |
-| unordered_dense 5.0 | 5.67 | 60.5 | 29.4 | 0.065 | 4.22 | 2.06 |
-| emilib | 5.67 | 73.1 | 32.2 | 0.099 | **2.86** | 2.27 |
-| F14Vector | 6.00 | 68.1 | 32.1 | 0.024 | 3.95 | 2.12 |
-| Verstable | 6.33 | 61.2 | 34.8 | 0.426 | 3.26 | 1.76 |
-| emhash8 | 6.67 | 48.4 | 36.6 | 0.420 | 3.20 | 1.32 |
-| unordered_dense 4.11 | 7.67 | 76.8 | 39.1 | 0.161 | 3.49 | 1.96 |
-| `std::unordered_map` | 9.67 | **45.1** | 52.4 | 0.325 | 4.22 | 0.86 |
+| indivi `flat_wmap` | **3.70** | 50.1 | **19.5** | 0.035 | 3.29 | 2.56 |
+| absl flat | 4.01 | 56.2 | 21.1 | 0.044 | 3.51 | **2.66** |
+| boost flat | 4.76 | 57.0 | 25.1 | 0.096 | 3.84 | 2.27 |
+| indivi `flat_umap` | 4.75 | 55.4 | 25.3 | 0.066 | 3.74 | 2.19 |
+| F14Value | 4.95 | 64.0 | 26.4 | **0.022** | 3.80 | 2.43 |
+| ihtab | 5.42 | 53.8 | 29.0 | **0.022** | 3.23 | 1.86 |
+| unordered_dense 5.0 | 5.61 | 60.5 | 29.8 | 0.065 | 4.22 | 2.03 |
+| emilib | 6.05 | 73.1 | 32.2 | 0.099 | **2.86** | 2.27 |
+| F14Vector | 6.05 | 68.1 | 32.3 | 0.024 | 3.95 | 2.11 |
+| Verstable | 6.59 | 57.4 | 34.7 | 0.434 | 3.26 | 1.66 |
+| emhash8 | 6.97 | 48.4 | 36.9 | 0.419 | 3.20 | 1.31 |
+| unordered_dense 4.11 | 9.07 | 93.3 | 48.3 | 0.161 | 3.49 | 1.93 |
+| `std::unordered_map` | 9.81 | **45.1** | 52.5 | 0.324 | 4.22 | 0.86 |
 | **all misses** |  |  |  |  |  |  |
-| F14Vector | **3.49** | 60.5 | **18.6** | **0.043** | 2.01 | **3.26** |
-| indivi `flat_umap` | 3.53 | 52.1 | **18.6** | 0.108 | 1.98 | 2.80 |
-| ihtab | 3.79 | 56.2 | 20.0 | 0.044 | 1.98 | 2.81 |
-| boost flat | 4.16 | 54.2 | 20.4 | 0.164 | **1.90** | 2.66 |
-| unordered_dense 5.0 | 4.19 | 57.2 | 20.7 | 0.108 | 3.41 | 2.76 |
-| indivi `flat_wmap` | 4.82 | 49.3 | 25.8 | 0.302 | 2.11 | 1.91 |
-| unordered_dense 4.11 | 5.73 | 72.8 | 28.4 | 0.163 | 2.49 | 2.57 |
-| emilib | 6.02 | 75.6 | 32.1 | 0.420 | 1.92 | 2.35 |
-| absl flat | 6.26 | 61.1 | 32.6 | 0.362 | 3.44 | 1.87 |
-| emhash8 | 7.19 | 46.4 | 38.2 | 0.592 | 2.07 | 1.21 |
-| Verstable | 7.58 | **44.6** | 40.8 | 0.806 | 1.96 | 1.09 |
-| `std::unordered_map` | 12.61 | 52.9 | 68.0 | 0.649 | 3.43 | 0.78 |
+| indivi `flat_umap` | **3.43** | 54.0 | **18.0** | 0.109 | 1.98 | 3.00 |
+| F14Vector | 3.49 | 60.5 | 18.3 | **0.043** | 2.01 | **3.31** |
+| boost flat | 3.98 | 54.3 | 20.8 | 0.164 | **1.89** | 2.61 |
+| ihtab | 3.94 | 56.2 | 20.8 | 0.044 | 1.98 | 2.70 |
+| unordered_dense 5.0 | 4.01 | 57.2 | 21.0 | 0.108 | 3.27 | 2.72 |
+| indivi `flat_wmap` | 4.96 | 51.3 | 26.1 | 0.301 | 2.11 | 1.96 |
+| absl flat | 6.01 | 61.1 | 31.7 | 0.360 | 3.44 | 1.93 |
+| emilib | 6.12 | 75.6 | 32.2 | 0.419 | 1.92 | 2.35 |
+| unordered_dense 4.11 | 6.62 | 90.3 | 34.8 | 0.162 | 2.48 | 2.59 |
+| emhash8 | 7.22 | **46.4** | 38.1 | 0.592 | 2.08 | 1.22 |
+| Verstable | 7.96 | 46.5 | 42.1 | 0.808 | 1.96 | 1.10 |
+| `std::unordered_map` | 12.83 | 52.8 | 68.3 | 0.647 | 3.43 | 0.77 |
 {: .heat-low data-invert="IPC"}
 
 **The bottom of the miss table has the argument of this whole post in four rows.** Verstable executes
-**44.6 instructions and takes 40.8 cycles**, where unordered_dense 5.0 executes 57.2 and takes 20.7.
-Twenty-eight percent more work, in half the time. The difference is 0.108 branch misses against
-0.806, which is about eleven cycles of pipeline. emhash8 has the same shape, and
-`std::unordered_map` has it again with a pointer chase on top: 52.9 instructions at an IPC of 0.78.
+**46.5 instructions and takes 42.1 cycles**, where unordered_dense 5.0 executes 57.2 and takes 21.0.
+Twenty-three percent more work, in half the time. The difference is 0.108 branch misses against
+0.808, which is about eleven cycles of pipeline. emhash8 has the same shape, and
+`std::unordered_map` has it again with a pointer chase on top: 52.8 instructions at an IPC of 0.77.
 
 **The two flat SwissTables that answer a miss with an empty byte are the expensive ones.** abseil
-needs 32.6 cycles at 0.362 branch misses and emilib 32.1 at 0.420, against boost's 20.4 and 0.164.
+needs 31.7 cycles at 0.360 branch misses and emilib 32.2 at 0.419, against boost's 20.8 and 0.164.
 [The assembly below](#probe-assembly) shows where that comes from, in two instructions.
 
 **Also, nobody here is instruction-bound.** Every design retires between 0.8 and 3.3 instructions per
@@ -2869,24 +2929,37 @@ million entries:
 
 |  | ns | cycles | dTLB misses | L1 misses |
 |---|---:|---:|---:|---:|
-| indivi `flat_wmap` | **16.60** | 91.9 | 1.369 | 3.844 |
-| boost flat | 17.03 | **87.4** | 1.335 | 4.388 |
-| absl flat | 17.57 | 97.8 | 1.340 | 4.250 |
-| ihtab | 19.17 | 106.7 | 1.864 | 3.705 |
-| Verstable | 20.13 | 111.1 | 1.607 | 3.859 |
-| F14Vector | 20.69 | 114.8 | 1.779 | 4.539 |
-| indivi `flat_umap` | 21.45 | 118.9 | 1.603 | 4.727 |
-| unordered_dense 5.0 | 22.64 | 111.8 | 1.910 | 4.879 |
-| F14Value | 22.70 | 126.1 | **1.157** | 4.303 |
-| emhash8 | 24.69 | 137.2 | 2.205 | **3.697** |
-| boost node | 33.30 | 185.8 | 2.580 | 5.440 |
+| boost flat | **15.26** | **82.8** | 1.366 | 4.226 |
+| indivi `flat_wmap` | 15.66 | 85.2 | 1.348 | 3.681 |
+| absl flat | 16.37 | 88.9 | 1.339 | 4.069 |
+| Verstable | 18.32 | 99.4 | 1.600 | 3.619 |
+| indivi `flat_umap` | 19.84 | 107.9 | 1.596 | 4.550 |
+| ihtab | 19.86 | 108.0 | 1.860 | 3.590 |
+| F14Vector | 20.10 | 109.3 | 1.776 | 4.371 |
+| F14Value | 21.47 | 116.7 | **1.150** | 4.127 |
+| unordered_dense 5.0 | 21.94 | 119.4 | 1.907 | 4.664 |
+| emhash8 | 23.88 | 129.8 | 2.189 | **3.492** |
+| boost node | 31.70 | 172.7 | 2.510 | 5.176 |
 {: .heat-low}
 
 **The dTLB column splits the families**, and it is the clearest single number for what a dense layout
-costs. The flat maps that touch one region take 1.16 to 1.61 misses per lookup, the dense ones that
-touch two take 1.78 to 2.21, and a node map that touches a heap allocation takes 2.58. On 4 KB pages
-a prefetch cannot hide a page walk, which is why huge pages are worth 22% here and nobody asks for
-them ([what is still on the table](#still-on-the-table)).
+costs. The flat maps that touch one region take 1.15 to 1.60 misses per lookup, the dense ones that
+touch two take 1.78 to 2.19, and a node map that touches a heap allocation takes 2.51. On 4 KB pages
+a prefetch cannot hide a page walk, which is why huge pages are worth 22% here.
+
+### Huge pages, which nothing asked for and now something does {#huge-pages}
+
+A dense map touches two regions per
+lookup where a flat map touches one, and that shows up in the translation: at 800,000 entries and
+all hits, unordered_dense takes 1.48 dTLB misses per lookup against boost's 0.89. Handing both an
+allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s took unordered_dense from 17.10 to
+13.32 ns per hit and boost from 9.75 to 7.58, both about 22%. That allocator now exists as an opt-in
+header rather than a paragraph here, and measured across the size axis it is worth more on the
+*build* than on the lookup: an integer build gains **1.53x at 200,000 entries, 1.73x at 800,000 and
+1.56x at four million**, because a doubling vector faults in every new block and 2 MB pages mean 512
+times fewer faults. Below about 200,000 it does nothing at all, since nothing the map allocates
+reaches a 2 MB block. It is not a default and should not be: it is process policy, it is a source
+break on the allocator type, and its answer is machine-dependent.
 
 ## The probe loops, in assembly {#probe-assembly}
 
@@ -2957,7 +3030,7 @@ Three things show up here that no table shows.
 
 The **miss test** is two vector instructions and a branch in abseil, one memory `test` in boost, and
 one `cmp` against an immediate zero in the group index. abseil's has to consult all sixteen bytes
-where the other two look at one. That is the mechanism behind the 1.38 in the miss column.
+where the other two look at one. That is the mechanism behind the 1.42 in the miss column.
 
 The group index issues **its two prefetches before the metadata load**, so its extra dependent load
 costs less than [the picture of what one lookup touches](#what-one-lookup-touches) suggests. The
@@ -3007,8 +3080,8 @@ there is no margin at all: the quickest hit there comes from a node map, boost's
 across the modern maps is 15%. One region, one dependent load after the metadata, and the key is in
 the group. abseil and boost trade places depending on the hash and the size, and indivi is right
 there with them. The dense maps pay one more load for it. Against the quickest flat map in the same
-table, unordered_dense 5.0 is 1.41x behind at 32,000 entries and 1.56x at 500,000, and F14Vector is
-1.16x behind its own flat sibling F14Value. That is the cost of the family, and no index trick
+table, unordered_dense 5.0 is 1.39x behind at 32,000 entries and 1.59x at 500,000, and F14Vector is
+1.15x behind its own flat sibling F14Value. That is the cost of the family, and no index trick
 recovers it.
 
 **A miss on a fresh table.** Closer, and in cache the counter designs do well. A miss that stops at
@@ -3016,8 +3089,8 @@ its home group never touches a key at all, so the metadata compare is the whole 
 overflow bit, indivi's counter and unordered_dense's counter almost always stop there. The chained
 designs are slowest here for the opposite reason: a miss has to reach the end of a chain, and whether
 there is one is exactly the unpredictable question. Past L3 the order changes and the counters stop
-deciding it. At half a million entries `flat_wmap` is 0.60, boost 0.65, abseil 0.73, and emilib,
-which has tombstones, 0.74. By then every design is waiting on memory, and what counts is how many
+deciding it. At half a million entries `flat_wmap` is 0.64, boost 0.69, abseil 0.77, and emilib,
+which has tombstones, 0.80. By then every design is waiting on memory, and what counts is how many
 regions it touches.
 
 **A table that only churns.** This is where the answers to "gone?" separate. The designs whose miss
@@ -3253,6 +3326,19 @@ So it is a real win for a real pattern. But the pattern needs an expensive key *
 iterator, and a caller with both can call `erase(key)` with the hash their own `find` already paid
 for.
 
+**The other half of that idea was re-tested across the cache boundary, and closed there.** A dense erase hashes the moved element's key, which for a string costs about 50 ns and was the
+largest single avoidable cost I knew of in this library. The back-pointer removes it, and the
+rejection above was scored on a suite whose string tables are cache-resident -- the regime where the
+second hash costs least. The win is exactly where it was
+predicted and it is the only one: erasing a string key by key is **9 to 11% cheaper at every size**,
+and the absolute saving grows with the table as the 50 ns implied, from 5.4 ns at fifty thousand
+entries to **40.8 ns at four million**. It still does not ship, because every element erased had to
+be inserted first: the back-pointer charges every insert a store and the value vector a parallel
+growth, `build` goes 6.9 to 23.3% slower for integer keys, and **churn -- holding a table at a fixed
+size by erasing one and inserting one, which is the shape a real cache has -- comes out a wash**. The
+erase win and the insert tax are the same size. That is a better answer than the old one, which was
+that it lost on a suite; it loses on the mechanism.
+
 ## From abseil: a per-table seed {#from-abseil-seed}
 
 [abseil](#swisstable) mixes a seed of its own into every hash, so that keys chosen against a known
@@ -3375,8 +3461,8 @@ elements by the top bits of their destination group first, database style, does 
 to 0.24 and halves the isolated rehash from four million entries up. Unfortunately, inside a build
 it is worth 0 to 7% above 32 MB and nothing below, because a rehash is a minority of a large build
 and the scratch it needs is fresh memory, faulted in at about a microsecond a page every time the
-table doubles. Not kept. What the loop wants is 2 MB pages, which is [chapter
-20](#still-on-the-table), and not something a library can ask for on the caller's behalf.
+table doubles. Not kept. What the loop wants is 2 MB pages, which is [the opt-in
+allocator](#huge-pages), and not something a library can ask for on the caller's behalf.
 
 Two things about how the loop is written, both of them the same fact about aliasing. It walks
 `m_values` with an **iterator** rather than indexing it, and it holds the group pointer, the mask
@@ -3412,30 +3498,48 @@ early exit only pay inside the caller. With the attribute, gcc's lead over 4.11.
 **1.24x** with SSE2 and from 1.10x to 1.17x without, and the string lookups that were the one family
 behind 4.11.0 came out ahead of it. clang measures 1.00 everywhere, having inlined it already.
 
-And clang splits the insert path in two. `do_try_emplace` gets a six register prologue and calls
-`do_place_element` out of line, which clang refuses to inline at cost 480 against a threshold of 250
-(`vector::emplace_back` with `piecewise_construct` is 225 of that). Per insert on a reserved table,
-net of the loop:
-
-*Per operation on a reserved table, net of the benchmark loop, lower is better. The first two
-columns are an insert that places, the third is `operator[]` on a key that is already there, which
-never places.*
+And clang leaves the insert path out of line where gcc inlines it. Per insert on a reserved table at
+50,000 entries, one map per binary, three runs agreeing on instructions to 0.1%:
 
 | compiler | unordered_dense, insert | boost, insert | unordered_dense, `operator[]` on a present key |
-|---|---:|---:|---:|
-| clang 22 | 128 instructions, 39 cycles | 64, 26.5 | 74 instructions |
-| gcc 16 | 82 instructions, 26 cycles | 55, 23 | 68 instructions |
+|---|---|---|---|
+| clang 22 | 96.4 instructions, 33.8 cycles | 82.9, 21.3 | 84.7 instructions |
+| gcc 16 | 67.5, 25.0 | 57.0, 16.9 | 90.9 instructions |
 
-Forcing the inline takes the miss path to 100 instructions and 32 cycles, and it raises `operator[]`
-on a *present* key from 74 to 88, because the merged function pays the placement code's register
-pressure on a path that never places. Paired on the benchmark suite that came out 1.2% faster with
-every interval excluding parity, so the attribute went in.
+**The obvious explanation is that clang spills the probe's loop state at function entry where gcc
+sinks the same spills into a branch a miss never takes. It is wrong, and listing the instructions is
+what shows it.**
+`valgrind --tool=callgrind --dump-instr=yes` counts every one of them exactly, and the first row of
+that count is the answer: clang pays **fifteen instructions of prologue and epilogue per insert**,
+six pushes, six pops, a frame adjust either side and a `ret`, plus the call. gcc pays one. And
+**clang pays the same fifteen on boost**, which is what settles what this is: not a register
+allocator mishandling this map's probe, but the function-call boundary. The spill columns the old
+diagnosis named go the other way, gcc spilling 11.5 instructions' worth against clang's 4.2.
 
-**I removed that attribute once, on a measurement, and put it back the same day on a better one.**
-The scored benchmark is ~90 translation units of test suite. That is the largest unit anyone
-compiles this header into, and its inlining budget is already spent, so an `always_inline` there
-displaces something else. A caller's translation unit holds one map. Measured that way, building
-from empty, with the attribute against without:
+**A profile removes all of it.** Instrument, run, rebuild, and clang goes from 96.4 instructions and
+34.0 cycles to **69.3 and 17.5**; boost from 82.9 and 23.7 to 57.8 and 14.2; gcc, which had already
+inlined, gains nothing on instructions. After PGO clang and gcc retire the same work on this map and
+clang's code is the faster of the two. So the clang/gcc instruction gap is a missing profile and
+nothing else, which is why the six source changes tried against it did not move it. Nothing here
+recommends shipping a PGO build, since a header library cannot, but it does say where the next
+attempt should not go.
+
+**What is left once the boundary is out of the way is about eleven instructions**, this map against
+boost, PGO to PGO: 69.3 against 57.8 under clang and 67.6 against 57.0 under gcc. By category that
+is the second walk. This map probes to find the key absent and then walks again in `place_group`,
+where boost's probe returns the position it will insert at. Eleven instructions, not thirty-four.
+
+**And it is an in-cache statement only.** The same measurement at four million entries has the two
+within 3% on both compilers, with this map taking 0.80 dTLB misses per insert against boost's 1.37.
+Whatever the insert path costs, it stops mattering exactly where the table stops fitting in cache.
+A **string** insert reverses the picture outright: 491 instructions under clang against boost's 454,
+and **27.3 ns against 34.9**, 21% faster on 8% more instructions.
+
+**I removed the `always_inline` on the placement once, on a measurement, and put it back the same
+day on a better one.** The scored benchmark is ~90 translation units of test suite. That is the
+largest unit anyone compiles this header into, and its inlining budget is already spent, so an
+`always_inline` there displaces something else. A caller's translation unit holds one map. Measured
+that way, building from empty, with the attribute against without:
 
 *One map per binary, building from empty, lower is better.*
 
@@ -3447,6 +3551,15 @@ from empty, with the attribute against without:
 
 **14 to 20% slower without it at every size**, on 17 to 20% more instructions retired. The
 instruction counts are what settle it, because neither code layout nor drift can move them.
+
+The obvious follow-up is dead, and that is the useful half of it. The callgrind table says the
+placement code makes `do_try_emplace` too big for its caller, so every `operator[]` buys a call
+boundary; so put the attribute on `do_try_emplace` as well. Measured, that is **identical to the
+shipped header in every column** -- not close, identical -- and the binaries differ: the out-of-line
+symbol moves from `do_try_emplace` to `try_emplace`. Forcing the inner function into its caller moves
+the boundary outward by one level and changes nothing, because the outermost function without the
+attribute is the one that pays and there is always one. You cannot inline your way to the caller's
+loop from inside a header, which is why a profile was the only thing that removed it.
 
 So the rule this leaves is narrower than "one map per binary": **the size of the translation unit
 decides what an `always_inline` is worth, a benchmark binary is the largest unit anyone compiles
@@ -3523,7 +3636,7 @@ control rows in [the workload tables](#same-workloads): giving abseil its own ha
 and nothing else, because what it ships is as fast as what the harness hands it.
 
 **`boost::hash<std::string>` is 1.7x**, and that is the whole of boost's own-hash column. It is what
-turns a map that is 13% ahead of unordered_dense on a string hit into one that is 14% behind.
+turns a map that is 13% ahead of unordered_dense on a string hit into one that is 15% behind.
 Boost's index is excellent, and its default string hash is what a caller actually gets.
 
 **`folly::hasher<std::string>` is 2.9x**, which surprised me. It is `SpookyHashV2`, a 2012 design
@@ -3552,34 +3665,25 @@ reason.
 
 # 20. What is still on the table [&#8593; contents](#contents){:.up} {#still-on-the-table}
 
-Things I know are worth something and have not done. They are all about my own map, with one
-exception: huge pages, where boost gains as much as unordered_dense does.
+Things I know are worth something and have not done. Three of them, all about my own map, and the
+last is the only one in this post that is a feature rather than a fix.
 
-**Twelve instructions per hit, and I do not know where they go.** This is the one new thing writing
+**Ten instructions per hit, and I do not know where they go.** This is the one new thing writing
 this post handed me, and it came from a map I had never heard of before. At 50,000 entries, all
-hits, one map per binary: `indivi::flat_wmap` executes **48.3 instructions** and
-`ankerl::unordered_dense` **60.8**. The gap holds at a thousand entries and at a million. Part of it
+hits, one map per binary: `indivi::flat_wmap` executes **50.1 instructions** and
+`ankerl::unordered_dense` **60.5**. The gap holds at a thousand entries and at a million. Part of it
 is structural and is not coming back, since the value index is a load a flat map does not do. The
 rest is one byte of metadata per slot against 5.5, no counter load on the path, and slot addressing
-instead of group-and-lane arithmetic. Twelve instructions on a path that retires two per cycle are
-15% of a hit in cache. I went looking in the probe *sequence* and in the window *alignment*, and
-both were dead ends. If there is an answer, it is in the instruction stream.
+instead of group-and-lane arithmetic. Ten instructions on a path that retires two per cycle are 13%
+of a hit in cache. I went looking in the probe *sequence* and in the window *alignment*, and both
+were dead ends. If there is an answer, it is in the instruction stream.
 
 **Inlining is not it**, which is the first guess and has been measured twice: force-inlining the
-lookup moves cycles and leaves the instruction count where it was. What is left is the register
-allocator. On identical source clang executes 106.8 instructions per reserved insert where gcc
-executes 68.9, because clang spills the probe's loop state at function entry where gcc sinks the
-same spills into a branch a miss never takes. That is the same order as the twelve instructions
-above. The cheap experiment is to build both maps under gcc, one per binary, and I have not run it.
-
-**Huge pages are worth 22% of a large lookup and nothing asks for them.** A dense map touches two
-regions per lookup where a flat map touches one, and that shows up in the translation: at 800,000
-entries and all hits, unordered_dense 5.0 takes 1.48 dTLB misses per lookup against boost's 0.89.
-Transparent huge pages are set to `madvise` on this machine, which is a common default, and neither
-map ever madvises. Handing both an allocator that `mmap`s 2 MB-aligned and `madvise(MADV_HUGEPAGE)`s
-takes unordered_dense from 17.10 to 13.32 ns per hit and boost from 9.75 to 7.58, both about 22%. At
-200,000 entries it does nothing at all, which is exactly the regime my own suite cannot see. It
-belongs in an opt-in allocator rather than in the container.
+lookup moves cycles and leaves the instruction count where it was. Nor is it the register allocator.
+The clang/gcc gap on the insert path is the obvious reason to suspect one, and that gap turns out to
+be [the function-call boundary](#compiler), which a profile removes completely -- so it says nothing
+about this. The cheap experiment left is to build both maps under gcc, one per binary, and I have not
+run it.
 
 **Prefetching should probably be tuned per architecture and is not.** Boost tunes it and says so in
 a comment: *"ARM architectures get a higher speedup when around the first half of the element slots
@@ -3592,28 +3696,8 @@ actually on the critical path. The ARM half of the question is unasked.
 **A statistics facility.** Boost has one: `BOOST_UNORDERED_ENABLE_STATS` keeps running mean and
 variance of probe lengths and comparisons per lookup, and indivi has `GroupStats` for the same
 purpose. Every probe-length number in this post was produced by hand editing a copy of a header. Of
-everything I read in another map, this is the only one that is a feature rather than a fix.
-
-**F14VectorMap's string miss, which is the one column I cannot explain away.** It is the closest
-relative `ankerl::unordered_dense` has, the only other dense map here with a four byte value index
-in front of a contiguous vector, and overall it loses: 1.27x behind on integer keys and 1.71x on a
-build. On a *string* lookup it is ahead. One map per binary, 20 million lookups at 32,000 entries,
-three runs across a day agreeing to a fifth of a nanosecond: **the hit is a tie** (24.33 against
-24.29 ns) and **the miss is 8 to 9% behind** (18.68 against 16.95). The hash is not it, since both
-maps are handed the same one. Neither is the load factor, both holding 4,096 groups of 7.8 entries,
-and neither is the value indirection, which F14Vector has too. What the counters leave is eight
-instructions of ordinary difference between two probe loops, plus **1.3 more L1 fills** from [the
-two index prefetches](#probe-assembly) that are issued before a fingerprint has been compared. On a
-miss that matches nothing they fetch a line that is never read, and they stay anyway, because
-dropping one costs gcc 12% at four million entries. Half of the rest is clang leaving the lookup out
-of line for `std::string` keys where it inlines it for `uint64_t`, and force-inlining it costs gcc
-16% on integer misses, so it is not applied.
-
-**The string erase's 50 ns.** A dense erase hashes the moved element's key. For an integer that is
-free, for a string it is about 50 ns, and it is the largest single avoidable cost I know of in this
-library. The fix is a back-pointer per value, and it loses on the suite as a whole. Something
-narrower, a back-pointer only when the key is expensive to hash, decided at compile time, has not
-been tried.
+everything I read in another map, this is the only one that is a feature rather than a fix, and it
+is the one item here nothing has been done about.
 
 # 21. What reading eighteen indexes changed my mind about [&#8593; contents](#contents){:.up} {#changed-my-mind}
 
@@ -3625,7 +3709,7 @@ anything of my class overflow past here", [a probe visits between 1.01 and 1.06 
 fresh or long-churned, hit or miss. Every idea I took from another map to shorten it further
 measured as noise or worse: [double hashing](#from-f14-probe), [an exact in-home
 test](#counter-width), [finer counters](#counter-width), [a second fingerprint](#from-emhash8). The
-hit is a different story. On a **hit**, the plainest index in this post executes [48 instructions
+hit is a different story. On a **hit**, the plainest index in this post executes [50 instructions
 where mine executes 60](#still-on-the-table), and I cannot account for the difference. So the axis
 with all the design ideas on it is closed, and the boring one is still open.
 
@@ -3633,7 +3717,7 @@ with all the design ideas on it is closed, and the boring one is still open.
 here that has them. Compare **sixteen slots at once** rather than one, which is what turns a probe
 from a run of coin flips into a single question, and in this post it is worth more than any probe
 sequence, any fingerprint width and any of the other tuning. Answer "absent?" **explicitly**, with
-an overflow bit or a counter, rather than by looking for an empty slot: that is [1.4 to 1.7x of a
+an overflow bit or a counter, rather than by looking for an empty slot: that is [1.5 to 1.7x of a
 miss](#summary-table) between two otherwise nearly identical SwissTables. Avoid **tombstones** if
 the table will ever churn at a fixed size. Boost is the best of the tombstone designs and it is
 still repairing itself with [an in-place rehash every 120,000 to 150,000 erase-insert
@@ -3643,7 +3727,8 @@ metadata says so will not stop at all on keys chosen to defeat it. [Two maps in 
 included](#miss-bound), shipped without that bound.
 
 **What survives a re-measurement is not what I would have guessed.** The structural differences
-never move: iteration is an order of magnitude, memory at a 64 byte value is 1.6x, and a tombstone
+never move: iteration is an order of magnitude, memory at a 64 byte value is 1.4x counted and 3.0x
+in resident pages, and a tombstone
 design under fixed-size churn is a different *curve* rather than a different constant. The
 differences between two maps of the same family are 3 to 15%, and those do move. The paired harness
 got two changes' signs backwards in this post, and the size of two more badly wrong, all in exactly
@@ -3697,11 +3782,20 @@ one epoch of each map per round, in one process, so a clock ramp or a noisy neig
 of them and cancels out of the ratio. Measuring map A to completion and then map B is how two runs
 of *identical* work came out 140% apart in an earlier version of my own sweep tool.
 
-**Two independent runs of everything, and they mostly agree.** Of 378 integer ratios, 372 are within
-5% of each other between the two runs, and the worst is 1.12, on iteration at a thousand entries.
-The string ones are noisier, 309 of 336 within 5% and worst 1.18, because a string workload spends
-most of itself in the hash and the allocator. Every number quoted above is the geometric mean of the
-two runs, and I would not defend any single one of them to better than 5%.
+**Five independent runs of everything, combined by the median.** Not the mean: a mean lets one bad
+cell drag the answer, and a bad cell is exactly what the third, fourth and fifth runs are taken to
+find. One did turn up. Integer `insert/erase` at 32,000 entries read 29.44, 24.52, 26.82, 26.64 and
+26.73 ns on the map itself, a 20% spread where its twenty neighbours span 2%, and the first two runs
+were the two tails; the median has three samples supporting it and the mean of the first pair would
+have been luck.
+
+The honest way to say how much that median can be trusted is not the spread between runs, which gets
+*wider* the more runs you take and so cannot compare a five-run campaign with a two-run one. It is
+to recompute every ratio with one run left out. **Dropping any one of the five moves no integer ratio
+by more than 4.3%, no big-value ratio by more than 3.0%, and no string ratio by more than 6.8%.** The
+string figure is larger for the reason it always was -- a string workload spends most of itself in
+the hash and the allocator -- and it is concentrated at the half-million octave, where the worst cell
+is abseil given its own hash. I would not defend any single number above to better than 5%.
 
 **Anything under 10% is decided with one map per binary, and hardware counters.** A binary holding
 several maps has a code layout that moves every time any of them changes, by more than the effect
@@ -3736,6 +3830,21 @@ in two different tools.
 **Churn inserts fresh keys.** A churn loop that recycles its insert keys from a small spare pool
 under-reports probe-length drift by half, because a key that comes back soon tends to land in the
 home it just left.
+
+**Memory is measured twice, because there are two honest answers.** `count_alloc.h` interposes
+`malloc`, `calloc`, `realloc`, `aligned_alloc`, `posix_memalign` and `mmap` and counts what the map
+asked for and never gave back, charging `malloc_usable_size` plus glibc's eight byte header rather
+than the request -- counting the request instead reports every node map as cheaper per entry than a
+dense one. All six matter: counting only `operator new` reports emilib, which calls `malloc`
+directly, at zero, and missing `aligned_alloc` reports ihtab at 8.3 bytes an entry against a true
+35.3, with its element array counted and its whole index invisible. `max_rss.h` reads `VmHWM` in a
+forked child instead, which is what the kernel actually backed. The fork is not optional: glibc does
+not hand a grown arena back, so a second fill in the same process reuses resident pages and reads far
+below what the map demonstrably allocated. Neither is subtracting the instrument's own floor --
+forking, writing `/proc/self/clear_refs` and reading `/proc/self/status` fault in about 128 KB of
+their own, which is 0.5% of a half-million-entry table and 128 bytes per entry of a thousand-entry
+one. That is why there is no thousand-entry memory column here: after the floor comes off, what is
+left is a ~20 KB residual, and a map holding 16 KB of data cannot be measured with it.
 
 **And the allocator is tamed.** `mallopt(M_MMAP_THRESHOLD, 64 MB)`: a build from empty asks for
 megabytes and gives them straight back, and glibc returns anything above its threshold to the OS, so
@@ -3775,7 +3884,7 @@ the file and the symbol do not.
 
 | map | version | quoted from | upstream |
 |---|---|---|---|
-| `ankerl::unordered_dense` 5.0 | branch `claude/group-index` | `include/ankerl/unordered_dense.h`: `basic_group`, `make_fingerprint_words`, `group_storage::block`, `probe`, `place_group`, `uncount`, `move_home` | [martinus/unordered_dense](https://github.com/martinus/unordered_dense) |
+| `ankerl::unordered_dense` 5.0 | branch `main`, `db03cc4` | `include/ankerl/unordered_dense.h`: `basic_group`, `make_fingerprint_words`, `group_storage::block`, `probe`, `place_group`, `uncount`, `move_home` | [martinus/unordered_dense](https://github.com/martinus/unordered_dense) |
 | `ankerl::unordered_dense` 4.11.0 | tag `v4.11.0` | same file: `bucket_type::standard`, `probe_scalar`, `probe_simd` | [martinus/unordered_dense](https://github.com/martinus/unordered_dense) |
 | abseil `flat_hash_map` | 20250814.1 | `absl/container/internal/hashtable_control_bytes.h`: `ctrl_t` and its `static_assert`s, `GroupSse2Impl`. `absl/container/internal/raw_hash_set.h`: `H1`, `H2`, `probe_seq`, `find_large`, `CapacityToGrowth` | [abseil/abseil-cpp](https://github.com/abseil/abseil-cpp) |
 | boost `unordered_flat_map` | 1.90 | `boost/unordered/detail/foa/core.hpp`: the `group15` design comment, `match`, `is_not_overflowed`, `mark_overflow`, `match_word`, `pow2_quadratic_prober`, `table_core::find` | [boostorg/unordered](https://github.com/boostorg/unordered) |
@@ -3787,7 +3896,7 @@ the file and the symbol do not.
 | `std::unordered_map` | libstdc++, gcc 16 | -- | -- |
 
 The harness is `scripts/ab/maps.h`, `maps.cpp`, `maps_one.cpp`, `maps.sh` and `maps_one.sh` in the
-unordered_dense repository, and the figures are generated by `scripts/ab/diagrams.py` and
+unordered_dense repository, with `max_rss.h` and `count_alloc.h` behind the memory panels, and the figures are generated by `scripts/ab/diagrams.py` and
 `scripts/ab/mapsplot.py` in the same place, so every chart in this post can be redrawn from its CSV.
 
 Thanks to the authors of all of these for writing headers that explain themselves. Boost's

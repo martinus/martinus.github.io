@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 416" font-family="Inter, system-ui, sans-serif" font-size="12">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 416" font-family="Roboto Condensed, Noto Sans Condensed, DejaVu Sans Condensed, Liberation Sans Narrow, Arial Narrow, Avenir Next Condensed, Inter, system-ui, sans-serif" font-size="12">
   <style>
     .ax{stroke:#e5e7eb;stroke-width:1}
     .base{stroke:#9ca3af;stroke-width:1.2}
@@ -8,115 +8,113 @@
     .hd{fill:#111827;font-weight:600;font-size:13.5px}
     .sub{fill:#4b5563;font-size:12px}
   </style>
-  <text x="8" y="20" class="hd">bytes per entry, uint64_t key, 64 byte value</text>
-  <text x="8" y="38" class="sub">geometric mean over one octave from 32,000 entries, from a counting allocator</text>
-  <text x="152" y="56" class="t" font-weight="600">after building</text>
-  <line x1="152.0" y1="74" x2="152.0" y2="358" class="ax"/>
-  <text x="152.0" y="72" class="m" text-anchor="middle">0</text>
-  <line x1="259.9" y1="74" x2="259.9" y2="358" class="ax"/>
-  <text x="259.9" y="72" class="m" text-anchor="middle">50</text>
-  <line x1="367.7" y1="74" x2="367.7" y2="358" class="ax"/>
-  <text x="367.7" y="72" class="m" text-anchor="middle">100</text>
-  <line x1="475.6" y1="74" x2="475.6" y2="358" class="ax"/>
-  <text x="475.6" y="72" class="m" text-anchor="middle">150</text>
-  <line x1="152.0" y1="74" x2="152.0" y2="358" class="base"/>
-  <path d="M152.0,88.0 L352.7,88.0 Q355.2,88.0 355.2,90.5 L355.2,97.5 Q355.2,100.0 352.7,100.0 L152.0,100.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="359.2" y="96" class="m" text-anchor="start">94.17</text>
-  <path d="M152.0,105.0 L353.3,105.0 Q355.8,105.0 355.8,107.5 L355.8,114.5 Q355.8,117.0 353.3,117.0 L152.0,117.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="359.8" y="113" class="m" text-anchor="start">94.47</text>
-  <path d="M152.0,122.0 L355.3,122.0 Q357.8,122.0 357.8,124.5 L357.8,131.5 Q357.8,134.0 355.3,134.0 L152.0,134.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="361.8" y="130" class="m" text-anchor="start">95.37</text>
-  <path d="M152.0,139.0 L381.7,139.0 Q384.2,139.0 384.2,141.5 L384.2,148.5 Q384.2,151.0 381.7,151.0 L152.0,151.0 Z" fill="#0e8f60" opacity="0.95"/>
-  <text x="388.2" y="147" class="m" text-anchor="start">107.63</text>
-  <path d="M152.0,156.0 L383.3,156.0 Q385.8,156.0 385.8,158.5 L385.8,165.5 Q385.8,168.0 383.3,168.0 L152.0,168.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="389.8" y="164" class="m" text-anchor="start">108.36</text>
-  <path d="M152.0,173.0 L391.8,173.0 Q394.3,173.0 394.3,175.5 L394.3,182.5 Q394.3,185.0 391.8,185.0 L152.0,185.0 Z" fill="#0e8f60" opacity="0.8"/>
-  <text x="398.3" y="181" class="m" text-anchor="start">112.30</text>
-  <path d="M152.0,190.0 L393.9,190.0 Q396.4,190.0 396.4,192.5 L396.4,199.5 Q396.4,202.0 393.9,202.0 L152.0,202.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="400.4" y="198" class="m" text-anchor="start">113.30</text>
-  <path d="M152.0,207.0 L393.9,207.0 Q396.4,207.0 396.4,209.5 L396.4,216.5 Q396.4,219.0 393.9,219.0 L152.0,219.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="400.4" y="215" class="m" text-anchor="start">113.30</text>
-  <path d="M152.0,224.0 L395.7,224.0 Q398.2,224.0 398.2,226.5 L398.2,233.5 Q398.2,236.0 395.7,236.0 L152.0,236.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="402.2" y="232" class="m" text-anchor="start">114.11</text>
-  <path d="M152.0,241.0 L397.3,241.0 Q399.8,241.0 399.8,243.5 L399.8,250.5 Q399.8,253.0 397.3,253.0 L152.0,253.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="403.8" y="249" class="m" text-anchor="start">114.86</text>
-  <path d="M152.0,258.0 L398.2,258.0 Q400.7,258.0 400.7,260.5 L400.7,267.5 Q400.7,270.0 398.2,270.0 L152.0,270.0 Z" fill="#0e8f60" opacity="0.8"/>
-  <text x="404.7" y="266" class="m" text-anchor="start">115.28</text>
-  <path d="M152.0,275.0 L401.8,275.0 Q404.3,275.0 404.3,277.5 L404.3,284.5 Q404.3,287.0 401.8,287.0 L152.0,287.0 Z" fill="#0e8f60" opacity="0.8"/>
-  <text x="408.3" y="283" class="m" text-anchor="start">116.97</text>
-  <path d="M152.0,292.0 L413.0,292.0 Q415.5,292.0 415.5,294.5 L415.5,301.5 Q415.5,304.0 413.0,304.0 L152.0,304.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="419.5" y="300" class="m" text-anchor="start">122.13</text>
-  <path d="M152.0,309.0 L413.0,309.0 Q415.5,309.0 415.5,311.5 L415.5,318.5 Q415.5,321.0 413.0,321.0 L152.0,321.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="419.5" y="317" class="m" text-anchor="start">122.13</text>
-  <path d="M152.0,326.0 L430.3,326.0 Q432.8,326.0 432.8,328.5 L432.8,335.5 Q432.8,338.0 430.3,338.0 L152.0,338.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="436.8" y="334" class="m" text-anchor="start">130.15</text>
-  <path d="M152.0,343.0 L430.3,343.0 Q432.8,343.0 432.8,345.5 L432.8,352.5 Q432.8,355.0 430.3,355.0 L152.0,355.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="436.8" y="351" class="m" text-anchor="start">130.15</text>
-  <text x="536" y="56" class="t" font-weight="600">after churning</text>
-  <line x1="536.0" y1="74" x2="536.0" y2="358" class="ax"/>
-  <text x="536.0" y="72" class="m" text-anchor="middle">0</text>
-  <line x1="616.9" y1="74" x2="616.9" y2="358" class="ax"/>
-  <text x="616.9" y="72" class="m" text-anchor="middle">50</text>
-  <line x1="697.8" y1="74" x2="697.8" y2="358" class="ax"/>
-  <text x="697.8" y="72" class="m" text-anchor="middle">100</text>
-  <line x1="778.7" y1="74" x2="778.7" y2="358" class="ax"/>
-  <text x="778.7" y="72" class="m" text-anchor="middle">150</text>
-  <line x1="859.6" y1="74" x2="859.6" y2="358" class="ax"/>
-  <text x="859.6" y="72" class="m" text-anchor="middle">200</text>
-  <line x1="536.0" y1="74" x2="536.0" y2="358" class="base"/>
-  <path d="M536.0,88.0 L689.3,88.0 Q691.8,88.0 691.8,90.5 L691.8,97.5 Q691.8,100.0 689.3,100.0 L536.0,100.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="695.8" y="96" class="m" text-anchor="start">96.28</text>
-  <path d="M536.0,105.0 L686.3,105.0 Q688.8,105.0 688.8,107.5 L688.8,114.5 Q688.8,117.0 686.3,117.0 L536.0,117.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="692.8" y="113" class="m" text-anchor="start">94.47</text>
-  <path d="M536.0,122.0 L687.8,122.0 Q690.3,122.0 690.3,124.5 L690.3,131.5 Q690.3,134.0 687.8,134.0 L536.0,134.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="694.3" y="130" class="m" text-anchor="start">95.37</text>
-  <path d="M536.0,139.0 L707.6,139.0 Q710.1,139.0 710.1,141.5 L710.1,148.5 Q710.1,151.0 707.6,151.0 L536.0,151.0 Z" fill="#0e8f60" opacity="0.95"/>
-  <text x="714.1" y="147" class="m" text-anchor="start">107.63</text>
-  <path d="M536.0,156.0 L708.8,156.0 Q711.3,156.0 711.3,158.5 L711.3,165.5 Q711.3,168.0 708.8,168.0 L536.0,168.0 Z" fill="#a53393" opacity="0.8"/>
-  <text x="715.3" y="164" class="m" text-anchor="start">108.36</text>
-  <path d="M536.0,173.0 L715.2,173.0 Q717.7,173.0 717.7,175.5 L717.7,182.5 Q717.7,185.0 715.2,185.0 L536.0,185.0 Z" fill="#0e8f60" opacity="0.8"/>
-  <text x="721.7" y="181" class="m" text-anchor="start">112.30</text>
-  <path d="M536.0,190.0 L744.1,190.0 Q746.6,190.0 746.6,192.5 L746.6,199.5 Q746.6,202.0 744.1,202.0 L536.0,202.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="750.6" y="198" class="m" text-anchor="start">130.15</text>
-  <path d="M536.0,207.0 L744.1,207.0 Q746.6,207.0 746.6,209.5 L746.6,216.5 Q746.6,219.0 744.1,219.0 L536.0,219.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="750.6" y="215" class="m" text-anchor="start">130.15</text>
-  <path d="M536.0,224.0 L718.1,224.0 Q720.6,224.0 720.6,226.5 L720.6,233.5 Q720.6,236.0 718.1,236.0 L536.0,236.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="724.6" y="232" class="m" text-anchor="start">114.11</text>
-  <path d="M536.0,241.0 L719.3,241.0 Q721.8,241.0 721.8,243.5 L721.8,250.5 Q721.8,253.0 719.3,253.0 L536.0,253.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="725.8" y="249" class="m" text-anchor="start">114.86</text>
-  <path d="M536.0,258.0 L720.0,258.0 Q722.5,258.0 722.5,260.5 L722.5,267.5 Q722.5,270.0 720.0,270.0 L536.0,270.0 Z" fill="#0e8f60" opacity="0.8"/>
-  <text x="726.5" y="266" class="m" text-anchor="start">115.28</text>
-  <path d="M536.0,275.0 L722.7,275.0 Q725.2,275.0 725.2,277.5 L725.2,284.5 Q725.2,287.0 722.7,287.0 L536.0,287.0 Z" fill="#0e8f60" opacity="0.8"/>
-  <text x="729.2" y="283" class="m" text-anchor="start">116.97</text>
-  <path d="M536.0,292.0 L731.1,292.0 Q733.6,292.0 733.6,294.5 L733.6,301.5 Q733.6,304.0 731.1,304.0 L536.0,304.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="737.6" y="300" class="m" text-anchor="start">122.13</text>
-  <path d="M536.0,309.0 L731.1,309.0 Q733.6,309.0 733.6,311.5 L733.6,318.5 Q733.6,321.0 731.1,321.0 L536.0,321.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="737.6" y="317" class="m" text-anchor="start">122.13</text>
-  <path d="M536.0,326.0 L775.4,326.0 Q777.9,326.0 777.9,328.5 L777.9,335.5 Q777.9,338.0 775.4,338.0 L536.0,338.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="781.9" y="334" class="m" text-anchor="start">149.51</text>
-  <path d="M536.0,343.0 L744.1,343.0 Q746.6,343.0 746.6,345.5 L746.6,352.5 Q746.6,355.0 744.1,355.0 L536.0,355.0 Z" fill="#2563c9" opacity="0.8"/>
-  <text x="750.6" y="351" class="m" text-anchor="start">130.15</text>
-  <text x="144" y="96" class="t" text-anchor="end">absl node</text>
-  <text x="144" y="113" class="t" text-anchor="end">F14Node</text>
-  <text x="144" y="130" class="t" text-anchor="end">boost node</text>
-  <text x="144" y="147" class="t" text-anchor="end" font-weight='600'>unordered_dense 5.0</text>
-  <text x="144" y="164" class="t" text-anchor="end">std::unordered_map</text>
-  <text x="144" y="181" class="t" text-anchor="end">unordered_dense 4.11</text>
-  <text x="144" y="198" class="t" text-anchor="end">absl flat</text>
-  <text x="144" y="215" class="t" text-anchor="end">absl flat, own hash</text>
-  <text x="144" y="232" class="t" text-anchor="end">F14Value</text>
-  <text x="144" y="249" class="t" text-anchor="end">indivi flat_umap</text>
-  <text x="144" y="266" class="t" text-anchor="end">F14Vector</text>
-  <text x="144" y="283" class="t" text-anchor="end">emhash8</text>
-  <text x="144" y="300" class="t" text-anchor="end">boost flat, own hash</text>
-  <text x="144" y="317" class="t" text-anchor="end">boost flat</text>
-  <text x="144" y="334" class="t" text-anchor="end">indivi flat_wmap</text>
-  <text x="144" y="351" class="t" text-anchor="end">emilib</text>
-  <rect x="152" y="375" width="11" height="11" fill="#2563c9" opacity="0.85"/>
-  <text x="168" y="384" class="m">flat</text>
-  <rect x="226" y="375" width="11" height="11" fill="#0e8f60" opacity="0.85"/>
-  <text x="242" y="384" class="m">dense</text>
-  <rect x="300" y="375" width="11" height="11" fill="#a53393" opacity="0.85"/>
-  <text x="316" y="384" class="m">node</text>
-  <text x="384" y="384" class="m">bytes per live entry</text>
+  <text x="8" y="20" class="hd" fill="#111827">bytes per entry, uint64_t key, 64 byte value</text>
+  <text x="8" y="38" class="sub" fill="#4b5563">geometric mean over one octave from 32,000 entries, after building</text>
+  <text x="154" y="56" class="t" fill="#1f2937" font-weight="600">asked for</text>
+  <line x1="154.0" y1="74" x2="154.0" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="154.0" y="72" class="m" fill="#4b5563" text-anchor="middle">0</text>
+  <line x1="260.5" y1="74" x2="260.5" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="260.5" y="72" class="m" fill="#4b5563" text-anchor="middle">50</text>
+  <line x1="367.1" y1="74" x2="367.1" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="367.1" y="72" class="m" fill="#4b5563" text-anchor="middle">100</text>
+  <line x1="473.6" y1="74" x2="473.6" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="473.6" y="72" class="m" fill="#4b5563" text-anchor="middle">150</text>
+  <line x1="154.0" y1="74" x2="154.0" y2="358" class="base" stroke="#9ca3af"/>
+  <path d="M154.0,88.0 L352.2,88.0 Q354.7,88.0 354.7,90.5 L354.7,97.5 Q354.7,100.0 352.2,100.0 L154.0,100.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="360.7" y="96" class="m" fill="#4b5563" text-anchor="start">94.20</text>
+  <path d="M154.0,105.0 L352.8,105.0 Q355.3,105.0 355.3,107.5 L355.3,114.5 Q355.3,117.0 352.8,117.0 L154.0,117.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="361.3" y="113" class="m" fill="#4b5563" text-anchor="start">94.50</text>
+  <path d="M154.0,122.0 L354.8,122.0 Q357.3,122.0 357.3,124.5 L357.3,131.5 Q357.3,134.0 354.8,134.0 L154.0,134.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="363.3" y="130" class="m" fill="#4b5563" text-anchor="start">95.40</text>
+  <path d="M154.0,139.0 L380.8,139.0 Q383.3,139.0 383.3,141.5 L383.3,148.5 Q383.3,151.0 380.8,151.0 L154.0,151.0 Z" class="f-dense" fill="#0e8f60" opacity="0.95"/>
+  <text x="389.3" y="147" class="m" fill="#4b5563" text-anchor="start">107.63</text>
+  <path d="M154.0,156.0 L382.5,156.0 Q385.0,156.0 385.0,158.5 L385.0,165.5 Q385.0,168.0 382.5,168.0 L154.0,168.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="391.0" y="164" class="m" fill="#4b5563" text-anchor="start">108.39</text>
+  <path d="M154.0,173.0 L390.8,173.0 Q393.3,173.0 393.3,175.5 L393.3,182.5 Q393.3,185.0 390.8,185.0 L154.0,185.0 Z" class="f-dense" fill="#0e8f60" opacity="0.8"/>
+  <text x="399.3" y="181" class="m" fill="#4b5563" text-anchor="start">112.30</text>
+  <path d="M154.0,190.0 L392.9,190.0 Q395.4,190.0 395.4,192.5 L395.4,199.5 Q395.4,202.0 392.9,202.0 L154.0,202.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="401.4" y="198" class="m" fill="#4b5563" text-anchor="start">113.30</text>
+  <path d="M154.0,207.0 L392.9,207.0 Q395.4,207.0 395.4,209.5 L395.4,216.5 Q395.4,219.0 392.9,219.0 L154.0,219.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="401.4" y="215" class="m" fill="#4b5563" text-anchor="start">113.30</text>
+  <path d="M154.0,224.0 L394.6,224.0 Q397.1,224.0 397.1,226.5 L397.1,233.5 Q397.1,236.0 394.6,236.0 L154.0,236.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="403.1" y="232" class="m" fill="#4b5563" text-anchor="start">114.11</text>
+  <path d="M154.0,241.0 L396.2,241.0 Q398.7,241.0 398.7,243.5 L398.7,250.5 Q398.7,253.0 396.2,253.0 L154.0,253.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="404.7" y="249" class="m" fill="#4b5563" text-anchor="start">114.86</text>
+  <path d="M154.0,258.0 L397.1,258.0 Q399.6,258.0 399.6,260.5 L399.6,267.5 Q399.6,270.0 397.1,270.0 L154.0,270.0 Z" class="f-dense" fill="#0e8f60" opacity="0.8"/>
+  <text x="405.6" y="266" class="m" fill="#4b5563" text-anchor="start">115.28</text>
+  <path d="M154.0,275.0 L400.7,275.0 Q403.2,275.0 403.2,277.5 L403.2,284.5 Q403.2,287.0 400.7,287.0 L154.0,287.0 Z" class="f-dense" fill="#0e8f60" opacity="0.8"/>
+  <text x="409.2" y="283" class="m" fill="#4b5563" text-anchor="start">116.97</text>
+  <path d="M154.0,292.0 L411.7,292.0 Q414.2,292.0 414.2,294.5 L414.2,301.5 Q414.2,304.0 411.7,304.0 L154.0,304.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="420.2" y="300" class="m" fill="#4b5563" text-anchor="start">122.13</text>
+  <path d="M154.0,309.0 L411.7,309.0 Q414.2,309.0 414.2,311.5 L414.2,318.5 Q414.2,321.0 411.7,321.0 L154.0,321.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="420.2" y="317" class="m" fill="#4b5563" text-anchor="start">122.13</text>
+  <path d="M154.0,326.0 L428.8,326.0 Q431.3,326.0 431.3,328.5 L431.3,335.5 Q431.3,338.0 428.8,338.0 L154.0,338.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="437.3" y="334" class="m" fill="#4b5563" text-anchor="start">130.15</text>
+  <path d="M154.0,343.0 L428.8,343.0 Q431.3,343.0 431.3,345.5 L431.3,352.5 Q431.3,355.0 428.8,355.0 L154.0,355.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="437.3" y="351" class="m" fill="#4b5563" text-anchor="start">130.15</text>
+  <text x="537" y="56" class="t" fill="#1f2937" font-weight="600">resident</text>
+  <line x1="537.0" y1="74" x2="537.0" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="537.0" y="72" class="m" fill="#4b5563" text-anchor="middle">0</text>
+  <line x1="643.5" y1="74" x2="643.5" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="643.5" y="72" class="m" fill="#4b5563" text-anchor="middle">100</text>
+  <line x1="750.1" y1="74" x2="750.1" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="750.1" y="72" class="m" fill="#4b5563" text-anchor="middle">200</text>
+  <line x1="856.6" y1="74" x2="856.6" y2="358" class="ax" stroke="#e5e7eb"/>
+  <text x="856.6" y="72" class="m" fill="#4b5563" text-anchor="middle">300</text>
+  <line x1="537.0" y1="74" x2="537.0" y2="358" class="base" stroke="#9ca3af"/>
+  <path d="M537.0,88.0 L629.7,88.0 Q632.2,88.0 632.2,90.5 L632.2,97.5 Q632.2,100.0 629.7,100.0 L537.0,100.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="638.2" y="96" class="m" fill="#4b5563" text-anchor="start">89.39</text>
+  <path d="M537.0,105.0 L624.9,105.0 Q627.4,105.0 627.4,107.5 L627.4,114.5 Q627.4,117.0 624.9,117.0 L537.0,117.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="633.4" y="113" class="m" fill="#4b5563" text-anchor="start">84.89</text>
+  <path d="M537.0,122.0 L631.6,122.0 Q634.1,122.0 634.1,124.5 L634.1,131.5 Q634.1,134.0 631.6,134.0 L537.0,134.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="640.1" y="130" class="m" fill="#4b5563" text-anchor="start">91.17</text>
+  <path d="M537.0,139.0 L711.9,139.0 Q714.4,139.0 714.4,141.5 L714.4,148.5 Q714.4,151.0 711.9,151.0 L537.0,151.0 Z" class="f-dense" fill="#0e8f60" opacity="0.95"/>
+  <text x="720.4" y="147" class="m" fill="#4b5563" text-anchor="start">166.54</text>
+  <path d="M537.0,156.0 L649.7,156.0 Q652.2,156.0 652.2,158.5 L652.2,165.5 Q652.2,168.0 649.7,168.0 L537.0,168.0 Z" class="f-node" fill="#a53393" opacity="0.8"/>
+  <text x="658.2" y="164" class="m" fill="#4b5563" text-anchor="start">108.11</text>
+  <path d="M537.0,173.0 L703.8,173.0 Q706.3,173.0 706.3,175.5 L706.3,182.5 Q706.3,185.0 703.8,185.0 L537.0,185.0 Z" class="f-dense" fill="#0e8f60" opacity="0.8"/>
+  <text x="712.3" y="181" class="m" fill="#4b5563" text-anchor="start">158.90</text>
+  <path d="M537.0,190.0 L768.5,190.0 Q771.0,190.0 771.0,192.5 L771.0,199.5 Q771.0,202.0 768.5,202.0 L537.0,202.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="777.0" y="198" class="m" fill="#4b5563" text-anchor="start">219.62</text>
+  <path d="M537.0,207.0 L766.8,207.0 Q769.3,207.0 769.3,209.5 L769.3,216.5 Q769.3,219.0 766.8,219.0 L537.0,219.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="775.3" y="215" class="m" fill="#4b5563" text-anchor="start">218.07</text>
+  <path d="M537.0,224.0 L767.1,224.0 Q769.6,224.0 769.6,226.5 L769.6,233.5 Q769.6,236.0 767.1,236.0 L537.0,236.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="775.6" y="232" class="m" fill="#4b5563" text-anchor="start">218.29</text>
+  <path d="M537.0,241.0 L775.0,241.0 Q777.5,241.0 777.5,243.5 L777.5,250.5 Q777.5,253.0 775.0,253.0 L537.0,253.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="783.5" y="249" class="m" fill="#4b5563" text-anchor="start">225.75</text>
+  <path d="M537.0,258.0 L734.8,258.0 Q737.3,258.0 737.3,260.5 L737.3,267.5 Q737.3,270.0 734.8,270.0 L537.0,270.0 Z" class="f-dense" fill="#0e8f60" opacity="0.8"/>
+  <text x="743.3" y="266" class="m" fill="#4b5563" text-anchor="start">188.01</text>
+  <path d="M537.0,275.0 L711.3,275.0 Q713.8,275.0 713.8,277.5 L713.8,284.5 Q713.8,287.0 711.3,287.0 L537.0,287.0 Z" class="f-dense" fill="#0e8f60" opacity="0.8"/>
+  <text x="719.8" y="283" class="m" fill="#4b5563" text-anchor="start">165.98</text>
+  <path d="M537.0,292.0 L786.8,292.0 Q789.3,292.0 789.3,294.5 L789.3,301.5 Q789.3,304.0 786.8,304.0 L537.0,304.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="795.3" y="300" class="m" fill="#4b5563" text-anchor="start">236.81</text>
+  <path d="M537.0,309.0 L786.8,309.0 Q789.3,309.0 789.3,311.5 L789.3,318.5 Q789.3,321.0 786.8,321.0 L537.0,321.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="795.3" y="317" class="m" fill="#4b5563" text-anchor="start">236.81</text>
+  <path d="M537.0,326.0 L808.0,326.0 Q810.5,326.0 810.5,328.5 L810.5,335.5 Q810.5,338.0 808.0,338.0 L537.0,338.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="816.5" y="334" class="m" fill="#4b5563" text-anchor="start">256.77</text>
+  <path d="M537.0,343.0 L792.4,343.0 Q794.9,343.0 794.9,345.5 L794.9,352.5 Q794.9,355.0 792.4,355.0 L537.0,355.0 Z" class="f-flat" fill="#2563c9" opacity="0.8"/>
+  <text x="800.9" y="351" class="m" fill="#4b5563" text-anchor="start">242.07</text>
+  <text x="146.0" y="96" class="t" fill="#1f2937" text-anchor="end">absl node</text>
+  <text x="146.0" y="113" class="t" fill="#1f2937" text-anchor="end">F14Node</text>
+  <text x="146.0" y="130" class="t" fill="#1f2937" text-anchor="end">boost node</text>
+  <text x="146.0" y="147" class="t" fill="#1f2937" text-anchor="end" font-weight='600'>unordered_dense 5.0</text>
+  <text x="146.0" y="164" class="t" fill="#1f2937" text-anchor="end">std::unordered_map</text>
+  <text x="146.0" y="181" class="t" fill="#1f2937" text-anchor="end">unordered_dense 4.11</text>
+  <text x="146.0" y="198" class="t" fill="#1f2937" text-anchor="end">absl flat, own hash</text>
+  <text x="146.0" y="215" class="t" fill="#1f2937" text-anchor="end">absl flat</text>
+  <text x="146.0" y="232" class="t" fill="#1f2937" text-anchor="end">F14Value</text>
+  <text x="146.0" y="249" class="t" fill="#1f2937" text-anchor="end">indivi flat_umap</text>
+  <text x="146.0" y="266" class="t" fill="#1f2937" text-anchor="end">F14Vector</text>
+  <text x="146.0" y="283" class="t" fill="#1f2937" text-anchor="end">emhash8</text>
+  <text x="146.0" y="300" class="t" fill="#1f2937" text-anchor="end">boost flat</text>
+  <text x="146.0" y="317" class="t" fill="#1f2937" text-anchor="end">boost flat, own hash</text>
+  <text x="146.0" y="334" class="t" fill="#1f2937" text-anchor="end">indivi flat_wmap</text>
+  <text x="146.0" y="351" class="t" fill="#1f2937" text-anchor="end">emilib</text>
+  <rect x="154.0" y="375" width="11" height="11" class="f-flat" fill="#2563c9" opacity="0.85"/>
+  <text x="170.0" y="384" class="m" fill="#4b5563">flat</text>
+  <rect x="228.0" y="375" width="11" height="11" class="f-dense" fill="#0e8f60" opacity="0.85"/>
+  <text x="244.0" y="384" class="m" fill="#4b5563">dense</text>
+  <rect x="302.0" y="375" width="11" height="11" class="f-node" fill="#a53393" opacity="0.85"/>
+  <text x="318.0" y="384" class="m" fill="#4b5563">node</text>
+  <text x="386.0" y="384" class="m" fill="#4b5563">bytes per live entry</text>
 </svg>
