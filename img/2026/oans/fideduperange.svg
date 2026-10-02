@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 372" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <style>
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+    .muted{fill:#6b7280}
+    .h{font-weight:600;fill:#1f2937}
+    .file{fill:#fff;stroke:#1f2937;stroke-width:1.2}
+    .ext{fill:#ccfbf1;stroke:#0f766e;stroke-width:1.2}
+    .ext2{fill:#ffedd5;stroke:#c2410c;stroke-width:1.2}
+    .freed{fill:url(#hatch);stroke:#9ca3af;stroke-width:1.2;stroke-dasharray:4 3}
+    .kern{fill:#f9fafb;stroke:#9ca3af;stroke-width:1.2}
+    .ptr{stroke:#1f2937;stroke-width:1.3;fill:none;marker-end:url(#head)}
+    .flow{stroke:#6b7280;stroke-width:1.6;fill:none;marker-end:url(#headg)}
+  </style>
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#e5e7eb" stroke-width="2"/>
+    </pattern>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#1f2937"/>
+    </marker>
+    <marker id="headg" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- before -->
+  <text x="20" y="104" class="h">before</text>
+  <g class="mono" text-anchor="middle">
+    <rect x="20" y="122" width="74" height="28" class="file"/><text x="57" y="140">a.img</text>
+    <rect x="20" y="196" width="74" height="28" class="file"/><text x="57" y="214">b.img</text>
+    <rect x="128" y="122" width="86" height="28" class="ext"/><text x="171" y="140">extent X</text>
+    <rect x="128" y="196" width="86" height="28" class="ext2"/><text x="171" y="214">extent Y</text>
+  </g>
+  <path d="M94,136 H124" class="ptr"/>
+  <path d="M94,210 H124" class="ptr"/>
+  <text x="20" y="250" class="muted" font-size="12">X and Y hold the same bytes,</text>
+  <text x="20" y="266" class="muted" font-size="12">so they are stored twice</text>
+
+  <!-- the ioctl -->
+  <rect x="252" y="90" width="236" height="186" rx="8" class="kern"/>
+  <text x="270" y="116" class="h">kernel: <tspan class="mono" font-weight="600">FIDEDUPERANGE</tspan></text>
+  <text x="270" y="146">1. lock both ranges</text>
+  <text x="270" y="172">2. read both ranges</text>
+  <text x="270" y="198">3. compare them byte by byte</text>
+  <text x="270" y="232" class="muted" font-size="12">oans only names the two ranges.</text>
+  <text x="270" y="248" class="muted" font-size="12">It never writes file data, and the</text>
+  <text x="270" y="264" class="muted" font-size="12">kernel decides on what it just read.</text>
+  <path d="M214,183 H246" class="flow"/>
+
+  <path d="M488,150 C514,150 508,21 532,21" class="flow"/>
+  <path d="M488,230 C514,230 508,213 532,213" class="flow"/>
+
+  <!-- equal -->
+  <text x="540" y="26" class="h">all bytes equal</text>
+  <g class="mono" text-anchor="middle">
+    <rect x="540" y="40" width="74" height="28" class="file"/><text x="577" y="58">a.img</text>
+    <rect x="540" y="94" width="74" height="28" class="file"/><text x="577" y="112">b.img</text>
+    <rect x="652" y="67" width="86" height="28" class="ext"/><text x="695" y="85">extent X</text>
+  </g>
+  <path d="M614,54 C632,54 630,78 648,78" class="ptr"/>
+  <path d="M614,108 C632,108 630,86 648,86" class="ptr"/>
+  <rect x="652" y="112" width="86" height="24" class="freed"/>
+  <text x="695" y="128" text-anchor="middle" class="mono muted">Y freed</text>
+  <text x="540" y="156" class="muted" font-size="12">b.img now points at X</text>
+
+  <!-- differ -->
+  <text x="540" y="218" class="h">any byte differs</text>
+  <g class="mono" text-anchor="middle">
+    <rect x="540" y="232" width="74" height="28" class="file"/><text x="577" y="250">a.img</text>
+    <rect x="540" y="286" width="74" height="28" class="file"/><text x="577" y="304">b.img</text>
+    <rect x="652" y="232" width="86" height="28" class="ext"/><text x="695" y="250">extent X</text>
+    <rect x="652" y="286" width="86" height="28" class="ext2"/><text x="695" y="304">extent Y</text>
+  </g>
+  <path d="M614,246 H648" class="ptr"/>
+  <path d="M614,300 H648" class="ptr"/>
+  <text x="540" y="336" class="muted" font-size="12">nothing changes, the call returns</text>
+  <text x="540" y="352" class="mono muted">FILE_DEDUPE_RANGE_DIFFERS</text>
+</svg>
