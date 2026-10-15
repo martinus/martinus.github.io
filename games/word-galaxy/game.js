@@ -30,10 +30,10 @@ class Component extends DCLogic {
     this.onUp = function (e) { self.up(e); };
     this.onWheel = function (e) { self.wheel(e); };
     this.onMenu = function (e) { if (e.preventDefault) e.preventDefault(); };
-    this.clearSel = function () { self.game.sel = {}; self.game.selN = 0; self.draw(); };
+    this.clearSel = function () { self.dirtyCells(Object.keys(self.game.sel).map(Number), 1); self.game.sel = {}; self.game.selN = 0; self.draw(); };
     this.accept = function () { self.doAccept(); };
     this.useLight = function () { self.doLight(); };
-    this.cancelPick = function () { self.game.picked = -1; self.say('', 'info'); self.draw(); self.bump(); };
+    this.cancelPick = function () { var pw = self.game.words[self.game.picked]; if (pw) self.dirtyCells(pw.cells, 1); self.game.picked = -1; self.say('', 'info'); self.draw(); self.bump(); };
     this.removePick = function () { self.doRemove(); };
   }
 
@@ -407,6 +407,7 @@ class Component extends DCLogic {
         self.world();
         self.newGame();
         self.focus = self.world().current;
+        self.dirtyAll();
         self.seedMode = false;
         self.say('Galaxy ' + n + ' is ready. Swipe over letters to select a word, then tap Accept.', 'good');
         self.cam = self.camFor('galaxy', self.focus);
@@ -464,6 +465,12 @@ class Component extends DCLogic {
     if (fh * s > VH - 28) y = f.y0 - 14 / s + VH / 2 / s;
     return { x: x, y: y, s: s };
   }
+  // the whole field, centred, even if letters get smaller than usual
+  camFit(fi) {
+    var f = this.world().fields[fi], fw = f.x1 - f.x0, fh = f.y1 - f.y0;
+    var s = Math.min((this.VW - 36) / fw, (this.VH - 36) / fh, 2.4);
+    return { x: (f.x0 + f.x1) / 2, y: (f.y0 + f.y1) / 2, s: s };
+  }
   fieldScale(fi) { return this.camFor('field', fi).s; }
   clampCam() {
     var W = this.world().W, c = this.cam;
@@ -484,7 +491,7 @@ class Component extends DCLogic {
       var e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
       var ls = Math.log(a.s) + (Math.log(b.s) - Math.log(a.s)) * e - bump * Math.sin(Math.PI * e);
       self.cam = { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, s: Math.exp(ls) };
-      self.paint();
+      self.moved();
       if (k < 1) self._anim = requestAnimationFrame(step);
       else { self._anim = 0; if (done) done(); }
     }
@@ -497,15 +504,37 @@ class Component extends DCLogic {
     if (!el || el === this._cv) return;
     this._cv = el;
     var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
-    this.dpr = Math.min(3, dpr);
+    // 2x is sharp enough for these letters, and far fewer pixels to move than 2.6x or 3x
+    this.dprFull = Math.min(2, dpr);
+    // while the view moves, draw at 1x: a quarter of the pixels, and nobody sees fine detail in motion
+    this.dprMove = Math.min(1, this.dprFull);
+    this.dpr = this.moving ? this.dprMove : this.dprFull;
     el.width = Math.round(this.VW * this.dpr);
     el.height = Math.round(this.VH * this.dpr);
-    this.ctx = el.getContext('2d');
+    this.ctx = el.getContext('2d', { alpha: false });
     var self = this;
-    this.paint();
-    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self.paint(); });
+    this.dirtyAll();
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self.dirtyAll(); });
   }
   draw() { this.paint(); }
+  // called on every camera change; the sharp redraw comes when the view stands still
+  moved() {
+    var self = this;
+    if (!this.moving && this._cv) {
+      this.moving = true;
+      this.dpr = this.dprMove;
+      this._cv.width = Math.round(this.VW * this.dpr); this._cv.height = Math.round(this.VH * this.dpr);
+    }
+    if (this._idle) clearTimeout(this._idle);
+    this._idle = setTimeout(function () {
+      self._idle = 0; self.moving = false;
+      if (!self._cv) return;
+      self.dpr = self.dprFull;
+      self._cv.width = Math.round(self.VW * self.dpr); self._cv.height = Math.round(self.VH * self.dpr);
+      self.paint();
+    }, 160);
+    this.paint();
+  }
   paint() {
     var self = this;
     if (this._raf || !this.ctx) return;
@@ -536,34 +565,167 @@ class Component extends DCLogic {
       });
     });
     this.glow = glow;
+    this.dirtyAll();
   }
 
   render() {
-    var ctx = this.ctx, w = this.world(), g = this.game, c = this.cam, VW = this.VW, VH = this.VH, P = w.P;
-    var COLORS = ['#9cc9ea', '#f4b26b', '#bfe08f', '#dcb0e6', '#f29b9b', '#7fd1c1'];
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    var ctx = this.ctx, w = this.world(), c = this.cam, VW = this.VW, VH = this.VH, dpr = this.dpr;
+    var DW = Math.round(VW * dpr), DH = Math.round(VH * dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#060913';
-    ctx.fillRect(0, 0, VW, VH);
+    ctx.fillRect(0, 0, DW, DH);
     var s = c.s, ox = VW / 2 - c.x * s, oy = VH / 2 - c.y * s;
-    // stars and core glow
+    var sd = s * dpr, oxd = ox * dpr, oyd = oy * dpr;
+    // stars: cheap, drawn every frame (the glow of the core is part of the cached tiles)
     ctx.fillStyle = '#dfe6ff';
     for (var i = 0; i < w.stars.length; i++) {
-      var st = w.stars[i], sx = st[0] * s + ox, sy = st[1] * s + oy;
-      if (sx < -4 || sy < -4 || sx > VW + 4 || sy > VH + 4) continue;
+      var st = w.stars[i], sx = st[0] * sd + oxd, sy = st[1] * sd + oyd;
+      if (sx < -8 || sy < -8 || sx > DW + 8 || sy > DH + 8) continue;
       ctx.globalAlpha = st[3];
-      var d = Math.max(1, st[2] * Math.min(2, s * 4));
+      var d = Math.max(dpr, st[2] * dpr * Math.min(2, s * 4));
       ctx.fillRect(sx, sy, d, d);
     }
     ctx.globalAlpha = 1;
-    var gx = w.W / 2 * s + ox, gy = w.W / 2 * s + oy, gr = 900 * s;
-    var grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
-    grad.addColorStop(0, 'rgba(242,192,99,0.28)'); grad.addColorStop(1, 'rgba(242,192,99,0)');
-    ctx.fillStyle = grad; ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
+    // the letters: copied from cached tiles
+    this.drawTiles(ctx, sd, oxd, oyd, DW, DH);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.renderOverlay(ox, oy, s);
+    if (this.fx) this.renderFx(ox, oy, s);
+  }
 
-    var tile = P * s;
-    var fine = tile >= 6, text = tile >= 10;
+  // ---------- tile cache: the world is drawn once per zoom level into 256 px images ----------
+  dirtyAll() {
+    var self = this;
+    this._ver = (this._ver || 0) + 1;
+    if (this.tiles) this.tiles.forEach(function (tl) { if (tl.cv) self.spare.push(tl.cv); });
+    this.tiles = new Map();
+    this.spare = this.spare || [];
+    this.paint();
+  }
+  dirtyRect(x0, y0, x1, y1) {
+    this._ver = (this._ver || 0) + 1;
+    if (!this.tiles) return;
+    var self = this, del = [];
+    this.tiles.forEach(function (tl, key) { if (tl.x0 < x1 && tl.x1 > x0 && tl.y0 < y1 && tl.y1 > y0) del.push(key); });
+    del.forEach(function (key) { var tl = self.tiles.get(key); if (tl.cv) self.spare.push(tl.cv); self.tiles.delete(key); });
+    this.paint();
+  }
+  dirtyCells(list, margin) {
+    if (!list || !list.length) return;
+    var w = this.world(), P = w.P, m = (margin || 0) * P + 6;
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    list.forEach(function (j) { var o = w.cells[j]; if (!o) return; x0 = Math.min(x0, o.x); y0 = Math.min(y0, o.y); x1 = Math.max(x1, o.x + P); y1 = Math.max(y1, o.y + P); });
+    this.dirtyRect(x0 - m, y0 - m, x1 + m, y1 + m);
+  }
+  dirtyField(fi) {
+    var f = this.world().fields[fi];
+    if (f) this.dirtyRect(f.x0 - 34, f.y0 - 34, f.x1 + 34, f.y1 + 34);
+  }
+
+  tileCanvas() {
+    var cv = this.spare && this.spare.pop();
+    if (!cv) { cv = document.createElement('canvas'); cv.width = 256; cv.height = 256; }
+    return cv;
+  }
+
+  // draws the needed tiles; renders missing ones within a time budget, else uses a coarser or finer level for now
+  drawTiles(ctx, sd, oxd, oyd, DW, DH) {
+    if (!this.tiles) this.dirtyAll();
+    var w = this.world(), TS = 256, self = this;
+    var k = Math.max(-6, Math.min(3, Math.round(Math.log(sd) / Math.LN2)));
+    var frame = (this._frame = (this._frame || 0) + 1);
+    var t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    var budget = 6, missing = false;
+    function tw(kk) { return TS / Math.pow(2, kk); }
+    function get(kk, tx, ty, make) {
+      var key = self.dpr + ':' + kk + ':' + tx + ':' + ty, tl = self.tiles.get(key);
+      if (tl) { tl.used = frame; return tl; }
+      if (!make) return null;
+      var now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (now - t0 > budget) return null;
+      tl = self.renderTile(kk, tx, ty);
+      tl.used = frame;
+      self.tiles.set(key, tl);
+      return tl;
+    }
+    function blit(tl, sx, sy, sw, sh, wx0, wy0, wx1, wy1) {
+      if (!tl.cv) return;
+      var dx0 = Math.round(wx0 * sd + oxd), dy0 = Math.round(wy0 * sd + oyd);
+      var dx1 = Math.round(wx1 * sd + oxd), dy1 = Math.round(wy1 * sd + oyd);
+      if (dx1 <= dx0 || dy1 <= dy0) return;
+      ctx.drawImage(tl.cv, sx, sy, sw, sh, dx0, dy0, dx1 - dx0, dy1 - dy0);
+    }
+    var T = tw(k);
+    var wx0 = (-oxd) / sd, wy0 = (-oyd) / sd, wx1 = (DW - oxd) / sd, wy1 = (DH - oyd) / sd;
+    var tx0 = Math.max(0, Math.floor(wx0 / T)), ty0 = Math.max(0, Math.floor(wy0 / T));
+    var tx1 = Math.min(Math.floor(w.W / T), Math.floor(wx1 / T)), ty1 = Math.min(Math.floor(w.W / T), Math.floor(wy1 / T));
+    // draw the tiles nearest the screen centre first
+    var list = [];
+    for (var ty = ty0; ty <= ty1; ty++) for (var tx = tx0; tx <= tx1; tx++) list.push([tx, ty]);
+    var cx = (wx0 + wx1) / 2 / T, cy = (wy0 + wy1) / 2 / T;
+    list.sort(function (a, b) { return Math.abs(a[0] + 0.5 - cx) + Math.abs(a[1] + 0.5 - cy) - (Math.abs(b[0] + 0.5 - cx) + Math.abs(b[1] + 0.5 - cy)); });
+    list.forEach(function (q) {
+      var tx = q[0], ty = q[1];
+      var tl = get(k, tx, ty, true);
+      var ax = tx * T, ay = ty * T;
+      if (tl) { blit(tl, 0, 0, TS, TS, ax, ay, ax + T, ay + T); return; }
+      missing = true;
+      // coarser level: one quarter of its tile
+      var up = get(k - 1, tx >> 1, ty >> 1, false);
+      if (up) { var h = TS / 2; blit(up, (tx & 1) * h, (ty & 1) * h, h, h, ax, ay, ax + T, ay + T); return; }
+      // finer level: four tiles
+      for (var dy = 0; dy < 2; dy++) for (var dx = 0; dx < 2; dx++) {
+        var dn = get(k + 1, tx * 2 + dx, ty * 2 + dy, false);
+        if (dn) blit(dn, 0, 0, TS, TS, ax + dx * T / 2, ay + dy * T / 2, ax + (dx + 1) * T / 2, ay + (dy + 1) * T / 2);
+      }
+    });
+    if (missing) this.paint();
+    // keep memory bounded: drop tiles not used for a while
+    if (this.tiles.size > 180) {
+      var arr = [];
+      this.tiles.forEach(function (tl, key) { arr.push([tl.used, key]); });
+      arr.sort(function (a, b) { return a[0] - b[0]; });
+      for (var i = 0; i < arr.length - 140; i++) { var old = this.tiles.get(arr[i][1]); if (old.cv) this.spare.push(old.cv); this.tiles.delete(arr[i][1]); }
+      if (this.spare.length > 40) this.spare.length = 40;
+    }
+  }
+
+  renderTile(k, tx, ty) {
+    var w = this.world(), TS = 256, S = Math.pow(2, k), T = TS / S;
+    var x0 = tx * T, y0 = ty * T, x1 = x0 + T, y1 = y0 + T;
+    var tl = { x0: x0 - 2, y0: y0 - 2, x1: x1 + 2, y1: y1 + 2, cv: null };
+    // empty space: nothing to draw
+    var P = w.P, M = w.M;
+    var c0 = Math.max(0, Math.floor((x0 - M) / P) - 2), c1 = Math.min(w.N - 1, Math.floor((x1 - M) / P) + 2);
+    var r0 = Math.max(0, Math.floor((y0 - M) / P) - 2), r1 = Math.min(w.N - 1, Math.floor((y1 - M) / P) + 2);
+    var CX = w.W / 2, GR = 900;
+    var nx = Math.max(x0, Math.min(CX, x1)), ny = Math.max(y0, Math.min(CX, y1));
+    var inGlow = (nx - CX) * (nx - CX) + (ny - CX) * (ny - CX) < GR * GR;
+    var any = inGlow;
+    for (var r = r0; r <= r1 && !any; r++) for (var c = c0; c <= c1; c++) if (w.owner[r * w.N + c] >= 0) { any = true; break; }
+    if (!any) return tl;
+    var cv = this.tileCanvas(), ctx = cv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, TS, TS);
+    if (inGlow) {
+      var gx = (CX - x0) * S, gy = (CX - y0) * S;
+      var grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, GR * S);
+      grad.addColorStop(0, 'rgba(242,192,99,0.28)'); grad.addColorStop(1, 'rgba(242,192,99,0)');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, TS, TS);
+    }
+    this.drawWorld(ctx, S, -x0 * S, -y0 * S, TS, TS, this.dpr || 1);
+    tl.cv = cv;
+    return tl;
+  }
+
+  // draws letters, words, glow, outlines and hints; s and ox/oy are in the target's pixels, px is pixels per CSS pixel
+  drawWorld(ctx, s, ox, oy, VW, VH, px) {
+    var w = this.world(), g = this.game, P = w.P, i;
+    var COLORS = ['#9cc9ea', '#f4b26b', '#bfe08f', '#dcb0e6', '#f29b9b', '#7fd1c1'];
+    var tile = P * s, tileCss = tile / px;
+    var fine = tileCss >= 6, text = tileCss >= 10;
     var grp = this._grp || (this._grp = new Int32Array(w.cells.length));
-    for (i = 0; i < w.cells.length; i++) grp[i] = g.cellWord[i] >= 0 ? g.cellWord[i] + 1 : (g.sel[i] ? -2 : 0);
+    if (this._grpVer !== this._ver) { for (i = 0; i < w.cells.length; i++) grp[i] = g.cellWord[i] >= 0 ? g.cellWord[i] + 1 : (g.sel[i] ? -2 : 0); this._grpVer = this._ver; }
     if (text) { ctx.font = '800 ' + (tile * 0.5).toFixed(1) + 'px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; }
     // starlight glow, drawn under the tiles: it shines through the gaps between letters
     if (fine) {
@@ -603,15 +765,15 @@ class Component extends DCLogic {
       var inT = sT ? 0 : (fl & 1 ? 3 : 1), inR = sR ? 0 : (fl & 2 ? 3 : 1), inB = sB ? 0 : (fl & 4 ? 3 : 1), inL = sL ? 0 : (fl & 8 ? 3 : 1);
       var rx = x + inL * s, ry = y + inT * s, rw = tile - (inL + inR) * s, rh = tile - (inT + inB) * s;
       // overlap merged sides a little so no hairline shows between letters of one word
-      if (sL) { rx -= 0.6; rw += 0.6; } if (sR) rw += 0.6;
-      if (sT) { ry -= 0.6; rh += 0.6; } if (sB) rh += 0.6;
+      if (sL) { rx -= 0.6 * px; rw += 0.6 * px; } if (sR) rw += 0.6 * px;
+      if (sT) { ry -= 0.6 * px; rh += 0.6 * px; } if (sB) rh += 0.6 * px;
       var rr = Math.min(5 * s, tile * 0.2);
-      if (ctx.roundRect && tile >= 12) {
+      if (ctx.roundRect && tileCss >= 12) {
         ctx.beginPath();
         ctx.roundRect(rx, ry, rw, rh, [(!sT && !sL) ? rr : 0, (!sT && !sR) ? rr : 0, (!sB && !sR) ? rr : 0, (!sB && !sL) ? rr : 0]);
         ctx.fill();
       } else ctx.fillRect(rx, ry, rw, rh);
-      if ((fl & 16) && wid < 0 && fst !== 'L') { ctx.strokeStyle = '#e0a32a'; ctx.lineWidth = Math.max(1, 2 * s); ctx.strokeRect(rx + s, ry + s, rw - 2 * s, rh - 2 * s); }
+      if ((fl & 16) && wid < 0 && fst !== 'L') { ctx.strokeStyle = '#e0a32a'; ctx.lineWidth = Math.max(px, 2 * s); ctx.strokeRect(rx + s, ry + s, rw - 2 * s, rh - 2 * s); }
       if (text) {
         var fog = false;
         ctx.fillStyle = fg;
@@ -625,13 +787,14 @@ class Component extends DCLogic {
       for (i = 0; i < this.glow.length; i++) {
         var ge = this.glow[i], gc = w.cells[ge[0]], ex = gc.x * s + ox, ey = gc.y * s + oy;
         if (ex > VW + tile || ey > VH + tile || ex < -2 * tile || ey < -2 * tile) continue;
-        if (ge[1] === 0) { ctx.moveTo(ex + 2, ey - 1.5 * s); ctx.lineTo(ex + tile - 2, ey - 1.5 * s); }
-        if (ge[1] === 2) { ctx.moveTo(ex + 2, ey + tile + 1.5 * s); ctx.lineTo(ex + tile - 2, ey + tile + 1.5 * s); }
-        if (ge[1] === 3) { ctx.moveTo(ex - 1.5 * s, ey + 2); ctx.lineTo(ex - 1.5 * s, ey + tile - 2); }
-        if (ge[1] === 1) { ctx.moveTo(ex + tile + 1.5 * s, ey + 2); ctx.lineTo(ex + tile + 1.5 * s, ey + tile - 2); }
+        var e2 = 2 * px;
+        if (ge[1] === 0) { ctx.moveTo(ex + e2, ey - 1.5 * s); ctx.lineTo(ex + tile - e2, ey - 1.5 * s); }
+        if (ge[1] === 2) { ctx.moveTo(ex + e2, ey + tile + 1.5 * s); ctx.lineTo(ex + tile - e2, ey + tile + 1.5 * s); }
+        if (ge[1] === 3) { ctx.moveTo(ex - 1.5 * s, ey + e2); ctx.lineTo(ex - 1.5 * s, ey + tile - e2); }
+        if (ge[1] === 1) { ctx.moveTo(ex + tile + 1.5 * s, ey + e2); ctx.lineTo(ex + tile + 1.5 * s, ey + tile - e2); }
       }
-      ctx.strokeStyle = 'rgba(255,214,120,0.85)'; ctx.lineWidth = Math.max(1, 1.6 * s); ctx.lineCap = 'round';
-      ctx.shadowColor = 'rgba(255,200,95,0.9)'; ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(255,214,120,0.85)'; ctx.lineWidth = Math.max(px, 1.6 * s); ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(255,200,95,0.9)'; ctx.shadowBlur = 8 * px;
       ctx.stroke();
       ctx.restore();
     }
@@ -649,8 +812,8 @@ class Component extends DCLogic {
         if (fl & 8) { ctx.moveTo(x, y); ctx.lineTo(x, y + tile); }
         if (fl & 2) { ctx.moveTo(x + tile, y); ctx.lineTo(x + tile, y + tile); }
       });
-      ctx.strokeStyle = colour; ctx.lineWidth = width;
-      ctx.setLineDash(dashed ? [6, 5] : []);
+      ctx.strokeStyle = colour; ctx.lineWidth = width * px;
+      ctx.setLineDash(dashed ? [6 * px, 5 * px] : []);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -664,13 +827,13 @@ class Component extends DCLogic {
         for (var k = 0; k < 4; k++) {
           var n = o.nb[k];
           if (n >= 0 && g.cellWord[n] === wd.id) continue;
-          if (k === 0) { ctx.moveTo(x, y + 1); ctx.lineTo(x + tile, y + 1); }
-          if (k === 2) { ctx.moveTo(x, y + tile - 1); ctx.lineTo(x + tile, y + tile - 1); }
-          if (k === 3) { ctx.moveTo(x + 1, y); ctx.lineTo(x + 1, y + tile); }
-          if (k === 1) { ctx.moveTo(x + tile - 1, y); ctx.lineTo(x + tile - 1, y + tile); }
+          if (k === 0) { ctx.moveTo(x, y + px); ctx.lineTo(x + tile, y + px); }
+          if (k === 2) { ctx.moveTo(x, y + tile - px); ctx.lineTo(x + tile, y + tile - px); }
+          if (k === 3) { ctx.moveTo(x + px, y); ctx.lineTo(x + px, y + tile); }
+          if (k === 1) { ctx.moveTo(x + tile - px, y); ctx.lineTo(x + tile - px, y + tile); }
         }
       });
-      ctx.strokeStyle = colour; ctx.lineWidth = 3; ctx.setLineDash(dashed ? [5, 4] : []); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = colour; ctx.lineWidth = 3 * px; ctx.setLineDash(dashed ? [5 * px, 4 * px] : []); ctx.stroke(); ctx.setLineDash([]);
     }
     Object.keys(g.wrongMarked).forEach(function (id) { var wd = g.words[+id]; if (wd && wd.alive) wordOutline(wd, '#d6452f', true); });
     if (g.picked >= 0 && g.words[g.picked].alive) wordOutline(g.words[g.picked], '#ffffff', false);
@@ -679,14 +842,12 @@ class Component extends DCLogic {
     g.hints.forEach(function (list) {
       list.forEach(function (h) {
         var a = w.cells[h.a], x = a.x * s + ox, y = a.y * s + oy;
-        if (h.kind === 'start') { ctx.beginPath(); ctx.arc(x + 7 * s, y + 7 * s, Math.max(1.5, 3.2 * s), 0, Math.PI * 2); ctx.fill(); return; }
+        if (h.kind === 'start') { ctx.beginPath(); ctx.arc(x + 7 * s, y + 7 * s, Math.max(1.5 * px, 3.2 * s), 0, Math.PI * 2); ctx.fill(); return; }
         var b = w.cells[h.b];
         if (a.r === b.r) ctx.fillRect(x + tile - 2.5 * s, y + 3 * s, 5 * s, tile - 6 * s);
         else ctx.fillRect(x + 3 * s, y + tile - 2.5 * s, tile - 6 * s, 5 * s);
       });
     });
-    this.renderOverlay(ox, oy, s);
-    if (this.fx) this.renderFx(ox, oy, s);
   }
 
   celebrate(fi, opened, perfect) {
@@ -706,7 +867,8 @@ class Component extends DCLogic {
   renderFx(ox, oy, s) {
     var ctx = this.ctx, w = this.world(), fx = this.fx, f = w.fields[fx.fi], VW = this.VW, VH = this.VH, P = w.P;
     var now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    var t = (now - fx.t0) / 1000;
+    // 0.6: the celebration runs at a calm pace, about 4.3 seconds
+    var t = (now - fx.t0) / 1000 * 0.6;
     if (t > 2.6) { this.fx = null; return; }
     var tile = P * s;
     ctx.save();
@@ -876,6 +1038,7 @@ class Component extends DCLogic {
         this.drag = { mode: 'press', start: p, last: p, moved: false, cellI: o.i };
         this.drag.timer = setTimeout(function () {
           if (!self.drag || self.drag.moved) return;
+          self.dirtyCells(Object.keys(g.sel).map(Number), 1); self.dirtyCells(g.words[wid].cells, 1);
           g.picked = wid; g.sel = {}; g.selN = 0;
           self.say('Remove ' + g.words[wid].word + '?', 'warn');
           self.drag.mode = 'held';
@@ -883,7 +1046,7 @@ class Component extends DCLogic {
         }, 550);
         return;
       }
-      if (g.picked >= 0) { g.picked = -1; this.say('', 'info'); this.bump(); }
+      if (g.picked >= 0) { this.dirtyCells(g.words[g.picked].cells, 1); g.picked = -1; this.say('', 'info'); this.bump(); }
       var add = !g.sel[o.i];
       this.drag = { mode: 'paint', add: add, last: p, changed: [] };
       this.paintCell(o);
@@ -897,12 +1060,13 @@ class Component extends DCLogic {
     var g = this.game;
     if (!o || o.f !== this.focus || g.cellWord[o.i] >= 0) return;
     var d = this.drag;
-    if (d.add && !g.sel[o.i]) { g.sel[o.i] = 1; g.selN++; d.changed.push(o.i); }
-    else if (!d.add && g.sel[o.i]) { delete g.sel[o.i]; g.selN--; d.changed.push(o.i); }
+    if (d.add && !g.sel[o.i]) { g.sel[o.i] = 1; g.selN++; d.changed.push(o.i); this.dirtyCells([o.i], 1); }
+    else if (!d.add && g.sel[o.i]) { delete g.sel[o.i]; g.selN--; d.changed.push(o.i); this.dirtyCells([o.i], 1); }
   }
   undoStroke() {
     var g = this.game, d = this.drag;
     d.changed.forEach(function (j) { if (d.add) { delete g.sel[j]; g.selN--; } else { g.sel[j] = 1; g.selN++; } });
+    this.dirtyCells(d.changed, 1);
   }
 
   move(e) {
@@ -920,7 +1084,7 @@ class Component extends DCLogic {
       // keep the world point under the first midpoint under the current midpoint
       var wx = (d.m0.x - this.VW / 2) / c0.s + c0.x, wy = (d.m0.y - this.VH / 2) / c0.s + c0.y;
       this.cam = { s: s, x: wx - (m.x - this.VW / 2) / s, y: wy - (m.y - this.VH / 2) / s };
-      this.clampCam(); this.paint();
+      this.clampCam(); this.moved();
       return;
     }
     if (d.mode === 'paint') {
@@ -941,7 +1105,7 @@ class Component extends DCLogic {
       this.cam.x -= (p.x - d.last.x) / this.cam.s;
       this.cam.y -= (p.y - d.last.y) / this.cam.s;
       d.last = p;
-      this.clampCam(); this.paint();
+      this.clampCam(); this.moved();
     }
   }
 
@@ -963,7 +1127,7 @@ class Component extends DCLogic {
         self.cam.y += self._autoV.y * 0.22 / self.cam.s;
         self.clampCam();
         self.paintCell(self.cellAtPt(d.last, true));
-        self.paint();
+        self.moved();
         self._auto = requestAnimationFrame(step);
       };
       this._auto = requestAnimationFrame(step);
@@ -992,6 +1156,7 @@ class Component extends DCLogic {
     if (!o) return;
     var f = w.fields[o.f];
     if (o.f !== this.focus || this.cam.s < this.fieldScale(o.f) * 0.6) {
+      this.dirtyField(this.focus); this.dirtyField(o.f);
       this.focus = o.f;
       g.sel = {}; g.selN = 0; g.picked = -1;
       var st = g.state[o.f];
@@ -1012,7 +1177,7 @@ class Component extends DCLogic {
     var q = this.toWorld(p.x, p.y);
     var s = c.s * Math.exp(-e.deltaY * 0.0015);
     this.cam = { s: s, x: q.x - (p.x - this.VW / 2) / s, y: q.y - (p.y - this.VH / 2) / s };
-    this.clampCam(); this.paint();
+    this.clampCam(); this.moved();
   }
 
   // ---------- rules ----------
@@ -1030,6 +1195,7 @@ class Component extends DCLogic {
     if (!w.dict.has(word)) { this.say(word + ' is not in the word list.', 'warn'); this.bump(); return; }
     var gi = w.cells[sel[0]].g, reg = w.regions[gi];
     var correct = reg.cells.length === sel.length && sel.every(function (j) { return w.cells[j].g === gi; });
+    this.dirtyCells(sel, 1);
     this.addWord(sel, this.pickColour(sel), correct);
     g.sel = {}; g.selN = 0;
     var fi = this.focus, f = w.fields[fi];
@@ -1039,7 +1205,8 @@ class Component extends DCLogic {
       var opened = [];
       f.nbList.forEach(function (nb) { if (g.state[nb] === 'L') { g.state[nb] = 'O'; opened.push(w.fields[nb].name); } });
       this.recalcLit();
-      this.celebrate(fi, opened, !g.used[fi]);
+      var selfA = this, perfectA = !g.used[fi];
+      this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
       var mw = this.meaning(word);
       this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect star.'));
     } else { var mn = this.meaning(word); this.say(mn.text, 'good', mn.title); }
@@ -1062,6 +1229,7 @@ class Component extends DCLogic {
   doRemove() {
     var g = this.game, wd = g.words[g.picked];
     if (!wd || !wd.alive) return;
+    this.dirtyCells(wd.cells, 1);
     wd.alive = false;
     g.sel = {}; g.selN = 0;
     wd.cells.forEach(function (j) { g.cellWord[j] = -1; g.sel[j] = 1; g.selN++; });
@@ -1089,6 +1257,7 @@ class Component extends DCLogic {
     var hint = null;
     if (wrong.length) {
       g.wrongMarked[wrong[0].id] = 1;
+      this.dirtyCells(wrong[0].cells, 1);
       g.used[fi]++;
       this.say('Starlight: ' + wrong[0].word + ' is not part of the solution.', 'info');
       this.paint(); this.bump(); return;
@@ -1110,6 +1279,7 @@ class Component extends DCLogic {
     if (!pool.length) { this.say('Nothing left to show where the light reaches.', 'warn'); this.bump(); return; }
     hint = pool[(n * 7 + 3) % pool.length];
     g.hints[fi].push(hint);
+    this.dirtyCells(hint.b != null ? [hint.a, hint.b] : [hint.a], 1);
     g.used[fi]++;
     this.say(hint.kind === 'wall' ? 'Starlight shows a wall: the cells on each side belong to different words.' : 'Starlight shows a word start: a word begins in the marked cell.', 'info');
     this.paint(); this.bump();
