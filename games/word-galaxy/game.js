@@ -25,6 +25,7 @@ class Component extends DCLogic {
     this.drag = null;
     this._raf = 0; this._anim = 0; this._auto = 0;
     this.canvasRef = function (el) { self.setupCanvas(el); };
+    this.loRef = function (el) { self.setupLo(el); };
     this.onDown = function (e) { self.down(e); };
     this.onMove = function (e) { self.move(e); };
     this.onUp = function (e) { self.up(e); };
@@ -543,7 +544,7 @@ class Component extends DCLogic {
       self.cam = { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, s: Math.exp(ls) };
       self.moved();
       if (k < 1) self._anim = requestAnimationFrame(step);
-      else { self._anim = 0; if (done) done(); }
+      else { self._anim = 0; self.settle(); if (done) done(); }
     }
     this._anim = requestAnimationFrame(step);
   }
@@ -555,10 +556,7 @@ class Component extends DCLogic {
     this._cv = el;
     var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
     // 2x is sharp enough for these letters, and far fewer pixels to move than 2.6x or 3x
-    this.dprFull = Math.min(2, dpr);
-    // while the view moves, draw at 1x: a quarter of the pixels, and nobody sees fine detail in motion
-    this.dprMove = Math.min(1, this.dprFull);
-    this.dpr = this.moving ? this.dprMove : this.dprFull;
+    this.dpr = Math.min(2, dpr);
     el.width = Math.round(this.VW * this.dpr);
     el.height = Math.round(this.VH * this.dpr);
     this.ctx = el.getContext('2d', { alpha: false });
@@ -566,29 +564,73 @@ class Component extends DCLogic {
     this.dirtyAll();
     if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self.dirtyAll(); });
   }
+  // the motion layer: twice the size of the view in each direction, drawn at 1x.
+  // While the view moves, the browser only moves and scales this picture (a GPU job), so motion stays smooth.
+  setupLo(el) {
+    if (!el || el === this._lo) return;
+    this._lo = el;
+    this.loM = 0.5;
+    var LW = Math.round(this.VW * (1 + 2 * this.loM)), LH = Math.round(this.VH * (1 + 2 * this.loM));
+    el.style.width = LW + 'px'; el.style.height = LH + 'px';
+    el.style.left = Math.round(-this.VW * this.loM) + 'px'; el.style.top = Math.round(-this.VH * this.loM) + 'px';
+    el.width = LW; el.height = LH;
+    this.loW = LW; this.loH = LH;
+    this.loCtx = el.getContext('2d', { alpha: false });
+    this.loCam = null;
+  }
   draw() { this.paint(); }
   // called on every camera change; the sharp redraw comes when the view stands still
   moved() {
     var self = this;
-    if (!this.moving && this._cv) {
+    if (this._lo && !this.moving) {
       this.moving = true;
-      this.dpr = this.dprMove;
-      this._cv.width = Math.round(this.VW * this.dpr); this._cv.height = Math.round(this.VH * this.dpr);
+      this.renderLo();
+      if (this._cv) this._cv.style.opacity = '0';
     }
     if (this._idle) clearTimeout(this._idle);
     this._idle = setTimeout(function () {
-      self._idle = 0; self.moving = false;
-      if (!self._cv) return;
-      self.dpr = self.dprFull;
-      self._cv.width = Math.round(self.VW * self.dpr); self._cv.height = Math.round(self.VH * self.dpr);
-      self.paint();
-    }, 160);
+      self._idle = 0;
+      if (!self.moving) return;
+      self.moving = false;
+      self.render();
+      if (self._cv) self._cv.style.opacity = '1';
+    }, 140);
     this.paint();
+  }
+  // the view stands still: draw it sharp and show it
+  settle() {
+    if (this._idle) { clearTimeout(this._idle); this._idle = 0; }
+    if (!this.moving) return;
+    this.moving = false;
+    this.render();
+    if (this._cv) this._cv.style.opacity = '1';
   }
   paint() {
     var self = this;
     if (this._raf || !this.ctx) return;
-    this._raf = requestAnimationFrame(function () { self._raf = 0; self.render(); });
+    this._raf = requestAnimationFrame(function () {
+      self._raf = 0;
+      if (self.moving && self._lo) self.updateLo(); else self.render();
+    });
+  }
+  renderLo() {
+    var c = this.cam;
+    this.loCam = { x: c.x, y: c.y, s: c.s };
+    this.loMissing = this.renderBase(this.loCtx, this.loW, this.loH, 1, this.loCam);
+    this._lo.style.transform = 'none';
+  }
+  // per frame while moving: only a CSS transform, unless the picture no longer covers the view
+  updateLo() {
+    var c = this.cam, L = this.loCam;
+    if (!L) { this.renderLo(); L = this.loCam; }
+    var k = c.s / L.s;
+    var halfW = this.VW / 2 / c.s, halfH = this.VH / 2 / c.s;
+    var coverW = this.loW / 2 / L.s, coverH = this.loH / 2 / L.s;
+    var outside = Math.abs(c.x - L.x) + halfW > coverW || Math.abs(c.y - L.y) + halfH > coverH;
+    if (outside || k > 1.8 || k < 0.55 || this.loMissing) { this.renderLo(); L = this.loCam; k = 1; }
+    var tx = (L.x - c.x) * c.s, ty = (L.y - c.y) * c.s;
+    this._lo.style.transform = 'translate(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px) scale(' + k.toFixed(5) + ')';
+    if (this.loMissing) this.paint();
   }
 
   recalcLit() {
@@ -619,14 +661,22 @@ class Component extends DCLogic {
   }
 
   render() {
-    var ctx = this.ctx, w = this.world(), c = this.cam, VW = this.VW, VH = this.VH, dpr = this.dpr;
+    if (!this.ctx) return;
+    var c = this.cam, s = c.s, ox = this.VW / 2 - c.x * s, oy = this.VH / 2 - c.y * s;
+    this.renderBase(this.ctx, this.VW, this.VH, this.dpr, c);
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.renderOverlay(ox, oy, s);
+    if (this.fx) this.renderFx(ox, oy, s);
+  }
+
+  // background, stars and the cached letter tiles for one canvas; returns true while some tiles are still missing
+  renderBase(ctx, VW, VH, dpr, c) {
+    var w = this.world();
     var DW = Math.round(VW * dpr), DH = Math.round(VH * dpr);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#060913';
     ctx.fillRect(0, 0, DW, DH);
-    var s = c.s, ox = VW / 2 - c.x * s, oy = VH / 2 - c.y * s;
-    var sd = s * dpr, oxd = ox * dpr, oyd = oy * dpr;
-    // stars: cheap, drawn every frame (the glow of the core is part of the cached tiles)
+    var s = c.s, sd = s * dpr, oxd = (VW / 2 - c.x * s) * dpr, oyd = (VH / 2 - c.y * s) * dpr;
     ctx.fillStyle = '#dfe6ff';
     for (var i = 0; i < w.stars.length; i++) {
       var st = w.stars[i], sx = st[0] * sd + oxd, sy = st[1] * sd + oyd;
@@ -636,11 +686,7 @@ class Component extends DCLogic {
       ctx.fillRect(sx, sy, d, d);
     }
     ctx.globalAlpha = 1;
-    // the letters: copied from cached tiles
-    this.drawTiles(ctx, sd, oxd, oyd, DW, DH);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.renderOverlay(ox, oy, s);
-    if (this.fx) this.renderFx(ox, oy, s);
+    return this.drawTiles(ctx, sd, oxd, oyd, DW, DH, dpr);
   }
 
   // ---------- tile cache: the world is drawn once per zoom level into 256 px images ----------
@@ -679,7 +725,7 @@ class Component extends DCLogic {
   }
 
   // draws the needed tiles; renders missing ones within a time budget, else uses a coarser or finer level for now
-  drawTiles(ctx, sd, oxd, oyd, DW, DH) {
+  drawTiles(ctx, sd, oxd, oyd, DW, DH, dpr) {
     if (!this.tiles) this.dirtyAll();
     var w = this.world(), TS = 256, self = this;
     var k = Math.max(-6, Math.min(3, Math.round(Math.log(sd) / Math.LN2)));
@@ -688,12 +734,12 @@ class Component extends DCLogic {
     var budget = 6, missing = false;
     function tw(kk) { return TS / Math.pow(2, kk); }
     function get(kk, tx, ty, make) {
-      var key = self.dpr + ':' + kk + ':' + tx + ':' + ty, tl = self.tiles.get(key);
+      var key = dpr + ':' + kk + ':' + tx + ':' + ty, tl = self.tiles.get(key);
       if (tl) { tl.used = frame; return tl; }
       if (!make) return null;
       var now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       if (now - t0 > budget) return null;
-      tl = self.renderTile(kk, tx, ty);
+      tl = self.renderTile(kk, tx, ty, dpr);
       tl.used = frame;
       self.tiles.set(key, tl);
       return tl;
@@ -730,6 +776,7 @@ class Component extends DCLogic {
       }
     });
     if (missing) this.paint();
+    var result = missing;
     // keep memory bounded: drop tiles not used for a while
     if (this.tiles.size > 180) {
       var arr = [];
@@ -738,9 +785,10 @@ class Component extends DCLogic {
       for (var i = 0; i < arr.length - 140; i++) { var old = this.tiles.get(arr[i][1]); if (old.cv) this.spare.push(old.cv); this.tiles.delete(arr[i][1]); }
       if (this.spare.length > 40) this.spare.length = 40;
     }
+    return result;
   }
 
-  renderTile(k, tx, ty) {
+  renderTile(k, tx, ty, dpr) {
     var w = this.world(), TS = 256, S = Math.pow(2, k), T = TS / S;
     var x0 = tx * T, y0 = ty * T, x1 = x0 + T, y1 = y0 + T;
     var tl = { x0: x0 - 2, y0: y0 - 2, x1: x1 + 2, y1: y1 + 2, cv: null };
@@ -763,7 +811,7 @@ class Component extends DCLogic {
       grad.addColorStop(0, 'rgba(242,192,99,0.28)'); grad.addColorStop(1, 'rgba(242,192,99,0)');
       ctx.fillStyle = grad; ctx.fillRect(0, 0, TS, TS);
     }
-    this.drawWorld(ctx, S, -x0 * S, -y0 * S, TS, TS, this.dpr || 1);
+    this.drawWorld(ctx, S, -x0 * S, -y0 * S, TS, TS, dpr || 1);
     tl.cv = cv;
     return tl;
   }
@@ -1177,7 +1225,7 @@ class Component extends DCLogic {
         self.cam.y += self._autoV.y * 0.22 / self.cam.s;
         self.clampCam();
         self.paintCell(self.cellAtPt(d.last, true));
-        self.moved();
+        self.paint();
         self._auto = requestAnimationFrame(step);
       };
       this._auto = requestAnimationFrame(step);
@@ -1352,7 +1400,7 @@ class Component extends DCLogic {
     presets.push({ label: this.seedMode ? 'Close' : 'Seed ' + this.seed, pick: function () { self.seedMode = !self.seedMode; self.seedText = String(self.seed); self.bump(); } });
     var picking = g.picked >= 0 && g.words[g.picked].alive;
     return {
-      canvasRef: this.canvasRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
+      canvasRef: this.canvasRef, loRef: this.loRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
       clearSel: this.clearSel, accept: this.accept, useLight: this.useLight, cancelPick: this.cancelPick, removePick: this.removePick,
       focusName: f.name, focusPips: pips,
       focusLevel: ['', 'Very easy', 'Easy', 'Medium', 'Hard', 'Expert', 'Master'][f.tier],

@@ -24,8 +24,9 @@ header .left { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .level { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
 .name { font-size: 24px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .progress { font-size: 21px; font-weight: 800; color: var(--soft); flex: none; }
-.stage { position: relative; flex: 1; min-height: 0; background: #060913; }
-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.stage { position: relative; flex: 1; min-height: 0; background: #060913; overflow: hidden; }
+#cv { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+#lo { position: absolute; display: block; pointer-events: none; transform-origin: 50% 50%; will-change: transform; }
 .bar { flex: none; padding: 8px 14px max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 7px; background: var(--panel); border-top: 1px solid var(--line); }
 .msg { height: 50px; overflow: hidden; font-size: 13px; font-weight: 500; line-height: 1.3; color: var(--soft); }
 .msg b { font-weight: 800; color: var(--text); }
@@ -57,6 +58,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   </header>
   <div class="stage" id="stage">
     <div class="loading" id="loading">Building the galaxy…</div>
+    <canvas id="lo" aria-hidden="true"></canvas>
     <canvas id="cv" aria-label="Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom."></canvas>
   </div>
   <div class="bar">
@@ -117,8 +119,9 @@ class DCLogic {
     if (!C) return;
     var r = stage.getBoundingClientRect();
     C.VW = Math.round(r.width); C.VH = Math.round(r.height);
-    C._cv = null;
+    C._cv = null; C._lo = null;
     C.setupCanvas(cv);
+    C.setupLo(document.getElementById('lo'));
     if (!fit.done) { C.cam = C.camFor('field', C.focus); fit.done = true; }
     C.clampCam();
     C.paint();
