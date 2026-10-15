@@ -3,7 +3,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     var self = this;
-    this.VW = 390; this.VH = 584;
+    this.VW = 390; this.VH = 620;
     // a saved game continues; a different seed in the address asks first
     var saved = this.loadSave();
     var asked = (props && props.seed != null) ? +props.seed : null;
@@ -1105,7 +1105,7 @@ class Component extends DCLogic {
     ctx.fillText(fx.name + ' solved', 0, -4);
     ctx.fillStyle = '#f2c063';
     ctx.font = '800 18px Archivo, system-ui, sans-serif';
-    ctx.fillText(fx.perfect ? '★ Perfect star ★' : (fx.opened.length ? fx.opened.length + ' new field' + (fx.opened.length > 1 ? 's' : '') + ' open' : 'Well done'), 0, 34);
+    ctx.fillText(fx.perfect ? '★ Perfect, no stars used ★' : (fx.opened.length ? fx.opened.length + ' new field' + (fx.opened.length > 1 ? 's' : '') + ' open' : 'Well done'), 0, 34);
     ctx.restore();
     this.paint();
   }
@@ -1371,8 +1371,9 @@ class Component extends DCLogic {
       this.recalcLit();
       var selfA = this, perfectA = !g.used[fi];
       this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
+      var gave = Math.min(5, f.tier);
       var mw = this.meaning(word);
-      this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect star.'));
+      this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'Each neighbour gets ' + gave + ' star' + (gave > 1 ? 's' : '') + ' from here. Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect, no stars used.'));
     } else { var mn = this.meaning(word); this.say(mn.text, 'good', mn.title); }
     this.save();
     this.paint(); this.bump();
@@ -1407,13 +1408,16 @@ class Component extends DCLogic {
 
   lightTotal(fi) {
     var w = this.world(), g = this.game;
-    return Math.min(6, 2 * w.fields[fi].nbList.filter(function (n) { return g.state[n] === 'S'; }).length);
+    // each solved neighbour gives as many stars as its difficulty: very easy 1 ... expert 5 (at most 10 per field)
+    var sum = 0;
+    w.fields[fi].nbList.forEach(function (n) { if (g.state[n] === 'S') sum += Math.min(5, w.fields[n].tier); });
+    return Math.min(10, sum);
   }
 
   doLight() {
     var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi], lit = this.lit;
-    if (g.state[fi] !== 'O') { this.say('Starlight works only in an open field.', 'warn'); this.bump(); return; }
-    if (this.lightTotal(fi) - g.used[fi] <= 0) { this.say('No starlight left here. Solve another neighbour of ' + f.name + ' to get more.', 'warn'); this.bump(); return; }
+    if (g.state[fi] !== 'O') { this.say('Stars work only in an open field.', 'warn'); this.bump(); return; }
+    if (this.lightTotal(fi) - g.used[fi] <= 0) { this.say('No stars left here. Solve another neighbour of ' + f.name + ' to get more. Harder neighbours give more stars.', 'warn'); this.bump(); return; }
     var have = {};
     g.hints[fi].forEach(function (h) { have[h.key] = 1; });
     // 1. a wrong word that the light reaches
@@ -1425,7 +1429,7 @@ class Component extends DCLogic {
       g.wrongMarked[wrong[0].id] = 1;
       this.dirtyCells(wrong[0].cells, 1);
       g.used[fi]++;
-      this.say('Starlight: ' + wrong[0].word + ' is not part of the solution.', 'info');
+      this.say('A star shows: ' + wrong[0].word + ' is not part of the solution.', 'info');
       this.save();
       this.paint(); this.bump(); return;
     }
@@ -1449,7 +1453,7 @@ class Component extends DCLogic {
     this.save();
     this.dirtyCells(hint.b != null ? [hint.a, hint.b] : [hint.a], 1);
     g.used[fi]++;
-    this.say(hint.kind === 'wall' ? 'Starlight shows a wall: the cells on each side belong to different words.' : 'Starlight shows a word start: a word begins in the marked cell.', 'info');
+    this.say(hint.kind === 'wall' ? 'A star shows a wall: the cells on each side belong to different words.' : 'A star shows a word start: a word begins in the marked cell.', 'info');
     this.paint(); this.bump();
   }
 
