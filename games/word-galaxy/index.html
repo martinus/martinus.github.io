@@ -42,6 +42,19 @@ button { font-family: inherit; cursor: pointer; }
 .seed { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--soft); }
 .seed input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--btn); background: #111a33; color: var(--text); font: 700 16px 'Archivo', system-ui, sans-serif; -webkit-user-select: text; user-select: text; }
 .hidden { display: none !important; }
+.right { display: flex; align-items: center; gap: 4px; flex: none; }
+.menu-btn { width: 44px; height: 44px; margin-right: -10px; border: none; border-radius: 10px; background: transparent; color: var(--soft); display: flex; align-items: center; justify-content: center; }
+.menu { position: absolute; right: 10px; top: 8px; width: 230px; padding: 8px; display: flex; flex-direction: column; gap: 4px; border-radius: 14px; background: #111a33; border: 1px solid #2e3a62; box-shadow: 0 16px 40px rgba(0,0,0,.5); z-index: 5; }
+.menu .label { padding: 8px 10px 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.menu button { height: 44px; padding: 0 10px; border: none; border-radius: 10px; background: transparent; color: var(--text); font-size: 15px; font-weight: 700; text-align: left; }
+.menu button:hover { background: #1a2547; }
+.menu button.quiet { color: var(--muted); font-weight: 600; }
+.dialog-back { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(4,6,13,.72); z-index: 6; }
+.dialog { width: 100%; max-width: 330px; padding: 20px; display: flex; flex-direction: column; gap: 12px; border-radius: 16px; background: #111a33; border: 1px solid #2e3a62; }
+.dialog h2 { margin: 0; font-size: 20px; font-weight: 800; }
+.dialog p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--soft); }
+.dialog .row { margin-top: 4px; }
+.btn.x { flex: none; width: 40px; font-size: 18px; }
 .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--muted); }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 </style>
@@ -54,12 +67,32 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <div class="level" id="level">&nbsp;</div>
       <div class="name" id="name">Word Galaxy</div>
     </div>
-    <div class="progress" id="progress"></div>
+    <div class="right">
+      <div class="progress" id="progress"></div>
+      <button type="button" class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+    </div>
   </header>
   <div class="stage" id="stage">
     <div class="loading" id="loading">Building the galaxy…</div>
     <canvas id="lo" aria-hidden="true"></canvas>
     <canvas id="cv" aria-label="Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom."></canvas>
+    <div class="menu hidden" id="menu">
+      <div class="label" id="menuLabel">Galaxy</div>
+      <button type="button" id="newGalaxyBtn">New galaxy…</button>
+      <button type="button" class="quiet" id="menuCloseBtn">Close</button>
+    </div>
+    <div class="dialog-back hidden" id="dialog">
+      <div class="dialog" role="alertdialog" aria-labelledby="dlgTitle" aria-describedby="dlgText">
+        <h2 id="dlgTitle"></h2>
+        <p id="dlgText"></p>
+        <div class="row">
+          <button type="button" class="btn" id="dlgNo"></button>
+          <button type="button" class="btn danger" id="dlgYes"></button>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="bar">
     <div class="msg" id="msg" role="status"></div>
@@ -79,12 +112,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <label class="seed">Seed <input type="text" inputmode="numeric" id="seedInput" autocomplete="off"></label>
       <button type="button" class="btn auto" id="randomBtn">Random</button>
       <button type="button" class="btn main auto" id="buildBtn">Build</button>
+      <button type="button" class="btn x" id="seedCloseBtn" aria-label="Close">×</button>
     </div>
     <div class="presets" id="presets">
       <button type="button" data-i="0">Field</button>
       <button type="button" data-i="1">Area</button>
       <button type="button" data-i="2">Galaxy</button>
-      <button type="button" data-i="3">Seed</button>
     </div>
   </div>
 </div>
@@ -99,13 +132,13 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=6524fbda5e"></script>
-<script src="game.js?v=53bb2a9069"></script>
+<script src="game.js?v=9884258ca3"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
   var seed = parseInt(params.get('seed'), 10);
-  if (isNaN(seed)) seed = 23;
+  if (isNaN(seed)) seed = null; // no seed in the address: continue the saved game
   var cv = $('cv'), stage = $('stage');
 
   setTimeout(function () {
@@ -143,6 +176,12 @@ class DCLogic {
   $('acceptBtn').onclick = function () { v.accept && v.accept(); };
   $('randomBtn').onclick = function () { v.randomSeed && v.randomSeed(); };
   $('buildBtn').onclick = function () { v.buildSeed && v.buildSeed(); };
+  $('seedCloseBtn').onclick = function () { v.closeSeed && v.closeSeed(); };
+  $('menuBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
+  $('menuCloseBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
+  $('newGalaxyBtn').onclick = function () { v.openNewGalaxy && v.openNewGalaxy(); setTimeout(function () { $('seedInput').focus(); $('seedInput').select(); }, 50); };
+  $('dlgYes').onclick = function () { v.confirmYes && v.confirmYes(); };
+  $('dlgNo').onclick = function () { v.confirmNo && v.confirmNo(); };
   $('seedInput').addEventListener('input', function (e) { v.onSeedInput && v.onSeedInput(e); });
   $('seedInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); v.buildSeed && v.buildSeed(); } });
   Array.prototype.forEach.call($('presets').children, function (b) {
@@ -168,6 +207,14 @@ class DCLogic {
     var inp = $('seedInput');
     if (document.activeElement !== inp) inp.value = v.seedText;
     Array.prototype.forEach.call($('presets').children, function (b, i) { if (v.presets[i]) b.textContent = v.presets[i].label; });
+    $('menu').classList.toggle('hidden', !v.menuOpen);
+    $('menuBtn').setAttribute('aria-expanded', v.menuExpanded);
+    $('menuLabel').textContent = 'Galaxy ' + v.seed;
+    $('dialog').classList.toggle('hidden', !v.confirmOpen);
+    $('dlgTitle').textContent = v.confirmTitle;
+    $('dlgText').textContent = v.confirmText;
+    $('dlgYes').textContent = v.confirmYesLabel;
+    $('dlgNo').textContent = v.confirmNoLabel;
     // keep the seed in the address, so a galaxy can be shared
     if (C.seed !== shownSeed) {
       shownSeed = C.seed;

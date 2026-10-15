@@ -4,21 +4,36 @@ class Component extends DCLogic {
     super(props);
     var self = this;
     this.VW = 390; this.VH = 584;
-    this.seed = (props && props.seed != null) ? props.seed : 23;
+    // a saved game continues; a different seed in the address asks first
+    var saved = this.loadSave();
+    var asked = (props && props.seed != null) ? +props.seed : null;
+    this.seed = asked != null ? asked : (saved ? saved.seed : 23);
+    this.menuOpen = false;
+    this.confirm = null;
+    if (saved && asked != null && saved.seed !== asked && this.saveHasProgress(saved)) {
+      this.seed = saved.seed;
+      this.confirm = { seed: asked, title: 'Open galaxy ' + asked + '?', text: 'You have progress in galaxy ' + saved.seed + '. Opening galaxy ' + asked + ' removes that progress.', yes: 'Open galaxy ' + asked, no: 'Keep my galaxy' };
+    }
     this.seedText = String(this.seed);
     this.seedMode = false;
+    this.toggleMenu = function () { self.menuOpen = !self.menuOpen; self.bump(); };
+    this.openNewGalaxy = function () { self.menuOpen = false; self.seedMode = true; self.seedText = String(self.seed); self.bump(); };
+    this.closeSeed = function () { self.seedMode = false; self.bump(); };
+    this.confirmNo = function () { self.confirm = null; self.bump(); };
+    this.confirmYes = function () { var n = self.confirm && self.confirm.seed; self.confirm = null; if (n != null) self.reseed(n); else self.bump(); };
     this.onSeedInput = function (e) { self.seedText = e.target.value; self.bump(); };
     this.buildSeed = function () {
       var n = parseInt(String(self.seedText).replace(/[^0-9]/g, ''), 10);
       if (isNaN(n)) { self.say('Type a number as seed.', 'warn'); self.bump(); return; }
-      self.reseed(n);
+      self.requestBuild(n);
     };
-    this.randomSeed = function () { self.seedText = String(Math.floor(Math.random() * 1000000)); self.reseed(+self.seedText); };
+    this.randomSeed = function () { self.seedText = String(Math.floor(Math.random() * 1000000)); self.requestBuild(+self.seedText); };
     this.MIN_TILE = 40;
     var w = this.world();
     this.state = { ver: 0 };
     this.game = this.newGame();
     this.focus = w.current;
+    if (saved && saved.seed === this.seed) this.restore(saved);
     var start = (props && props.start) || 'field';
     this.cam = this.camFor(start, this.focus);
     this.ptrs = {};
@@ -460,6 +475,7 @@ class Component extends DCLogic {
         self.focus = self.world().current;
         self.dirtyAll();
         self.seedMode = false;
+        self.save();
         self.say('Galaxy ' + n + ' is ready. Swipe over letters to select a word, then tap Accept.', 'good');
         self.cam = self.camFor('galaxy', self.focus);
         self.paint(); self.bump();
@@ -470,6 +486,55 @@ class Component extends DCLogic {
         self.bump();
       }
     }, 30);
+  }
+
+  // ---------- saving: one game in this browser ----------
+  loadSave() {
+    try {
+      var raw = typeof localStorage !== 'undefined' && localStorage.getItem('wordgalaxy:save');
+      var sv = raw && JSON.parse(raw);
+      return sv && sv.v === 1 && typeof sv.seed === 'number' ? sv : null;
+    } catch (e) { return null; }
+  }
+  saveHasProgress(sv) {
+    return !!sv && (sv.words.some(function (x) { return !x[3]; }) || sv.state.indexOf('S') >= 0);
+  }
+  hasProgress() {
+    var g = this.game;
+    return g.words.some(function (wd) { return wd.alive && !wd.gift; }) || g.state.indexOf('S') >= 0;
+  }
+  save() {
+    var g = this.game, alive = [], index = {};
+    g.words.forEach(function (wd) { if (wd.alive) { index[wd.id] = alive.length; alive.push([wd.cells, wd.colour, wd.correct ? 1 : 0, wd.gift ? 1 : 0]); } });
+    var wrong = Object.keys(g.wrongMarked).map(function (id) { return index[id]; }).filter(function (x) { return x != null; });
+    var sv = { v: 1, seed: this.seed, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('wordgalaxy:save', JSON.stringify(sv)); } catch (e) {}
+  }
+  restore(sv) {
+    var w = this.world(), g = this.game, self = this;
+    if (!sv.state || sv.state.length !== w.fields.length) return;
+    g.words = []; g.cellWord.fill(-1);
+    var ids = [];
+    sv.words.forEach(function (x) {
+      var ok = x[0].every(function (j) { return j >= 0 && j < w.cells.length && g.cellWord[j] < 0; });
+      if (!ok) { ids.push(-1); return; }
+      var id = self.addWord(x[0].slice(), x[1], !!x[2]);
+      if (x[3]) g.words[id].gift = true;
+      ids.push(id);
+    });
+    g.state = sv.state.slice();
+    if (sv.used && sv.used.length === w.fields.length) g.used = sv.used.slice();
+    if (sv.hints && sv.hints.length === w.fields.length) g.hints = sv.hints;
+    (sv.wrong || []).forEach(function (i) { if (ids[i] >= 0) g.wrongMarked[ids[i]] = 1; });
+    if (sv.focus >= 0 && sv.focus < w.fields.length) this.focus = sv.focus;
+    this.recalcLit();
+    if (this.hasProgress()) this.say('Welcome back. Your galaxy is as you left it.', 'info');
+  }
+  requestBuild(n) {
+    if (this.hasProgress()) {
+      this.confirm = { seed: n, title: 'Start a new galaxy?', text: 'This removes all progress in galaxy ' + this.seed + '. You can not undo this.', yes: 'Start new galaxy', no: 'Keep playing' };
+      this.bump();
+    } else this.reseed(n);
   }
 
   newGame() {
@@ -485,7 +550,7 @@ class Component extends DCLogic {
     };
     this.game = g;
     var self = this;
-    w.regions.forEach(function (r) { if (r.found0) self.addWord(r.cells.slice(), r.colour0 >= 0 ? r.colour0 : self.pickColour(r.cells), true); });
+    w.regions.forEach(function (r) { if (r.found0) { var id = self.addWord(r.cells.slice(), r.colour0 >= 0 ? r.colour0 : self.pickColour(r.cells), true); g.words[id].gift = true; } });
     this.recalcLit();
     return g;
   }
@@ -1256,6 +1321,7 @@ class Component extends DCLogic {
     if (o.f !== this.focus || this.cam.s < this.fieldScale(o.f) * 0.6) {
       this.dirtyField(this.focus); this.dirtyField(o.f);
       this.focus = o.f;
+      this.save();
       g.sel = {}; g.selN = 0; g.picked = -1;
       var st = g.state[o.f];
       this.say(st === 'L' ? f.name + ' is locked. Solve a field next to it first.' : st === 'S' ? f.name + ' is solved.' : 'Swipe over letters to select a word, then tap Accept.', st === 'L' ? 'warn' : 'info');
@@ -1308,6 +1374,7 @@ class Component extends DCLogic {
       var mw = this.meaning(word);
       this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect star.'));
     } else { var mn = this.meaning(word); this.say(mn.text, 'good', mn.title); }
+    this.save();
     this.paint(); this.bump();
   }
 
@@ -1334,6 +1401,7 @@ class Component extends DCLogic {
     delete g.wrongMarked[wd.id];
     g.picked = -1;
     this.say('The letters stay selected. Swipe to change them, then tap Accept.', 'info', wd.word + ' removed.');
+    this.save();
     this.paint(); this.bump();
   }
 
@@ -1358,6 +1426,7 @@ class Component extends DCLogic {
       this.dirtyCells(wrong[0].cells, 1);
       g.used[fi]++;
       this.say('Starlight: ' + wrong[0].word + ' is not part of the solution.', 'info');
+      this.save();
       this.paint(); this.bump(); return;
     }
     // 2. walls and word starts in the lit band
@@ -1377,6 +1446,7 @@ class Component extends DCLogic {
     if (!pool.length) { this.say('Nothing left to show where the light reaches.', 'warn'); this.bump(); return; }
     hint = pool[(n * 7 + 3) % pool.length];
     g.hints[fi].push(hint);
+    this.save();
     this.dirtyCells(hint.b != null ? [hint.a, hint.b] : [hint.a], 1);
     g.used[fi]++;
     this.say(hint.kind === 'wall' ? 'Starlight shows a wall: the cells on each side belong to different words.' : 'Starlight shows a word start: a word begins in the marked cell.', 'info');
@@ -1397,7 +1467,6 @@ class Component extends DCLogic {
     var presets = [['field', 'Field'], ['area', 'Area'], ['galaxy', 'Galaxy']].map(function (p) {
       return { label: p[1], pick: function () { self.flyTo(self.camFor(p[0], self.focus)); } };
     });
-    presets.push({ label: this.seedMode ? 'Close' : 'Seed ' + this.seed, pick: function () { self.seedMode = !self.seedMode; self.seedText = String(self.seed); self.bump(); } });
     var picking = g.picked >= 0 && g.words[g.picked].alive;
     return {
       canvasRef: this.canvasRef, loRef: this.loRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
@@ -1407,6 +1476,10 @@ class Component extends DCLogic {
       focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? 'Solved' : '\u2605 Solved') : g.state[fi] === 'L' ? 'Locked' : Math.round(100 * covered / f.cells.length) + '%',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
       lightLeft: left, presets: presets,
+      toggleMenu: this.toggleMenu, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
+      menuOpen: this.menuOpen, menuExpanded: this.menuOpen ? 'true' : 'false', seed: this.seed,
+      confirmOpen: !!this.confirm, confirmTitle: this.confirm ? this.confirm.title : '', confirmText: this.confirm ? this.confirm.text : '',
+      confirmYesLabel: this.confirm ? this.confirm.yes : '', confirmNoLabel: this.confirm ? this.confirm.no : '',
       showPick: picking && !this.seedMode, showActions: !picking && !this.seedMode, seedMode: this.seedMode,
       seedText: this.seedText, onSeedInput: this.onSeedInput, buildSeed: this.buildSeed, randomSeed: this.randomSeed,
       picking: picking, notPicking: !picking, pickWord: picking ? g.words[g.picked].word : '',
