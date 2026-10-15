@@ -116,6 +116,22 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   </div>
 </div>
 <script>
+// This page can come from the browser cache (up to 10 minutes on GitHub Pages).
+// Ask the server for the newest build without the cache; if this page is older, load the newest once.
+var BUILD = '1320c47a5a';
+(function () {
+  try {
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
+      if (!v || !v.build || v.build === BUILD) return;
+      var u = new URL(location.href);
+      if (u.searchParams.get('b') === v.build) return; // tried once already
+      u.searchParams.set('b', v.build);
+      location.replace(u.pathname + u.search);
+    }).catch(function () {});
+  } catch (e) {}
+})();
+</script>
+<script>
 // A tiny stand-in for the prototype runtime: state changes call update(), which copies values into the page.
 var C = null, pending = false;
 function scheduleUpdate() { if (pending) return; pending = true; requestAnimationFrame(function () { pending = false; update(); }); }
@@ -126,7 +142,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=6524fbda5e"></script>
-<script src="game.js?v=f42f10b8ff"></script>
+<script src="game.js?v=a275479435"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -204,7 +220,7 @@ class DCLogic {
     Array.prototype.forEach.call($('presets').children, function (b, i) { if (v.presets[i]) b.textContent = v.presets[i].label; });
     $('menu').classList.toggle('hidden', !v.menuOpen);
     $('menuBtn').setAttribute('aria-expanded', v.menuExpanded);
-    $('menuLabel').textContent = 'Galaxy ' + v.seed;
+    $('menuLabel').textContent = 'Galaxy ' + v.seed + ' · version ' + BUILD.slice(0, 7);
     $('dialog').classList.toggle('hidden', !v.confirmOpen);
     $('dlgTitle').textContent = v.confirmTitle;
     $('dlgText').textContent = v.confirmText;
@@ -213,7 +229,7 @@ class DCLogic {
     // keep the seed in the address, so a galaxy can be shared
     if (C.seed !== shownSeed) {
       shownSeed = C.seed;
-      var u = new URL(location.href); u.searchParams.set('seed', C.seed);
+      var u = new URL(location.href); u.searchParams.set('seed', C.seed); u.searchParams.delete('b');
       history.replaceState(null, '', u.pathname + u.search);
     }
   };

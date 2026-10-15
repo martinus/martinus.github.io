@@ -33,7 +33,11 @@ class Component extends DCLogic {
     this.state = { ver: 0 };
     this.game = this.newGame();
     this.focus = w.current;
-    if (saved && saved.seed === this.seed) this.restore(saved);
+    if (saved && saved.seed === this.seed && !this.restore(saved) && this.saveHasProgress(saved)) {
+      // never lose a saved game silently: keep a copy
+      try { localStorage.setItem('wordgalaxy:backup', JSON.stringify(saved)); } catch (e) {}
+      this.say('Your saved game could not be loaded. A copy is kept in this browser.', 'warn');
+    }
     var start = (props && props.start) || 'field';
     this.cam = this.camFor(start, this.focus);
     this.ptrs = {};
@@ -512,7 +516,7 @@ class Component extends DCLogic {
   }
   restore(sv) {
     var w = this.world(), g = this.game, self = this;
-    if (!sv.state || sv.state.length !== w.fields.length) return;
+    if (!sv.state || sv.state.length !== w.fields.length) return false;
     g.words = []; g.cellWord.fill(-1);
     var ids = [];
     sv.words.forEach(function (x) {
@@ -529,6 +533,7 @@ class Component extends DCLogic {
     if (sv.focus >= 0 && sv.focus < w.fields.length) this.focus = sv.focus;
     this.recalcLit();
     if (this.hasProgress()) this.say('Welcome back. Your galaxy is as you left it.', 'info');
+    return true;
   }
   requestBuild(n) {
     if (this.hasProgress()) {
