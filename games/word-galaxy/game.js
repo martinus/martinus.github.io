@@ -186,12 +186,13 @@ class Component extends DCLogic {
       return true;
     }
     place(MID - 6, MID - 6, 12, 12); // the core
+    // [rows, columns]: fields are taller than wide, so they fit a phone held upright
     var SIZES = {
-      1: [[5, 6], [6, 5], [6, 6], [5, 7]],
-      2: [[7, 6], [6, 7], [7, 7], [8, 6]],
-      3: [[8, 6], [9, 6], [8, 7], [6, 8], [7, 7]],
-      4: [[12, 7], [12, 7], [11, 8], [10, 8], [7, 12], [9, 9]],
-      5: [[14, 8], [13, 9], [12, 10], [8, 14], [11, 11]]
+      1: [[6, 5], [7, 5], [6, 5], [7, 6]],
+      2: [[8, 6], [7, 6], [8, 6], [9, 7]],
+      3: [[9, 7], [9, 6], [10, 7], [8, 6]],
+      4: [[11, 8], [12, 8], [12, 9], [11, 7], [12, 7]],
+      5: [[13, 9], [14, 10], [13, 10], [12, 9]]
     };
     function tierAt(d) { return d < 2.9 ? 5 : d < 4.4 ? 4 : d < 5.2 ? 3 : d < 5.8 ? 2 : 1; }
     for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
@@ -200,7 +201,7 @@ class Component extends DCLogic {
       var tries = shuffle(SIZES[t].slice());
       if (t > 1) tries = tries.concat(shuffle(SIZES[t - 1].slice()));
       if (t > 2) tries = tries.concat(SIZES[t - 2]);
-      tries = tries.concat([[6, 6], [5, 7], [7, 5], [5, 6], [6, 5], [5, 5]]);
+      tries = tries.concat([[6, 5], [7, 5], [5, 4], [5, 5], [6, 4], [4, 4]]);
       for (var q = 0; q < tries.length; q++) if (place(r, c, tries[q][0], tries[q][1])) break;
     }
     var D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -208,10 +209,15 @@ class Component extends DCLogic {
     for (var pass = 0; pass < 20; pass++) {
       for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
         if (!mask[r][c] || owner[r][c] !== -1) continue;
-        var best = -1;
+        var best = -1, bestScore = 1e9;
         for (q = 0; q < 4; q++) {
           var o = own(r + D4[q][0], c + D4[q][1]);
-          if (o > 0 && (best < 0 || fields[o].cells.length < fields[best].cells.length)) best = o;
+          if (!(o > 0)) continue;
+          // q 0 and 1 are below and above: joining there keeps fields tall, but not taller than 15 rows
+          var fo = fields[o], rr0 = r, rr1 = r;
+          for (var z = 0; z < fo.cells.length; z++) { if (fo.cells[z][0] < rr0) rr0 = fo.cells[z][0]; if (fo.cells[z][0] > rr1) rr1 = fo.cells[z][0]; }
+          var sc2 = fo.cells.length + (q < 2 ? 0 : 25) + (rr1 - rr0 + 1 > 15 ? 200 : 0);
+          if (sc2 < bestScore) { best = o; bestScore = sc2; }
         }
         if (best >= 0) { owner[r][c] = best; fields[best].cells.push([r, c]); }
       }
@@ -227,13 +233,50 @@ class Component extends DCLogic {
           if (o2 !== undefined && o2 > 0 && o2 !== f.id && fields[o2].cells.length && touch.indexOf(o2) < 0) touch.push(o2);
         }
       });
-      touch.sort(function (a, b) { return fields[a].cells.length - fields[b].cells.length; });
+      function boxWith(o2) {
+        var r0 = 1e9, r1 = -1, c0 = 1e9, c1 = -1;
+        fields[o2].cells.concat(f.cells).forEach(function (x) { r0 = Math.min(r0, x[0]); r1 = Math.max(r1, x[0]); c0 = Math.min(c0, x[1]); c1 = Math.max(c1, x[1]); });
+        return [r1 - r0 + 1, c1 - c0 + 1];
+      }
+      // aim for a little taller than wide (about 1.4), like the screen of a phone held upright,
+      // and never bigger than 15 rows by 11 columns
+      function badness(o2) {
+        var b = boxWith(o2);
+        return Math.abs(b[0] / b[1] - 1.4) + (b[0] > 15 ? 10 + b[0] : 0) + (b[1] > 11 ? 10 + b[1] : 0);
+      }
+      touch.sort(function (a, b) { return (badness(a) - badness(b)) || (fields[a].cells.length - fields[b].cells.length); });
       if (!touch.length) return;
       var g = fields[touch[0]];
       f.cells.forEach(function (x) { owner[x[0]][x[1]] = g.id; g.cells.push(x); });
       f.cells = [];
     });
     fields = fields.filter(function (f) { return f.cells.length; });
+    // fields wider than 11 columns (thin parts of the arms): split into a left and a right half
+    function connected(cells) {
+      var set = new Set(cells.map(function (x) { return K(x[0], x[1]); })), seen = new Set(), st = [cells[0]];
+      seen.add(K(cells[0][0], cells[0][1]));
+      while (st.length) {
+        var x = st.pop();
+        for (var k = 0; k < 4; k++) { var kk = K(x[0] + D4[k][0], x[1] + D4[k][1]); if (set.has(kk) && !seen.has(kk)) { seen.add(kk); st.push([x[0] + D4[k][0], x[1] + D4[k][1]]); } }
+      }
+      return seen.size === cells.length;
+    }
+    var split = [];
+    fields.forEach(function (f, i) {
+      if (i === 0) { split.push(f); return; }
+      var c0 = 1e9, c1 = -1;
+      f.cells.forEach(function (x) { c0 = Math.min(c0, x[1]); c1 = Math.max(c1, x[1]); });
+      if (c1 - c0 + 1 <= 11 || f.cells.length < 40) { split.push(f); return; }
+      var mid = Math.floor((c0 + c1 + 1) / 2), done = false;
+      [0, 1, -1, 2, -2, 3, -3].forEach(function (dm) {
+        if (done) return;
+        var m = mid + dm;
+        var left = f.cells.filter(function (x) { return x[1] < m; }), right = f.cells.filter(function (x) { return x[1] >= m; });
+        if (left.length >= 20 && right.length >= 20 && connected(left) && connected(right)) { split.push({ cells: left }); split.push({ cells: right }); done = true; }
+      });
+      if (!done) split.push(f);
+    });
+    fields = split;
     fields.forEach(function (f, i) { f.id = i; f.cells.forEach(function (x) { owner[x[0]][x[1]] = i; }); });
 
     // field settings
@@ -357,6 +400,11 @@ class Component extends DCLogic {
     });
 
     // start: a very easy field at the tip of an arm; everything else locked
+    function isTall(f) {
+      var r0 = 1e9, r1 = -1, c0 = 1e9, c1 = -1;
+      f.cells.forEach(function (x) { r0 = Math.min(r0, x[0]); r1 = Math.max(r1, x[0]); c0 = Math.min(c0, x[1]); c1 = Math.max(c1, x[1]); });
+      return r1 - r0 > c1 - c0 ? 1 : 0;
+    }
     function isRect(f) {
       var r0 = 1e9, r1 = -1, c0 = 1e9, c1 = -1;
       f.cells.forEach(function (x) { r0 = Math.min(r0, x[0]); r1 = Math.max(r1, x[0]); c0 = Math.min(c0, x[1]); c1 = Math.max(c1, x[1]); });
@@ -364,7 +412,9 @@ class Component extends DCLogic {
     }
     var startCands = fields.filter(function (f) { return f.tier === 1 && f.r > MID; });
     if (!startCands.length) startCands = fields.filter(function (f) { return f.tier === 1; });
-    startCands.sort(function (a, b) { return (isRect(b) - isRect(a)) || (b.dist - a.dist) || (a.id - b.id); });
+    startCands = fields.filter(function (f) { return f.tier === 1; });
+    function low(f) { return f.r > MID ? 1 : 0; }
+    startCands.sort(function (a, b) { return (isTall(b) - isTall(a)) || (low(b) - low(a)) || (isRect(b) - isRect(a)) || (b.dist - a.dist) || (a.id - b.id); });
     var current = startCands[0].id;
 
     var regions = [], cellReg = {};
