@@ -45,6 +45,11 @@ button { font-family: inherit; cursor: pointer; }
 .seed input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--btn); background: #111a33; color: var(--text); font: 700 16px 'Archivo', system-ui, sans-serif; -webkit-user-select: text; user-select: text; }
 .hidden { display: none !important; }
 .stars { flex: none; height: 34px; padding: 0 10px 0 7px; display: flex; align-items: center; gap: 5px; border-radius: 17px; border: 1px solid var(--gold); background: transparent; color: var(--gold); font-size: 16px; font-weight: 800; }
+.lvl { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--btn); background: transparent; color: var(--text); text-align: left; }
+.lvl[aria-pressed="true"] { border-color: var(--gold); background: #2a3a6e; }
+.lvl .t { font-size: 16px; font-weight: 800; } .lvl .p { color: var(--gold); letter-spacing: .1em; } .lvl .d { font-size: 13px; font-weight: 500; color: var(--soft); }
+.ng { display: flex; flex-direction: column; gap: 10px; }
+.ng .sub { font-size: 13px; font-weight: 700; color: var(--muted); }
 .menu-btn { flex: none; width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; color: var(--soft); display: flex; align-items: center; justify-content: center; }
 .menu { position: absolute; left: 10px; top: 8px; width: 230px; padding: 8px; display: flex; flex-direction: column; gap: 4px; border-radius: 14px; background: #111a33; border: 1px solid #2e3a62; box-shadow: 0 16px 40px rgba(0,0,0,.5); z-index: 5; }
 .menu .label { padding: 8px 10px 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
@@ -91,8 +96,24 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <div class="label" id="menuLabel">Galaxy</div>
       <button type="button" id="shareBtn">Copy progress link</button>
       <button type="button" id="newGalaxyBtn">New galaxy…</button>
-      <a href="/games/">All games</a>
+      <button type="button" id="langBtn">🌐 Deutsch</button>
+      <a href="/games/" id="allGames">All games</a>
       <button type="button" class="quiet" id="menuCloseBtn">Close</button>
+    </div>
+    <div class="dialog-back hidden" id="ngBack">
+      <div class="dialog ng" role="dialog" aria-labelledby="ngTitle">
+        <h2 id="ngTitle">New galaxy</h2>
+        <div class="sub" id="ngLevel">Difficulty</div>
+        <div class="ng" id="ngLevels"></div>
+        <div class="row">
+          <label class="seed"><span id="ngNumber">Galaxy number</span> <input type="text" inputmode="numeric" id="seedInput" autocomplete="off"></label>
+          <button type="button" class="btn auto" id="randomBtn">Random</button>
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="ngCancel">Cancel</button>
+          <button type="button" class="btn main" id="buildBtn">Start</button>
+        </div>
+      </div>
     </div>
     <div class="dialog-back hidden" id="dialog">
       <div class="dialog" role="alertdialog" aria-labelledby="dlgTitle" aria-describedby="dlgText">
@@ -107,18 +128,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   </div>
   <div class="bar">
     <div class="msg" id="msg" role="status"></div>
-    <div class="row hidden" id="seedRow">
-      <label class="seed">Seed <input type="text" inputmode="numeric" id="seedInput" autocomplete="off"></label>
-      <button type="button" class="btn auto" id="randomBtn">Random</button>
-      <button type="button" class="btn main auto" id="buildBtn">Build</button>
-      <button type="button" class="btn x" id="seedCloseBtn" aria-label="Close">×</button>
-    </div>
   </div>
 </div>
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '55e7088ae3';
+var BUILD = '3866842747';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -141,32 +156,50 @@ class DCLogic {
   forceUpdate() { scheduleUpdate(); }
 }
 </script>
-<script src="words.js?v=6524fbda5e"></script>
-<script src="game.js?v=3937b5e2e5"></script>
+<script src="words.js?v=81dd80a9d5"></script>
+<script src="game.js?v=10704fa898"></script>
 <script>
+var WORDS_DE_SRC = 'words-de.js?v=96d058d0d1';
+// German words are a separate file, loaded only when needed
+window.loadWords = function (lang, cb) {
+  if (lang !== 'de' || window.WORDS_DE) { cb(true); return; }
+  var sc = document.createElement('script');
+  sc.src = WORDS_DE_SRC;
+  sc.onload = function () { cb(!!window.WORDS_DE); };
+  sc.onerror = function () { cb(false); };
+  document.head.appendChild(sc);
+};
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
   var seed = parseInt(params.get('seed'), 10);
   if (isNaN(seed)) seed = null; // no seed in the address: continue the saved game
+  var level = params.get('level');
+  var lang = params.get('lang');
+  if (lang !== 'de' && lang !== 'en') { try { lang = localStorage.getItem('wordgalaxy:lang'); } catch (e) { lang = null; } }
+  if (lang !== 'de') lang = 'en';
   // a progress link from another device: #p=<code>
   var progress = /^#p=([A-Za-z0-9_-]+)$/.exec(location.hash);
   progress = progress && progress[1];
   if (progress) seed = null;
   var cv = $('cv'), stage = $('stage');
 
-  setTimeout(function () {
-    C = new Component({ start: 'field', seed: seed });
+  function start() {
+    C = new Component({ start: 'field', seed: seed, level: level, lang: lang });
     fit();
     $('loading').classList.add('hidden');
     update();
     if (progress) {
       history.replaceState(null, '', location.pathname + location.search);
       C.importCode(progress).then(function (sv) { C.offerImport(sv); }, function (err) {
-        C.say('This progress link does not work (' + err.message + ').', 'warn'); C.bump();
+        C.say(C.T('linkBad', err.message), 'warn'); C.bump();
       });
     }
-  }, 20);
+  }
+  if (lang === 'de') {
+    $('loading').textContent = 'Die Wörter werden geladen …';
+    window.loadWords('de', function (ok) { if (!ok) lang = 'en'; setTimeout(start, 20); });
+  } else setTimeout(start, 20);
 
   function fit() {
     if (!C) return;
@@ -195,11 +228,12 @@ class DCLogic {
   $('quickBtn').onclick = function () { if (v.quickRemove) { v.removePick && v.removePick(); } else { v.accept && v.accept(); } };
   $('randomBtn').onclick = function () { v.randomSeed && v.randomSeed(); };
   $('buildBtn').onclick = function () { v.buildSeed && v.buildSeed(); };
-  $('seedCloseBtn').onclick = function () { v.closeSeed && v.closeSeed(); };
+  $('ngCancel').onclick = function () { v.closeSeed && v.closeSeed(); };
+  $('langBtn').onclick = function () { v.switchLang && v.switchLang(); };
   $('menuBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
   $('menuCloseBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
   $('shareBtn').onclick = function () { v.shareProgress && v.shareProgress(); };
-  $('newGalaxyBtn').onclick = function () { v.openNewGalaxy && v.openNewGalaxy(); setTimeout(function () { $('seedInput').focus(); $('seedInput').select(); }, 50); };
+  $('newGalaxyBtn').onclick = function () { v.openNewGalaxy && v.openNewGalaxy(); };
   $('dlgYes').onclick = function () { v.confirmYes && v.confirmYes(); };
   $('dlgNo').onclick = function () { v.confirmNo && v.confirmNo(); };
   $('seedInput').addEventListener('input', function (e) { v.onSeedInput && v.onSeedInput(e); });
@@ -218,7 +252,38 @@ class DCLogic {
     if (v.msgTitle) { var b = document.createElement('b'); b.textContent = v.msgTitle + ' '; $('msg').appendChild(b); }
     $('msg').appendChild(document.createTextNode(v.msg || ''));
     $('msg').style.color = v.msgColor;
-    $('seedRow').classList.toggle('hidden', !v.seedMode);
+    document.documentElement.lang = v.lang;
+    // texts in the chosen language
+    $('menuBtn').setAttribute('aria-label', v.tMenu);
+    $('lightBtn').title = v.tStarsTitle;
+    $('cv').setAttribute('aria-label', v.tMap);
+    $('shareBtn').textContent = v.tCopyLink;
+    $('newGalaxyBtn').textContent = v.tNewGalaxy;
+    $('langBtn').textContent = '🌐 ' + v.tOtherLang; $('langBtn').setAttribute('aria-label', v.tOtherLangAria);
+    $('allGames').textContent = v.tAllGames;
+    $('menuCloseBtn').textContent = v.tClose;
+    (v.zoomBtns || []).forEach(function (z, i) { $('z' + i).setAttribute('aria-label', z.label); });
+    // new galaxy: difficulty and number
+    $('ngBack').classList.toggle('hidden', !v.newOpen);
+    if (v.newOpen) {
+      $('ngTitle').textContent = v.tNgTitle; $('ngLevel').textContent = v.tNgLevel; $('ngNumber').textContent = v.tNgNumber;
+      $('randomBtn').textContent = v.tNgRandom; $('ngCancel').textContent = v.tNgCancel; $('buildBtn').textContent = v.tNgStart;
+      var box = $('ngLevels');
+      if (box.children.length !== v.levelBtns.length) {
+        box.innerHTML = '';
+        v.levelBtns.forEach(function (b, i) {
+          var el = document.createElement('button'); el.type = 'button'; el.className = 'lvl';
+          el.innerHTML = '<span class="t"><span class="p"></span> <span class="n"></span></span><span class="d"></span>';
+          el.onclick = function () { var x = v.levelBtns[i]; if (x) x.pick(); };
+          box.appendChild(el);
+        });
+      }
+      v.levelBtns.forEach(function (b, i) {
+        var el = box.children[i];
+        el.setAttribute('aria-pressed', b.pressed);
+        el.querySelector('.p').textContent = b.pips; el.querySelector('.n').textContent = b.name; el.querySelector('.d').textContent = b.desc;
+      });
+    }
     $('lightText').textContent = v.lightLeft;
     var qb = $('quickBtn');
     qb.classList.toggle('hidden', !v.quickShow);
@@ -226,25 +291,28 @@ class DCLogic {
       qb.style.transform = 'translate(' + v.quickX + 'px,' + v.quickY + 'px)';
       qb.classList.toggle('remove', !!v.quickRemove);
       $('quickPath').setAttribute('d', v.quickRemove ? 'M6 6l12 12M18 6L6 18' : 'M5 12.5l4.5 4.5L19 7.5');
-      var lab = v.quickRemove ? 'Remove ' + v.quickWord : 'Accept the selected word';
+      var lab = v.quickRemove ? v.tRemove : v.tAccept;
       qb.setAttribute('aria-label', lab); qb.title = lab;
     }
-    $('lightBtn').setAttribute('aria-label', 'Use one star for a hint (' + v.lightLeft + ' left)');
+    $('lightBtn').setAttribute('aria-label', v.tStarsAria);
     var inp = $('seedInput');
     if (document.activeElement !== inp) inp.value = v.seedText;
     (v.zoomBtns || []).forEach(function (z, i) { var b = $('z' + i); b.style.left = z.x + 'px'; b.style.top = z.y + 'px'; b.style.width = z.w + 'px'; b.style.height = z.h + 'px'; });
     $('menu').classList.toggle('hidden', !v.menuOpen);
     $('menuBtn').setAttribute('aria-expanded', v.menuExpanded);
-    $('menuLabel').textContent = 'Galaxy ' + v.seed + ' · version ' + BUILD.slice(0, 7);
+    $('menuLabel').textContent = v.tMenuGalaxy + ' · ' + BUILD.slice(0, 7);
     $('dialog').classList.toggle('hidden', !v.confirmOpen);
     $('dlgTitle').textContent = v.confirmTitle;
     $('dlgText').textContent = v.confirmText;
     $('dlgYes').textContent = v.confirmYesLabel;
     $('dlgNo').textContent = v.confirmNoLabel;
-    // keep the seed in the address, so a galaxy can be shared
-    if (C.seed !== shownSeed) {
-      shownSeed = C.seed;
+    // keep the galaxy in the address, so it can be shared
+    var key = C.seed + ':' + C.level + ':' + C.lang;
+    if (key !== shownSeed) {
+      shownSeed = key;
       var u = new URL(location.href); u.searchParams.set('seed', C.seed); u.searchParams.delete('b');
+      if (C.level !== 'hard') u.searchParams.set('level', C.level); else u.searchParams.delete('level');
+      if (C.lang === 'de') u.searchParams.set('lang', 'de'); else u.searchParams.delete('lang');
       history.replaceState(null, '', u.pathname + u.search);
     }
   };

@@ -4,21 +4,30 @@ class Component extends DCLogic {
     super(props);
     var self = this;
     this.VW = 390; this.VH = 648;
-    // a saved game continues; a different seed in the address asks first
-    var saved = this.loadSave();
+    // language: from the page, else the last one used in this browser; each language has its own saved galaxy
+    this.lang = (props && props.lang) || this.storedLang() || 'en';
+    if (this.lang !== 'de' || !this.hasWords('de')) this.lang = this.lang === 'de' && this.hasWords('de') ? 'de' : 'en';
+    // a saved game continues; a different galaxy in the address asks first
+    var saved = this.loadSave(this.lang);
     var asked = (props && props.seed != null) ? +props.seed : null;
+    var askedLevel = this.cleanLevel(props && props.level);
     this.seed = asked != null ? asked : (saved ? saved.seed : 23);
+    // a galaxy without a level is from before levels existed: hard. New players start with medium.
+    this.level = asked != null ? askedLevel : (saved ? this.cleanLevel(saved.level) : 'medium');
     this.menuOpen = false;
     this.confirm = null;
-    if (saved && asked != null && saved.seed !== asked && this.saveHasProgress(saved)) {
-      this.seed = saved.seed;
-      this.confirm = { seed: asked, title: 'Open galaxy ' + asked + '?', text: 'You have progress in galaxy ' + saved.seed + '. Opening galaxy ' + asked + ' removes that progress.', yes: 'Open galaxy ' + asked, no: 'Keep my galaxy' };
+    this.newOpen = false; this.newLevel = this.level;
+    if (saved && asked != null && (saved.seed !== asked || this.cleanLevel(saved.level) !== askedLevel) && this.saveHasProgress(saved)) {
+      this.seed = saved.seed; this.level = this.cleanLevel(saved.level);
+      this.confirm = { title: this.T('openTitle', asked), text: this.T('openText', saved.seed, asked), yes: this.T('openYes', asked), no: this.T('openNo'),
+        action: function () { self.reseed(asked, askedLevel); } };
     }
     this.seedText = String(this.seed);
     this.seedMode = false;
     this.toggleMenu = function () { self.menuOpen = !self.menuOpen; self.bump(); };
-    this.openNewGalaxy = function () { self.menuOpen = false; self.seedMode = true; self.seedText = String(self.seed); self.bump(); };
-    this.closeSeed = function () { self.seedMode = false; self.bump(); };
+    this.openNewGalaxy = function () { self.menuOpen = false; self.newOpen = true; self.newLevel = self.level; self.seedText = String(Math.floor(Math.random() * 1000000)); self.bump(); };
+    this.closeSeed = function () { self.newOpen = false; self.bump(); };
+    this.switchLang = function () { self.menuOpen = false; self.changeLang(self.lang === 'de' ? 'en' : 'de'); };
     this.confirmNo = function () { self.confirm = null; self.bump(); };
     this.confirmYes = function () {
       var c = self.confirm; self.confirm = null;
@@ -28,19 +37,25 @@ class Component extends DCLogic {
     this.onSeedInput = function (e) { self.seedText = e.target.value; self.bump(); };
     this.buildSeed = function () {
       var n = parseInt(String(self.seedText).replace(/[^0-9]/g, ''), 10);
-      if (isNaN(n)) { self.say('Type a number as seed.', 'warn'); self.bump(); return; }
-      self.requestBuild(n);
+      if (isNaN(n)) { self.say(self.T('typeNumber'), 'warn'); self.bump(); return; }
+      self.newOpen = false;
+      self.requestBuild(n, self.newLevel);
     };
-    this.randomSeed = function () { self.seedText = String(Math.floor(Math.random() * 1000000)); self.requestBuild(+self.seedText); };
+    this.randomSeed = function () { self.seedText = String(Math.floor(Math.random() * 1000000)); self.bump(); };
+    this.levelPick = {
+      easy: function () { self.newLevel = 'easy'; self.bump(); },
+      medium: function () { self.newLevel = 'medium'; self.bump(); },
+      hard: function () { self.newLevel = 'hard'; self.bump(); }
+    };
     this.MIN_TILE = 40;
     var w = this.world();
     this.state = { ver: 0 };
     this.game = this.newGame();
     this.focus = w.current;
-    if (saved && saved.seed === this.seed && !this.restore(saved) && this.saveHasProgress(saved)) {
+    if (saved && saved.seed === this.seed && this.cleanLevel(saved.level) === this.level && !this.restore(saved) && this.saveHasProgress(saved)) {
       // never lose a saved game silently: keep a copy
-      try { localStorage.setItem('wordgalaxy:backup', JSON.stringify(saved)); } catch (e) {}
-      this.say('Your saved game could not be loaded. A copy is kept in this browser.', 'warn');
+      try { localStorage.setItem(this.saveKey(this.lang, 'backup'), JSON.stringify(saved)); } catch (e) {}
+      this.say(this.T('saveBroken'), 'warn');
     }
     var start = (props && props.start) || 'field';
     this.cam = this.camFor(start, this.focus);
@@ -72,23 +87,103 @@ class Component extends DCLogic {
     if (this.drag && this.drag.timer) clearTimeout(this.drag.timer);
   }
   bump() { this.setState({ ver: this.state.ver + 1 }); }
+
+  // ---------- texts in English and German ----------
+  T(key) {
+    var S = Component.STR || (Component.STR = {
+      en: {
+        openTitle: 'Open galaxy {0}?', openText: 'You have progress in galaxy {0}. Opening galaxy {1} removes that progress.', openYes: 'Open galaxy {0}', openNo: 'Keep my galaxy',
+        typeNumber: 'Type a number for the galaxy.', saveBroken: 'Your saved game could not be loaded. A copy is kept in this browser.',
+        noMeaning: 'No meaning in this little dictionary yet.', from: 'from', core: 'Galactic Core',
+        building: 'Building galaxy {0}…', ready: 'Galaxy {0} is ready. Swipe over letters to select a word, then tap the ✓ button.', seedFail: 'Galaxy {0} did not work ({1}). Try another number.',
+        linkOpen: 'Open the link on your other device. It asks before it replaces the progress there.', linkCopied: 'Progress link copied.', linkSent: 'Progress link sent.',
+        copyFail: 'Could not copy the link in this browser.', linkFail: 'Could not make the link ({0}).', saveFail: 'Could not save the progress in this browser.',
+        linkBad: 'This progress link does not work ({0}).', shareTitle: 'Word Galaxy progress',
+        loadTitle: 'Load progress from the link?', loadText: 'The link has {0}. This browser has {1}. Loading replaces the progress in this browser.', loadYes: 'Load progress', loadNo: 'Keep this progress',
+        galaxyDesc: 'galaxy {0} ({1}) with {2}', fields1: '1 solved field', fieldsN: '{0} solved fields',
+        welcome: 'Welcome back. Your galaxy is as you left it.',
+        newTitle: 'Start a new galaxy?', newText: 'This removes all progress in galaxy {0}. You can not undo this.', newYes: 'Start new galaxy', keepPlaying: 'Keep playing',
+        bigSolved: '{0} solved', perfect: 'Perfect',
+        removeAsk: 'Remove {0}? Tap anywhere else to keep it.', holdToRemove: 'Hold the word to remove it.',
+        locked: '{0} is locked. Solve a field next to it first.', isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
+        solvedOther: '{0} is solved. Tap a field with a dashed outline.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
+        nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
+        cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!',
+        removed: '{0} removed.', staySelected: 'The letters stay selected. Swipe to change them, then tap the ✓ button.',
+        starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
+        starWrong: 'A star shows: {0} is not part of the solution.', starNothing: 'A star has nothing more to show in this field.',
+        starWall: 'A star shows a wall: the cells on each side belong to different words.', starStart: 'A star shows a word start: a word begins in the marked cell.',
+        tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
+        lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
+        lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Long words and big fields.',
+        menu: 'Menu', starsAria: 'Use one star for a hint ({0} left)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word', remove: 'Remove {0}',
+        zGalaxy: 'Show the whole galaxy', zArea: 'Show the area around this field', zField: 'Show this field',
+        map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
+        menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
+        ngTitle: 'New galaxy', ngLevel: 'Difficulty', ngNumber: 'Galaxy number', ngRandom: 'Random', ngStart: 'Start', ngCancel: 'Cancel',
+        loadingWords: 'Loading the words…', loadFail: 'Could not load the words. Check the connection and try again.', firstGame: 'Choose how hard your galaxy should be.'
+      },
+      de: {
+        openTitle: 'Galaxie {0} öffnen?', openText: 'Du hast Fortschritt in Galaxie {0}. Wenn du Galaxie {1} öffnest, ist dieser Fortschritt weg.', openYes: 'Galaxie {0} öffnen', openNo: 'Meine Galaxie behalten',
+        typeNumber: 'Gib eine Zahl für die Galaxie ein.', saveBroken: 'Dein gespeichertes Spiel konnte nicht geladen werden. Eine Kopie bleibt in diesem Browser.',
+        noMeaning: 'Für dieses Wort gibt es noch keine Erklärung.', from: 'von', core: 'Galaktischer Kern',
+        building: 'Galaxie {0} wird gebaut …', ready: 'Galaxie {0} ist fertig. Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.', seedFail: 'Galaxie {0} hat nicht funktioniert ({1}). Versuche eine andere Zahl.',
+        linkOpen: 'Öffne den Link auf deinem anderen Gerät. Es fragt, bevor es den Fortschritt dort ersetzt.', linkCopied: 'Fortschritts-Link kopiert.', linkSent: 'Fortschritts-Link gesendet.',
+        copyFail: 'Der Link konnte in diesem Browser nicht kopiert werden.', linkFail: 'Der Link konnte nicht erstellt werden ({0}).', saveFail: 'Der Fortschritt konnte in diesem Browser nicht gespeichert werden.',
+        linkBad: 'Dieser Fortschritts-Link funktioniert nicht ({0}).', shareTitle: 'Word Galaxy – Fortschritt',
+        loadTitle: 'Fortschritt aus dem Link laden?', loadText: 'Der Link hat {0}. Dieser Browser hat {1}. Beim Laden wird der Fortschritt in diesem Browser ersetzt.', loadYes: 'Fortschritt laden', loadNo: 'Diesen Fortschritt behalten',
+        galaxyDesc: 'Galaxie {0} ({1}) mit {2}', fields1: '1 gelösten Feld', fieldsN: '{0} gelösten Feldern',
+        welcome: 'Willkommen zurück. Deine Galaxie ist so, wie du sie verlassen hast.',
+        newTitle: 'Neue Galaxie starten?', newText: 'Damit ist der ganze Fortschritt in Galaxie {0} weg. Das kann man nicht rückgängig machen.', newYes: 'Neue Galaxie starten', keepPlaying: 'Weiterspielen',
+        bigSolved: '{0} gelöst', perfect: 'Perfekt',
+        removeAsk: '{0} entfernen? Tippe woanders hin, um es zu behalten.', holdToRemove: 'Halte das Wort gedrückt, um es zu entfernen.',
+        locked: '{0} ist gesperrt. Löse zuerst ein Feld daneben.', isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
+        solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit gestricheltem Rand.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
+        nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
+        cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!',
+        removed: '{0} entfernt.', staySelected: 'Die Buchstaben bleiben gewählt. Wische, um sie zu ändern, dann tippe auf ✓.',
+        starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
+        starWrong: 'Ein Stern zeigt: {0} gehört nicht zur Lösung.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
+        starWall: 'Ein Stern zeigt eine Wand: Die Felder auf beiden Seiten gehören zu verschiedenen Wörtern.', starStart: 'Ein Stern zeigt einen Wortanfang: Im markierten Feld beginnt ein Wort.',
+        tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
+        lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
+        lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Lange Wörter und große Felder.',
+        menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen', remove: '{0} entfernen',
+        zGalaxy: 'Die ganze Galaxie zeigen', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
+        map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
+        menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
+        ngTitle: 'Neue Galaxie', ngLevel: 'Schwierigkeit', ngNumber: 'Galaxie-Nummer', ngRandom: 'Zufällig', ngStart: 'Starten', ngCancel: 'Abbrechen',
+        loadingWords: 'Die Wörter werden geladen …', loadFail: 'Die Wörter konnten nicht geladen werden. Prüfe die Verbindung und versuche es noch einmal.', firstGame: 'Wähle, wie schwer deine Galaxie sein soll.'
+      }
+    });
+    var tb = S[this.lang] || S.en, str = tb[key] != null ? tb[key] : S.en[key], args = arguments;
+    return String(str).replace(/\{(\d)\}/g, function (m, i) { return args[+i + 1]; });
+  }
+  levelName(lv) { return this.T(lv === 'easy' ? 'lvEasy' : lv === 'medium' ? 'lvMedium' : 'lvHard'); }
+  fieldsText(n) { return n === 1 ? this.T('fields1') : this.T('fieldsN', n); }
+
   say(t, kind, title) { this.game.msg = t; this.game.msgKind = kind || 'info'; this.game.msgTitle = title || ''; }
 
   // a short meaning for a word, for learners
   meaning(word) {
     var d = this.words().defs.get(word);
-    if (!d) return { title: word, text: 'No meaning in this little dictionary yet.' };
-    var head = word + ' · ' + d[0] + (d[1] ? ', from ' + d[1] : '') + ':';
+    if (!d) return { title: word, text: this.T('noMeaning') };
+    if (this.lang === 'de') {
+      // German: word class and article, e.g. "HUND · Nomen, der:"
+      return { title: word + ' · ' + d[0] + (d[1] ? ', ' + d[1] : '') + ':', text: d[2] + (d[3] ? ' („' + d[3] + '“)' : '') };
+    }
+    var head = word + ' · ' + d[0] + (d[1] ? ', ' + this.T('from') + ' ' + d[1] : '') + ':';
     return { title: head, text: d[2] + (d[3] ? ' (“' + d[3] + '”)' : '') };
   }
 
   // ---------- static data ----------
   world() {
     if (this._w) return this._w;
+    var self = this;
     var DATA = this.generate(this.seed);
     var P = 28, M = 120, N = DATA.N, W = 2 * M + N * P;
     var fields = DATA.fields.map(function (f, i) {
-      return { i: i, name: f.name, mods: f.mods, tier: f.tier, state0: f.state, goal: !!f.goal, words: f.words, len: f.len, shape: f.shape,
+      return { i: i, name: i === 0 ? self.T('core') : f.name, mods: f.mods, tier: f.tier, state0: f.state, goal: !!f.goal, words: f.words, len: f.len, shape: f.shape,
         cells: [], regions: [], nb: {}, minR: 1e9, maxR: -1, minC: 1e9, maxC: -1 };
     });
     var regions = DATA.regions.map(function (g, i) { return { i: i, f: g[0], found0: !!g[1], colour0: g[2], cells: [] }; });
@@ -141,9 +236,15 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
+  wordSource(lang) {
+    if (lang === 'de') return typeof window !== 'undefined' && window.WORDS_DE ? window.WORDS_DE : window.WORDS_DE;
+    return window.WORDS;
+  }
   words() {
-    if (this._words) return this._words;
-    var WD = window.WORDS;
+    var lang = this.lang === 'de' ? 'de' : 'en';
+    if (!this._wordsBy) this._wordsBy = {};
+    if (this._wordsBy[lang]) return this._wordsBy[lang];
+    var WD = this.wordSource(lang);
     var list = WD.dict.split(' '), lv = WD.lv;
     var dict = new Set(list), defs = new Map();
     WD.defs.split('\n').forEach(function (line) {
@@ -160,24 +261,34 @@ class Component extends DCLogic {
       }
       return byLen;
     }
-    var space = {};
-    WD.space.split(' ').forEach(function (w) { (space[w.length] || (space[w.length] = [])).push(w); });
-    this._words = {
-      dict: dict, defs: defs, N: WD.N, mask: WD.mask,
+    function byLen(words) {
+      var out = {};
+      words.forEach(function (w) { if (w) (out[w.length] || (out[w.length] = [])).push(w); });
+      return out;
+    }
+    var space = byLen(WD.space.split(' '));
+    this._wordsBy[lang] = {
+      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang,
       pools: {
         easy: pool(function (l) { return l === 1; }),
         mid: pool(function (l) { return l <= 2; }),
         hard: pool(function (l) { return l >= 2 && l <= 4; }),
-        space: space
+        space: space,
+        // for children: well known, friendly words (checked by hand for German)
+        kid: byLen((WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
+        kidSpace: byLen((WD.kidspace || '').split(' ')),
+        all: pool(function () { return true; })
       }
     };
-    return this._words;
+    return this._wordsBy[lang];
   }
 
   // ---------- the galaxy generator: the same seed always gives the same galaxy ----------
   // Only integer maths, Math.sqrt and stable sorts with fixed comparators, so every browser agrees.
   generate(seedIn) {
     var WDS = this.words();
+    // overall difficulty: 'hard' is the original galaxy and must never change (saved games depend on it)
+    var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
     var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1);
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -192,6 +303,11 @@ class Component extends DCLogic {
         if (!arr) continue;
         var c = arr.filter(function (w) { return !used.has(w); });
         if (c.length) { var w = pick(c); used.add(w); return w; }
+      }
+      if (!HARD || WDS.lang !== 'en') {
+        // easier galaxies (and German ones) may use a word twice, or take any word of that length
+        for (p = 0; p < pools.length; p++) { var a2 = pools[p][len]; if (a2 && a2.length) return pick(a2); }
+        var any = POOL.all[len]; if (any && any.length) return pick(any);
       }
       throw new Error('no word of length ' + len);
     }
@@ -210,7 +326,8 @@ class Component extends DCLogic {
       fields.push({ id: id, cells: cells });
       return true;
     }
-    place(MID - 6, MID - 6, 12, 12); // the core
+    var CORE = HARD ? 12 : LV === 'medium' ? 10 : 8;
+    place(MID - CORE / 2, MID - CORE / 2, CORE, CORE); // the core
     // [rows, columns]: fields are taller than wide, so they fit a phone held upright
     var SIZES = {
       1: [[6, 5], [7, 5], [6, 5], [7, 6]],
@@ -219,14 +336,21 @@ class Component extends DCLogic {
       4: [[11, 8], [12, 8], [12, 9], [11, 7], [12, 7]],
       5: [[13, 9], [14, 10], [13, 10], [12, 9]]
     };
-    function tierAt(d) { return d < 2.9 ? 5 : d < 4.4 ? 4 : d < 5.2 ? 3 : d < 5.8 ? 2 : 1; }
+    if (LV === 'medium') SIZES = { 1: SIZES[1], 2: SIZES[2], 3: SIZES[3], 4: SIZES[4] };
+    // small fields for children: a few short words each, so a field is solved quickly
+    if (LV === 'easy') SIZES = { 1: [[5, 4], [6, 4], [5, 5], [6, 5]], 2: [[6, 5], [7, 5], [6, 4]], 3: [[7, 5], [7, 6], [6, 5]] };
+    function tierAt(d) {
+      if (LV === 'easy') return d < 2.9 ? 3 : d < 4.4 ? 2 : 1;
+      if (LV === 'medium') return d < 2.9 ? 4 : d < 4.4 ? 3 : d < 5.4 ? 2 : 1;
+      return d < 2.9 ? 5 : d < 4.4 ? 4 : d < 5.2 ? 3 : d < 5.8 ? 2 : 1;
+    }
     for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
       if (!mask[r][c] || owner[r][c] !== -1) continue;
       var t = tierAt(distOf(r, c));
       var tries = shuffle(SIZES[t].slice());
       if (t > 1) tries = tries.concat(shuffle(SIZES[t - 1].slice()));
       if (t > 2) tries = tries.concat(SIZES[t - 2]);
-      tries = tries.concat([[6, 5], [7, 5], [5, 4], [5, 5], [6, 4], [4, 4]]);
+      tries = tries.concat(LV === 'easy' ? [[5, 4], [4, 4], [5, 3], [4, 3]] : [[6, 5], [7, 5], [5, 4], [5, 5], [6, 4], [4, 4]]);
       for (var q = 0; q < tries.length; q++) if (place(r, c, tries[q][0], tries[q][1])) break;
     }
     var D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -250,7 +374,7 @@ class Component extends DCLogic {
     for (r = 0; r < N; r++) for (c = 0; c < N; c++) if (owner[r][c] === -1) mask[r][c] = false;
     // tiny fields merge into a neighbour
     fields.forEach(function (f) {
-      if (f.id === 0 || !f.cells.length || f.cells.length >= 26) return;
+      if (f.id === 0 || !f.cells.length || f.cells.length >= (LV === 'easy' ? 12 : 26)) return;
       var touch = [];
       f.cells.forEach(function (x) {
         for (var k = 0; k < 4; k++) {
@@ -314,6 +438,7 @@ class Component extends DCLogic {
       f.dist = distOf(f.r, f.c);
       f.name = i === 0 ? 'Galactic Core' : NAMES[(i * 37 + nameOff) % NAMES.length];
       f.mods = [];
+      if (!HARD) { levelField(f, i); return; }
       if (i === 0) { f.tier = 6; f.len = [6, 14]; f.pools = [POOL.space, POOL.hard]; f.mods.push('THEME'); return; }
       var n = f.cells.length;
       f.tier = Math.max(tierAt(f.dist), n >= 46 ? 2 : 1, n >= 56 ? 3 : 1, n >= 80 ? 4 : 1, n >= 110 ? 5 : 1);
@@ -325,6 +450,24 @@ class Component extends DCLogic {
       if (f.tier === 5) { f.len = [5, 12]; f.pools = [POOL.hard, POOL.mid]; if (rnd() < 0.3) f.mods.push('STAR'); }
       if (f.tier >= 4 && rnd() < 0.12) { f.mods.push('THEME'); f.pools = [POOL.space].concat(f.pools); }
     });
+
+    function levelField(f, i) {
+      var n = f.cells.length;
+      if (LV === 'easy') {
+        if (i === 0) { f.tier = 3; f.len = [4, 6]; f.pools = [POOL.kidSpace, POOL.kid, POOL.easy]; f.mods.push('THEME'); return; }
+        f.tier = Math.min(3, Math.max(tierAt(f.dist), n >= 40 ? 2 : 1, n >= 60 ? 3 : 1));
+        f.len = f.tier < 3 ? [4, 5] : [4, 6];
+        f.pools = [POOL.kid, POOL.easy];
+        if (rnd() < 0.5) f.mods.push('GIFT');
+        return;
+      }
+      if (i === 0) { f.tier = 5; f.len = [5, 10]; f.pools = [POOL.space, POOL.mid, POOL.hard]; f.mods.push('THEME'); return; }
+      f.tier = Math.min(4, Math.max(tierAt(f.dist), n >= 56 ? 2 : 1, n >= 80 ? 3 : 1, n >= 110 ? 4 : 1));
+      var T = [null, [[4, 5], [POOL.easy]], [[4, 6], [POOL.easy, POOL.mid]], [[4, 7], [POOL.mid, POOL.easy]], [[4, 9], [POOL.mid, POOL.hard]]][f.tier];
+      f.len = T[0]; f.pools = T[1];
+      if (f.tier <= 2 && rnd() < 0.4) f.mods.push('GIFT');
+      if (f.tier >= 3 && rnd() < 0.12) { f.mods.push('THEME'); f.pools = [POOL.space].concat(f.pools); }
+    }
 
     // cut each field into word shapes
     function partition(f, lo, hi) {
@@ -444,7 +587,7 @@ class Component extends DCLogic {
 
     var regions = [], cellReg = {};
     fields.forEach(function (f) {
-      var gift = f.id === current && f.mods.indexOf('GIFT') >= 0 ? pick(f.regions) : null;
+      var gift = f.id === current && (f.mods.indexOf('GIFT') >= 0 || LV === 'easy') ? pick(f.regions) : null;
       if (f.mods.indexOf('STAR') >= 0) { var sc0 = pick(pick(f.regions).cells); f.star = K(sc0[0], sc0[1]); }
       f.regions.forEach(function (reg) {
         var gi = regions.length;
@@ -470,37 +613,42 @@ class Component extends DCLogic {
     };
   }
 
-  reseed(n) {
+  reseed(n, level) {
     var self = this;
     this.seedText = String(n);
-    this.say('Building galaxy ' + n + '…', 'info');
+    this.say(this.T('building', n), 'info');
     this.bump();
     setTimeout(function () {
-      var old = { w: self._w, seed: self.seed, game: self.game, focus: self.focus };
+      var old = { w: self._w, seed: self.seed, level: self.level, game: self.game, focus: self.focus };
       try {
         self.seed = n; self._w = null; self._grp = null; self.fx = null;
+        if (level) self.level = self.cleanLevel(level);
         self.world();
         self.newGame();
         self.focus = self.world().current;
         self.dirtyAll();
         self.seedMode = false;
         self.save();
-        self.say('Galaxy ' + n + ' is ready. Swipe over letters to select a word, then tap the ✓ button.', 'good');
+        self.say(self.T('ready', n), 'good');
         self.cam = self.camFor('galaxy', self.focus);
         self.paint(); self.bump();
         self.flyTo(self.camFor('field', self.focus));
       } catch (err) {
-        self._w = old.w; self.seed = old.seed; self.game = old.game; self.focus = old.focus;
-        self.say('Seed ' + n + ' did not work (' + err.message + '). Try another one.', 'warn');
+        self._w = old.w; self.seed = old.seed; self.level = old.level; self.game = old.game; self.focus = old.focus;
+        self.say(self.T('seedFail', n, err.message), 'warn');
         self.bump();
       }
     }, 30);
   }
 
   // ---------- saving: one game in this browser ----------
-  loadSave() {
+  cleanLevel(lv) { return lv === 'easy' || lv === 'medium' ? lv : 'hard'; }
+  saveKey(lang, kind) { return 'wordgalaxy:' + (kind || 'save') + (lang === 'de' ? ':de' : ''); }
+  storedLang() { try { var l = localStorage.getItem('wordgalaxy:lang'); return l === 'de' || l === 'en' ? l : null; } catch (e) { return null; } }
+  hasWords(lang) { try { return !!this.wordSource(lang); } catch (e) { return false; } }
+  loadSave(lang) {
     try {
-      var raw = typeof localStorage !== 'undefined' && localStorage.getItem('wordgalaxy:save');
+      var raw = typeof localStorage !== 'undefined' && localStorage.getItem(this.saveKey(lang));
       var sv = raw && JSON.parse(raw);
       return sv && sv.v === 1 && typeof sv.seed === 'number' ? sv : null;
     } catch (e) { return null; }
@@ -514,20 +662,20 @@ class Component extends DCLogic {
   }
   save() {
     var sv = this.saveData();
-    try { if (typeof localStorage !== 'undefined') localStorage.setItem('wordgalaxy:save', JSON.stringify(sv)); } catch (e) {}
+    try { if (typeof localStorage !== 'undefined') { localStorage.setItem(this.saveKey(this.lang), JSON.stringify(sv)); localStorage.setItem('wordgalaxy:lang', this.lang); } } catch (e) {}
   }
   saveData() {
     var g = this.game, alive = [], index = {};
     g.words.forEach(function (wd) { if (wd.alive) { index[wd.id] = alive.length; alive.push([wd.cells, wd.colour, wd.correct ? 1 : 0, wd.gift ? 1 : 0]); } });
     var wrong = Object.keys(g.wrongMarked).map(function (id) { return index[id]; }).filter(function (x) { return x != null; });
-    return { v: 1, seed: this.seed, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
+    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
   }
 
   // ---------- moving progress to another device: the whole save in a link ----------
   // The code is the save as JSON, with word cells as differences (small numbers), deflated, in base64url.
   exportCode() {
     var sv = this.saveData();
-    var c = { v: 1, seed: sv.seed, focus: sv.focus, state: sv.state.join(''), used: sv.used, hints: sv.hints, wrong: sv.wrong,
+    var c = { v: 1, seed: sv.seed, level: sv.level, lang: sv.lang, focus: sv.focus, state: sv.state.join(''), used: sv.used, hints: sv.hints, wrong: sv.wrong,
       words: sv.words.map(function (x) { var d = x[0].map(function (j, i) { return i ? j - x[0][i - 1] : j; }); return [d, x[1], x[2], x[3]]; }) };
     var json = JSON.stringify(c);
     var b64 = function (bytes) {
@@ -548,7 +696,7 @@ class Component extends DCLogic {
     var done = function (text) {
       var c = JSON.parse(text);
       if (!c || c.v !== 1 || typeof c.seed !== 'number') throw new Error('not a Word Galaxy progress link');
-      return { v: 1, seed: c.seed, focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
+      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
         words: c.words.map(function (x) { var cells = [], a = 0; x[0].forEach(function (d, i) { a = i ? a + d : d; cells.push(a); }); return [cells, x[1], x[2], x[3]]; }) };
     };
     if (kind === 'j') return Promise.resolve(done(new TextDecoder().decode(u)));
@@ -565,32 +713,33 @@ class Component extends DCLogic {
     this.bump();
     this.exportCode().then(function (code) {
       var url = self.shareBase() + '#p=' + code;
-      var told = function () { self.say('Open the link on your other device. It asks before it replaces the progress there.', 'good', 'Progress link copied.'); self.bump(); };
-      var fail = function () { self.say('Could not copy the link in this browser.', 'warn'); self.bump(); };
+      var told = function () { self.say(self.T('linkOpen'), 'good', self.T('linkCopied')); self.bump(); };
+      var fail = function () { self.say(self.T('copyFail'), 'warn'); self.bump(); };
       var coarse = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
       if (coarse && typeof navigator !== 'undefined' && navigator.share) {
-        navigator.share({ title: 'Word Galaxy progress', url: url }).then(function () { self.say('Open the link on your other device. It asks before it replaces the progress there.', 'good', 'Progress link sent.'); self.bump(); }).catch(function () {});
+        navigator.share({ title: self.T('shareTitle'), url: url }).then(function () { self.say(self.T('linkOpen'), 'good', self.T('linkSent')); self.bump(); }).catch(function () {});
       } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
         navigator.clipboard.writeText(url).then(told, fail);
       } else fail();
-    }, function (err) { self.say('Could not make the link (' + err.message + ').', 'warn'); self.bump(); });
+    }, function (err) { self.say(self.T('linkFail', err.message), 'warn'); self.bump(); });
   }
   // a progress link was opened: load it, and ask first when this browser has progress of its own
   offerImport(sv) {
     var self = this, solved = function (st) { return st.filter(function (x) { return x === 'S'; }).length; };
     var apply = function () {
       try {
-        var old = localStorage.getItem('wordgalaxy:save');
-        if (old) localStorage.setItem('wordgalaxy:backup', old);
-        localStorage.setItem('wordgalaxy:save', JSON.stringify(sv));
-      } catch (e) { self.say('Could not save the progress in this browser.', 'warn'); self.bump(); return; }
+        var old = localStorage.getItem(self.saveKey(sv.lang));
+        if (old) localStorage.setItem(self.saveKey(sv.lang, 'backup'), old);
+        localStorage.setItem(self.saveKey(sv.lang), JSON.stringify(sv));
+        localStorage.setItem('wordgalaxy:lang', sv.lang);
+      } catch (e) { self.say(self.T('saveFail'), 'warn'); self.bump(); return; }
       location.replace(location.pathname);
     };
-    if (!this.hasProgress()) { apply(); return; }
-    var n = solved(sv.state), here = solved(this.game.state);
-    this.confirm = { title: 'Load progress from the link?',
-      text: 'The link has galaxy ' + sv.seed + ' with ' + n + ' solved field' + (n === 1 ? '' : 's') + '. This browser has galaxy ' + this.seed + ' with ' + here + ' solved field' + (here === 1 ? '' : 's') + '. Loading replaces the progress in this browser.',
-      yes: 'Load progress', no: 'Keep this progress', action: apply };
+    // the link replaces the saved galaxy of its own language
+    var mine = sv.lang === this.lang ? this.saveData() : this.loadSave(sv.lang);
+    if (!mine || !this.saveHasProgress(mine)) { apply(); return; }
+    var desc = function (x) { return self.T('galaxyDesc', x.seed, self.levelName(self.cleanLevel(x.level)), self.fieldsText(solved(x.state))); };
+    this.confirm = { title: this.T('loadTitle'), text: this.T('loadText', desc(sv), desc(mine)), yes: this.T('loadYes'), no: this.T('loadNo'), action: apply };
     this.bump();
   }
   restore(sv) {
@@ -611,14 +760,40 @@ class Component extends DCLogic {
     (sv.wrong || []).forEach(function (i) { if (ids[i] >= 0) g.wrongMarked[ids[i]] = 1; });
     if (sv.focus >= 0 && sv.focus < w.fields.length) this.focus = sv.focus;
     this.recalcLit();
-    if (this.hasProgress()) this.say('Welcome back. Your galaxy is as you left it.', 'info');
+    if (this.hasProgress()) this.say(this.T('welcome'), 'info');
     return true;
   }
-  requestBuild(n) {
+  requestBuild(n, level) {
+    var self = this;
     if (this.hasProgress()) {
-      this.confirm = { seed: n, title: 'Start a new galaxy?', text: 'This removes all progress in galaxy ' + this.seed + '. You can not undo this.', yes: 'Start new galaxy', no: 'Keep playing' };
+      this.confirm = { title: this.T('newTitle'), text: this.T('newText', this.seed), yes: this.T('newYes'), no: this.T('keepPlaying'), action: function () { self.reseed(n, level); } };
       this.bump();
-    } else this.reseed(n);
+    } else this.reseed(n, level);
+  }
+  // switch the language: keep this galaxy saved, and continue the saved galaxy of the other language
+  changeLang(to) {
+    var self = this;
+    if (!this.hasWords(to)) {
+      if (typeof window !== 'undefined' && window.loadWords) {
+        this.say(this.T('loadingWords'), 'info'); this.bump();
+        window.loadWords(to, function (ok) { if (ok && self.hasWords(to)) self.changeLang(to); else { self.say(self.T('loadFail'), 'warn'); self.bump(); } });
+      }
+      return;
+    }
+    this.save();
+    var sv = this.loadSave(to);
+    this.lang = to;
+    try { localStorage.setItem('wordgalaxy:lang', to); } catch (e) {}
+    this.seed = sv ? sv.seed : 23; this.level = sv ? this.cleanLevel(sv.level) : 'medium';
+    this._w = null; this._grp = null; this.fx = null;
+    this.world();
+    this.newGame();
+    this.focus = this.world().current;
+    if (sv) this.restore(sv); else this.say(this.T('howTo'), 'info');
+    this.dirtyAll();
+    this.cam = this.camFor('field', this.focus);
+    if (!sv) { this.save(); this.newOpen = true; this.newLevel = this.level; this.seedText = String(Math.floor(Math.random() * 1000000)); this.say(this.T('firstGame'), 'info'); }
+    this.paint(); this.bump();
   }
 
   newGame() {
@@ -630,7 +805,7 @@ class Component extends DCLogic {
       used: w.fields.map(function () { return 0; }),
       hints: w.fields.map(function () { return []; }),
       wrongMarked: {},
-      msg: 'Swipe over letters to select a word, then tap the ✓ button.', msgKind: 'info'
+      msg: this.T('howTo'), msgKind: 'info', msgTitle: ''
     };
     this.game = g;
     var self = this;
@@ -1333,11 +1508,11 @@ class Component extends DCLogic {
     ctx.shadowColor = 'rgba(242,192,99,0.8)'; ctx.shadowBlur = 16;
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 34px Archivo, system-ui, sans-serif';
-    ctx.fillText(fx.name + ' solved', 0, -4);
+    ctx.fillText(this.T('bigSolved', fx.name), 0, -4);
     ctx.fillStyle = '#f2c063';
     ctx.font = '800 18px Archivo, system-ui, sans-serif';
     var gotStars = this.starsFor(fx.fi);
-    ctx.fillText((fx.perfect ? 'Perfect  ·  ' : '') + '+' + gotStars + ' ★', 0, 34);
+    ctx.fillText((fx.perfect ? this.T('perfect') + '  ·  ' : '') + '+' + gotStars + ' ★', 0, 34);
     ctx.restore();
     this.paint();
   }
@@ -1479,7 +1654,7 @@ class Component extends DCLogic {
           self.dirtyCells(Object.keys(g.sel).map(Number), 1); self.dirtyCells(g.words[wid].cells, 1);
           g.picked = wid; g.sel = {}; g.selN = 0;
           self.pickCell = self.drag.cellI;
-          self.say('Remove ' + g.words[wid].word + '? Tap anywhere else to keep it.', 'warn');
+          self.say(self.T('removeAsk', g.words[wid].word), 'warn');
           self.drag.mode = 'held';
           self.quick = self.quickPos();
           self.paint(); self.bump();
@@ -1587,7 +1762,7 @@ class Component extends DCLogic {
     if (d.mode === 'press' && !d.moved) {
       var wd = this.game.words[this.game.cellWord[d.cellI]];
       var mn = this.meaning(wd.word);
-      this.say(mn.text + ' Hold the word to remove it.', 'info', mn.title);
+      this.say(mn.text + ' ' + this.T('holdToRemove'), 'info', mn.title);
       this.bump();
     }
     this.refreshQuick();
@@ -1604,14 +1779,14 @@ class Component extends DCLogic {
       this.save();
       g.sel = {}; g.selN = 0; g.picked = -1;
       var st = g.state[o.f];
-      this.say(st === 'L' ? f.name + ' is locked. Solve a field next to it first.' : st === 'S' ? f.name + ' is solved.' : 'Swipe over letters to select a word, then tap the ✓ button.', st === 'L' ? 'warn' : 'info');
+      this.say(st === 'L' ? this.T('locked', f.name) : st === 'S' ? this.T('isSolved', f.name) : this.T('howTo'), st === 'L' ? 'warn' : 'info');
       this.flyTo(this.camFor('field', o.f));
       this.bump();
       return;
     }
     if (g.cellWord[o.i] >= 0) { var mn = this.meaning(g.words[g.cellWord[o.i]].word); this.say(mn.text, 'info', mn.title); this.bump(); }
-    else if (g.state[o.f] === 'L') { this.say(f.name + ' is locked. Solve a field next to it first.', 'warn'); this.bump(); }
-    else if (g.state[o.f] === 'S') { this.say(f.name + ' is solved. Tap a field with a dashed outline.', 'info'); this.bump(); }
+    else if (g.state[o.f] === 'L') { this.say(this.T('locked', f.name), 'warn'); this.bump(); }
+    else if (g.state[o.f] === 'S') { this.say(this.T('solvedOther', f.name), 'info'); this.bump(); }
   }
 
   wheel(e) {
@@ -1628,15 +1803,15 @@ class Component extends DCLogic {
   doAccept() {
     var w = this.world(), g = this.game;
     var sel = Object.keys(g.sel).map(Number).filter(function (j) { return g.cellWord[j] < 0; });
-    if (sel.length < 4) { this.say('Select at least 4 letters first.', 'warn'); this.bump(); return; }
+    if (sel.length < 4) { this.say(this.T('min4'), 'warn'); this.bump(); return; }
     sel.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
     // the letters of a word must touch
     var inSel = {}; sel.forEach(function (j) { inSel[j] = 1; });
     var seen = {}, stack = [sel[0]], n = 0; seen[sel[0]] = 1;
     while (stack.length) { var j = stack.pop(); n++; w.cells[j].nb.forEach(function (q) { if (q >= 0 && inSel[q] && !seen[q]) { seen[q] = 1; stack.push(q); } }); }
     var word = sel.map(function (j) { return w.cells[j].l; }).join('');
-    if (n !== sel.length) { this.say('The letters of a word must touch each other.', 'warn'); this.bump(); return; }
-    if (!w.dict.has(word)) { this.say(word + ' is not in the word list.', 'warn'); this.bump(); return; }
+    if (n !== sel.length) { this.say(this.T('touch'), 'warn'); this.bump(); return; }
+    if (!w.dict.has(word)) { this.say(this.T('notInList', word), 'warn'); this.bump(); return; }
     var gi = w.cells[sel[0]].g, reg = w.regions[gi];
     var correct = reg.cells.length === sel.length && sel.every(function (j) { return w.cells[j].g === gi; });
     this.dirtyCells(sel, 1);
@@ -1653,7 +1828,8 @@ class Component extends DCLogic {
       this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
       var gave = this.starsFor(fi);
       var mw = this.meaning(word);
-      this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'You earned ' + gave + ' star' + (gave > 1 ? 's' : '') + '. Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect, no stars used.'));
+      var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
+      this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + (g.used[fi] ? '' : this.T('perfectNo')));
     } else { var mn = this.meaning(word); this.say(mn.text, 'good', mn.title); }
     this.save();
     this.quick = this.quickPos();
@@ -1682,7 +1858,7 @@ class Component extends DCLogic {
     wd.cells.forEach(function (j) { g.cellWord[j] = -1; g.sel[j] = 1; g.selN++; });
     delete g.wrongMarked[wd.id];
     g.picked = -1;
-    this.say('The letters stay selected. Swipe to change them, then tap the ✓ button.', 'info', wd.word + ' removed.');
+    this.say(this.T('staySelected'), 'info', this.T('removed', wd.word));
     this.save();
     this.quick = this.quickPos();
     this.paint(); this.bump();
@@ -1690,7 +1866,7 @@ class Component extends DCLogic {
 
   // one pool of stars: every solved field adds as many as its difficulty (very easy 1 ... expert 5);
   // they can be used in any open field
-  starsFor(fi) { return Math.min(5, this.world().fields[fi].tier); }
+  starsFor(fi) { var t = this.world().fields[fi].tier; return this.level === 'easy' ? t + 1 : Math.min(5, t); }
   starsLeft() {
     var w = this.world(), g = this.game, self = this, sum = 0, used = 0;
     w.fields.forEach(function (f) { if (g.state[f.i] === 'S') sum += self.starsFor(f.i); used += g.used[f.i] || 0; });
@@ -1699,8 +1875,8 @@ class Component extends DCLogic {
 
   doLight() {
     var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi];
-    if (g.state[fi] !== 'O') { this.say('Stars work only in an open field.', 'warn'); this.bump(); return; }
-    if (this.starsLeft() <= 0) { this.say('No stars left. Solve fields to earn stars: harder fields give more.', 'warn'); this.bump(); return; }
+    if (g.state[fi] !== 'O') { this.say(this.T('starsOpen'), 'warn'); this.bump(); return; }
+    if (this.starsLeft() <= 0) { this.say(this.T('noStars'), 'warn'); this.bump(); return; }
     var have = {};
     g.hints[fi].forEach(function (h) { have[h.key] = 1; });
     // 1. a wrong word in this field
@@ -1712,7 +1888,7 @@ class Component extends DCLogic {
       g.wrongMarked[wrong[0].id] = 1;
       this.dirtyCells(wrong[0].cells, 1);
       g.used[fi]++;
-      this.say('A star shows: ' + wrong[0].word + ' is not part of the solution.', 'info');
+      this.say(this.T('starWrong', wrong[0].word), 'info');
       this.save();
       this.paint(); this.bump(); return;
     }
@@ -1730,13 +1906,13 @@ class Component extends DCLogic {
     });
     var n = g.used[fi];
     var pool = (n % 3 === 2 && starts.length) ? starts : (walls.length ? walls : starts);
-    if (!pool.length) { this.say('A star has nothing more to show in this field.', 'warn'); this.bump(); return; }
+    if (!pool.length) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
     hint = pool[(n * 7 + 3) % pool.length];
     g.hints[fi].push(hint);
     this.dirtyCells(hint.b != null ? [hint.a, hint.b] : [hint.a], 1);
     g.used[fi]++;
     this.save();
-    this.say(hint.kind === 'wall' ? 'A star shows a wall: the cells on each side belong to different words.' : 'A star shows a word start: a word begins in the marked cell.', 'info');
+    this.say(hint.kind === 'wall' ? this.T('starWall') : this.T('starStart'), 'info');
     this.paint(); this.bump();
   }
 
@@ -1752,7 +1928,7 @@ class Component extends DCLogic {
     var covered = f.cells.filter(function (j) { return g.cellWord[j] >= 0; }).length;
     var left = this.starsLeft();
     var ZL = this.zoomLayout();
-    var zoomBtns = [['galaxy', 'Show the whole galaxy'], ['area', 'Show the area around this field'], ['field', 'Show this field']].map(function (p, i) {
+    var zoomBtns = [['galaxy', this.T('zGalaxy')], ['area', this.T('zArea')], ['field', this.T('zField')]].map(function (p, i) {
       return { label: p[1], x: ZL[i].x, y: ZL[i].y, w: ZL[i].w, h: ZL[i].h, pick: function () { self.flyTo(self.camFor(p[0], self.focus)); } };
     });
     var picking = g.picked >= 0 && g.words[g.picked].alive;
@@ -1760,10 +1936,20 @@ class Component extends DCLogic {
       canvasRef: this.canvasRef, loRef: this.loRef, zoomRef: this.zoomRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
       clearSel: this.clearSel, accept: this.accept, useLight: this.useLight, cancelPick: this.cancelPick, removePick: this.removePick,
       focusName: f.name, focusPips: pips,
-      focusLevel: ['', 'Very easy', 'Easy', 'Medium', 'Hard', 'Expert', 'Master'][f.tier],
-      focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? 'Solved' : '\u2605 Solved') : g.state[fi] === 'L' ? 'Locked' : Math.round(100 * covered / f.cells.length) + '%',
+      focusLevel: this.T('tiers').split('|')[f.tier],
+      focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? this.T('solved') : '\u2605 ' + this.T('solved')) : g.state[fi] === 'L' ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
       lightLeft: left, zoomBtns: zoomBtns,
+      lang: this.lang, level: this.level, newOpen: this.newOpen, switchLang: this.switchLang,
+      levelBtns: ['easy', 'medium', 'hard'].map(function (lv, i) {
+        var on = self.newLevel === lv;
+        return { id: lv, name: self.levelName(lv), desc: self.T(['lvEasyDesc', 'lvMediumDesc', 'lvHardDesc'][i]), pips: ['●○○', '●●○', '●●●'][i], pick: self.levelPick[lv],
+          on: on, bg: on ? '#2a3a6e' : 'transparent', bd: on ? '#f2c063' : '#34405c', pressed: on ? 'true' : 'false' };
+      }),
+      tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'), tRemove: this.T('remove', picking ? g.words[g.picked].word : ''),
+      tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
+      tOtherLang: this.T('otherLang'), tOtherLangAria: this.T('otherLangAria'),
+      tNgTitle: this.T('ngTitle'), tNgLevel: this.T('ngLevel'), tNgNumber: this.T('ngNumber'), tNgRandom: this.T('ngRandom'), tNgStart: this.T('ngStart'), tNgCancel: this.T('ngCancel'),
       quickAccept: !!this.quick && this.quick.kind === 'accept', quickRemove: !!this.quick && this.quick.kind === 'remove', quickWord: picking ? g.words[g.picked].word : '',
       quickShow: !!this.quick, quickX: this.quick ? this.quick.x : 0, quickY: this.quick ? this.quick.y : 0,
       toggleMenu: this.toggleMenu, shareProgress: this.shareProgress, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
