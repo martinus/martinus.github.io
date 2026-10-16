@@ -877,16 +877,22 @@ class Component extends DCLogic {
   // ---------- drawing ----------
   setupCanvas(el) {
     if (!el || el === this._cv) return;
+    var first = !this.ctx;
     this._cv = el;
     var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
     // 2x is sharp enough for these letters, and far fewer pixels to move than 2.6x or 3x
     this.dpr = Math.min(2, dpr);
-    el.width = Math.round(this.VW * this.dpr);
-    el.height = Math.round(this.VH * this.dpr);
+    var W = Math.round(this.VW * this.dpr), H = Math.round(this.VH * this.dpr);
+    // setting the size clears the canvas, so only do it when the size really changed (phones resize often)
+    var changed = el.width !== W || el.height !== H;
+    if (changed) { el.width = W; el.height = H; }
     this.ctx = el.getContext('2d', { alpha: false });
     var self = this;
-    this.dirtyAll();
-    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self.dirtyAll(); });
+    if (first) {
+      this.dirtyAll();
+      // the letters' font arrives later: redraw, but keep showing the old tiles until the new ones are ready
+      if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self.dirtyAll(true); });
+    } else if (changed && this.cam && this._w) this.render();
   }
   // the motion layer: twice the size of the view in each direction, drawn at 1x.
   // While the view moves, the browser only moves and scales this picture (a GPU job), so motion stays smooth.
@@ -897,7 +903,7 @@ class Component extends DCLogic {
     var LW = Math.round(this.VW * (1 + 2 * this.loM)), LH = Math.round(this.VH * (1 + 2 * this.loM));
     el.style.width = LW + 'px'; el.style.height = LH + 'px';
     el.style.left = Math.round(-this.VW * this.loM) + 'px'; el.style.top = Math.round(-this.VH * this.loM) + 'px';
-    el.width = LW; el.height = LH;
+    if (el.width !== LW || el.height !== LH) { el.width = LW; el.height = LH; }
     this.loW = LW; this.loH = LH;
     this.loCtx = el.getContext('2d', { alpha: false });
     this.loCam = null;
@@ -955,7 +961,8 @@ class Component extends DCLogic {
     var self = this;
     if (this._lo && !this.moving) {
       this.moving = true;
-      this.renderLo();
+      var L = this.loCam, c0 = this.cam;
+      if (!L || this.loMissing || this.loVer !== this._ver || Math.abs(L.s / c0.s - 1) > 0.3) this.renderLo();
       if (this._cv) this._cv.style.opacity = '0';
       this.refreshQuick();
     }
@@ -990,8 +997,22 @@ class Component extends DCLogic {
   renderLo() {
     var c = this.cam;
     this.loCam = { x: c.x, y: c.y, s: c.s };
+    this.loVer = this._ver;
     this.loMissing = this.renderBase(this.loCtx, this.loW, this.loH, 1, this.loCam);
     this._lo.style.transform = 'none';
+  }
+  // while the view stands still the motion layer lies hidden under the sharp canvas: draw it there, a little per frame
+  prepareLo() {
+    var self = this;
+    if (!this._lo || this.moving || this._prepLo) return;
+    var L = this.loCam, c = this.cam;
+    if (L && !this.loMissing && this.loVer === this._ver && L.x === c.x && L.y === c.y && L.s === c.s) return;
+    this._prepLo = setTimeout(function () {
+      self._prepLo = 0;
+      if (self.moving || self.drag) { if (!self.moving) self.prepareLo(); return; }
+      self.renderLo();
+      if (self.loMissing) self.prepareLo();
+    }, 120);
   }
   // per frame while moving: only a CSS transform, unless the picture no longer covers the view
   updateLo() {
@@ -1133,6 +1154,7 @@ class Component extends DCLogic {
     this.renderOverlay(ox, oy, s);
     if (this.fx) this.renderFx(ox, oy, s);
     this.updateZoomStrip();
+    this.prepareLo();
   }
 
   // background, stars and the cached letter tiles for one canvas; returns true while some tiles are still missing
@@ -1157,9 +1179,10 @@ class Component extends DCLogic {
   }
 
   // ---------- tile cache: the world is drawn once per zoom level into 256 px images ----------
-  dirtyAll() {
+  dirtyAll(soft) {
     var self = this;
     this._ver = (this._ver || 0) + 1;
+    if (soft && this.tiles) { this.tiles.forEach(function (tl) { tl.stale = true; }); this.paint(); return; }
     if (this.tiles) this.tiles.forEach(function (tl) { if (tl.cv) self.spare.push(tl.cv); });
     this.tiles = new Map();
     this.spare = this.spare || [];
@@ -1168,9 +1191,7 @@ class Component extends DCLogic {
   dirtyRect(x0, y0, x1, y1) {
     this._ver = (this._ver || 0) + 1;
     if (!this.tiles) return;
-    var self = this, del = [];
-    this.tiles.forEach(function (tl, key) { if (tl.x0 < x1 && tl.x1 > x0 && tl.y0 < y1 && tl.y1 > y0) del.push(key); });
-    del.forEach(function (key) { var tl = self.tiles.get(key); if (tl.cv) self.spare.push(tl.cv); self.tiles.delete(key); });
+    this.tiles.forEach(function (tl) { if (tl.x0 < x1 && tl.x1 > x0 && tl.y0 < y1 && tl.y1 > y0) tl.stale = true; });
     this.paint();
   }
   dirtyCells(list, margin) {
@@ -1200,15 +1221,29 @@ class Component extends DCLogic {
     var t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     var budget = 6, missing = false;
     function tw(kk) { return TS / Math.pow(2, kk); }
+    function find(kk, tx, ty) {
+      // this canvas's own tiles first, else the same place drawn for the other canvas (same size in the world)
+      var tl = self.tiles.get(dpr + ':' + kk + ':' + tx + ':' + ty);
+      if (!tl) tl = self.tiles.get((dpr === 1 ? self.dpr : 1) + ':' + kk + ':' + tx + ':' + ty);
+      return tl;
+    }
     function get(kk, tx, ty, make) {
       var key = dpr + ':' + kk + ':' + tx + ':' + ty, tl = self.tiles.get(key);
-      if (tl) { tl.used = frame; return tl; }
-      if (!make) return null;
+      if (tl && !tl.stale) { tl.used = frame; return tl; }
+      if (!make) { tl = tl || find(kk, tx, ty); if (tl) tl.used = frame; return tl || null; }
       var now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-      if (now - t0 > budget) return null;
-      tl = self.renderTile(kk, tx, ty, dpr);
+      // no time left this frame: show the old picture of a changed tile, and draw it next frame
+      if (now - t0 > budget) { if (tl) { tl.used = frame; missing = true; } return tl || null; }
+      var nt = self.renderTile(kk, tx, ty, dpr);
+      if (tl && tl.cv) self.spare.push(tl.cv);
+      nt.used = frame;
+      self.tiles.set(key, nt);
+      return nt;
+    }
+    function base(bx, by) {
+      var key = '1:-3:' + bx + ':' + by, tl = self.tiles.get(key);
+      if (!tl) { tl = self.renderTile(-3, bx, by, 1); self.tiles.set(key, tl); }
       tl.used = frame;
-      self.tiles.set(key, tl);
       return tl;
     }
     function blit(tl, sx, sy, sw, sh, wx0, wy0, wx1, wy1) {
@@ -1233,14 +1268,23 @@ class Component extends DCLogic {
       var ax = tx * T, ay = ty * T;
       if (tl) { blit(tl, 0, 0, TS, TS, ax, ay, ax + T, ay + T); return; }
       missing = true;
+      self._holes = (self._holes || 0) + 1;
       // coarser level: one quarter of its tile
       var up = get(k - 1, tx >> 1, ty >> 1, false);
       if (up) { var h = TS / 2; blit(up, (tx & 1) * h, (ty & 1) * h, h, h, ax, ay, ax + T, ay + T); return; }
+      // last resort under everything: the low resolution picture of the whole galaxy, so there is never a hole
+      var KB = -3, TB = tw(KB);
+      if (k > KB) {
+        var bx = Math.floor(ax / TB), by = Math.floor(ay / TB), bt = base(bx, by);
+        if (bt) { var r2 = TS / TB; blit(bt, (ax - bx * TB) * r2, (ay - by * TB) * r2, T * r2, T * r2, ax, ay, ax + T, ay + T); }
+      }
       // finer level: four tiles
+      var got = 0;
       for (var dy = 0; dy < 2; dy++) for (var dx = 0; dx < 2; dx++) {
         var dn = get(k + 1, tx * 2 + dx, ty * 2 + dy, false);
-        if (dn) blit(dn, 0, 0, TS, TS, ax + dx * T / 2, ay + dy * T / 2, ax + (dx + 1) * T / 2, ay + (dy + 1) * T / 2);
+        if (dn) { got++; blit(dn, 0, 0, TS, TS, ax + dx * T / 2, ay + dy * T / 2, ax + (dx + 1) * T / 2, ay + (dy + 1) * T / 2); }
       }
+      if (got < 4 && k <= KB) self._empty = (self._empty || 0) + 1;
     });
     if (missing) this.paint();
     var result = missing;
