@@ -89,6 +89,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <button type="button" class="quick hidden" id="quickBtn" aria-label="Accept the selected word" title="Accept the selected word"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path id="quickPath" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
     <div class="menu hidden" id="menu">
       <div class="label" id="menuLabel">Galaxy</div>
+      <button type="button" id="shareBtn">Copy progress link</button>
       <button type="button" id="newGalaxyBtn">New galaxy…</button>
       <a href="/games/">All games</a>
       <button type="button" class="quiet" id="menuCloseBtn">Close</button>
@@ -117,7 +118,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '6642c13853';
+var BUILD = '55e7088ae3';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -125,7 +126,7 @@ var BUILD = '6642c13853';
       var u = new URL(location.href);
       if (u.searchParams.get('b') === v.build) return; // tried once already
       u.searchParams.set('b', v.build);
-      location.replace(u.pathname + u.search);
+      location.replace(u.pathname + u.search + location.hash);
     }).catch(function () {});
   } catch (e) {}
 })();
@@ -141,13 +142,17 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=6524fbda5e"></script>
-<script src="game.js?v=07df608871"></script>
+<script src="game.js?v=3937b5e2e5"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
   var seed = parseInt(params.get('seed'), 10);
   if (isNaN(seed)) seed = null; // no seed in the address: continue the saved game
+  // a progress link from another device: #p=<code>
+  var progress = /^#p=([A-Za-z0-9_-]+)$/.exec(location.hash);
+  progress = progress && progress[1];
+  if (progress) seed = null;
   var cv = $('cv'), stage = $('stage');
 
   setTimeout(function () {
@@ -155,6 +160,12 @@ class DCLogic {
     fit();
     $('loading').classList.add('hidden');
     update();
+    if (progress) {
+      history.replaceState(null, '', location.pathname + location.search);
+      C.importCode(progress).then(function (sv) { C.offerImport(sv); }, function (err) {
+        C.say('This progress link does not work (' + err.message + ').', 'warn'); C.bump();
+      });
+    }
   }, 20);
 
   function fit() {
@@ -187,6 +198,7 @@ class DCLogic {
   $('seedCloseBtn').onclick = function () { v.closeSeed && v.closeSeed(); };
   $('menuBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
   $('menuCloseBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
+  $('shareBtn').onclick = function () { v.shareProgress && v.shareProgress(); };
   $('newGalaxyBtn').onclick = function () { v.openNewGalaxy && v.openNewGalaxy(); setTimeout(function () { $('seedInput').focus(); $('seedInput').select(); }, 50); };
   $('dlgYes').onclick = function () { v.confirmYes && v.confirmYes(); };
   $('dlgNo').onclick = function () { v.confirmNo && v.confirmNo(); };

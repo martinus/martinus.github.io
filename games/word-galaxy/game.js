@@ -20,7 +20,11 @@ class Component extends DCLogic {
     this.openNewGalaxy = function () { self.menuOpen = false; self.seedMode = true; self.seedText = String(self.seed); self.bump(); };
     this.closeSeed = function () { self.seedMode = false; self.bump(); };
     this.confirmNo = function () { self.confirm = null; self.bump(); };
-    this.confirmYes = function () { var n = self.confirm && self.confirm.seed; self.confirm = null; if (n != null) self.reseed(n); else self.bump(); };
+    this.confirmYes = function () {
+      var c = self.confirm; self.confirm = null;
+      if (c && c.action) c.action(); else if (c && c.seed != null) self.reseed(c.seed); else self.bump();
+    };
+    this.shareProgress = function () { self.menuOpen = false; self.doShare(); };
     this.onSeedInput = function (e) { self.seedText = e.target.value; self.bump(); };
     this.buildSeed = function () {
       var n = parseInt(String(self.seedText).replace(/[^0-9]/g, ''), 10);
@@ -509,11 +513,85 @@ class Component extends DCLogic {
     return g.words.some(function (wd) { return wd.alive && !wd.gift; }) || g.state.indexOf('S') >= 0;
   }
   save() {
+    var sv = this.saveData();
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('wordgalaxy:save', JSON.stringify(sv)); } catch (e) {}
+  }
+  saveData() {
     var g = this.game, alive = [], index = {};
     g.words.forEach(function (wd) { if (wd.alive) { index[wd.id] = alive.length; alive.push([wd.cells, wd.colour, wd.correct ? 1 : 0, wd.gift ? 1 : 0]); } });
     var wrong = Object.keys(g.wrongMarked).map(function (id) { return index[id]; }).filter(function (x) { return x != null; });
-    var sv = { v: 1, seed: this.seed, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
-    try { if (typeof localStorage !== 'undefined') localStorage.setItem('wordgalaxy:save', JSON.stringify(sv)); } catch (e) {}
+    return { v: 1, seed: this.seed, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
+  }
+
+  // ---------- moving progress to another device: the whole save in a link ----------
+  // The code is the save as JSON, with word cells as differences (small numbers), deflated, in base64url.
+  exportCode() {
+    var sv = this.saveData();
+    var c = { v: 1, seed: sv.seed, focus: sv.focus, state: sv.state.join(''), used: sv.used, hints: sv.hints, wrong: sv.wrong,
+      words: sv.words.map(function (x) { var d = x[0].map(function (j, i) { return i ? j - x[0][i - 1] : j; }); return [d, x[1], x[2], x[3]]; }) };
+    var json = JSON.stringify(c);
+    var b64 = function (bytes) {
+      var bin = '', u = new Uint8Array(bytes);
+      for (var i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
+    var raw = new TextEncoder().encode(json);
+    if (typeof CompressionStream === 'undefined') return Promise.resolve('j' + b64(raw));
+    return new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()
+      .then(function (buf) { return 'z' + b64(buf); });
+  }
+  importCode(code) {
+    var kind = code.charAt(0), s = code.slice(1).replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s), u = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    var done = function (text) {
+      var c = JSON.parse(text);
+      if (!c || c.v !== 1 || typeof c.seed !== 'number') throw new Error('not a Word Galaxy progress link');
+      return { v: 1, seed: c.seed, focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
+        words: c.words.map(function (x) { var cells = [], a = 0; x[0].forEach(function (d, i) { a = i ? a + d : d; cells.push(a); }); return [cells, x[1], x[2], x[3]]; }) };
+    };
+    if (kind === 'j') return Promise.resolve(done(new TextDecoder().decode(u)));
+    if (kind !== 'z' || typeof DecompressionStream === 'undefined') return Promise.reject(new Error('this browser can not read the link'));
+    return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(done);
+  }
+  shareBase() {
+    var l = typeof location !== 'undefined' ? location : null;
+    if (l && /^https?:$/.test(l.protocol) && /word-galaxy/.test(l.pathname)) return l.origin + l.pathname;
+    return 'https://martin.ankerl.com/games/word-galaxy/';
+  }
+  doShare() {
+    var self = this;
+    this.bump();
+    this.exportCode().then(function (code) {
+      var url = self.shareBase() + '#p=' + code;
+      var told = function () { self.say('Open the link on your other device. It asks before it replaces the progress there.', 'good', 'Progress link copied.'); self.bump(); };
+      var fail = function () { self.say('Could not copy the link in this browser.', 'warn'); self.bump(); };
+      var coarse = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+      if (coarse && typeof navigator !== 'undefined' && navigator.share) {
+        navigator.share({ title: 'Word Galaxy progress', url: url }).then(function () { self.say('Open the link on your other device. It asks before it replaces the progress there.', 'good', 'Progress link sent.'); self.bump(); }).catch(function () {});
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(told, fail);
+      } else fail();
+    }, function (err) { self.say('Could not make the link (' + err.message + ').', 'warn'); self.bump(); });
+  }
+  // a progress link was opened: load it, and ask first when this browser has progress of its own
+  offerImport(sv) {
+    var self = this, solved = function (st) { return st.filter(function (x) { return x === 'S'; }).length; };
+    var apply = function () {
+      try {
+        var old = localStorage.getItem('wordgalaxy:save');
+        if (old) localStorage.setItem('wordgalaxy:backup', old);
+        localStorage.setItem('wordgalaxy:save', JSON.stringify(sv));
+      } catch (e) { self.say('Could not save the progress in this browser.', 'warn'); self.bump(); return; }
+      location.replace(location.pathname);
+    };
+    if (!this.hasProgress()) { apply(); return; }
+    var n = solved(sv.state), here = solved(this.game.state);
+    this.confirm = { title: 'Load progress from the link?',
+      text: 'The link has galaxy ' + sv.seed + ' with ' + n + ' solved field' + (n === 1 ? '' : 's') + '. This browser has galaxy ' + this.seed + ' with ' + here + ' solved field' + (here === 1 ? '' : 's') + '. Loading replaces the progress in this browser.',
+      yes: 'Load progress', no: 'Keep this progress', action: apply };
+    this.bump();
   }
   restore(sv) {
     var w = this.world(), g = this.game, self = this;
@@ -1688,7 +1766,7 @@ class Component extends DCLogic {
       lightLeft: left, zoomBtns: zoomBtns,
       quickAccept: !!this.quick && this.quick.kind === 'accept', quickRemove: !!this.quick && this.quick.kind === 'remove', quickWord: picking ? g.words[g.picked].word : '',
       quickShow: !!this.quick, quickX: this.quick ? this.quick.x : 0, quickY: this.quick ? this.quick.y : 0,
-      toggleMenu: this.toggleMenu, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
+      toggleMenu: this.toggleMenu, shareProgress: this.shareProgress, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
       menuOpen: this.menuOpen, menuExpanded: this.menuOpen ? 'true' : 'false', seed: this.seed,
       confirmOpen: !!this.confirm, confirmTitle: this.confirm ? this.confirm.title : '', confirmText: this.confirm ? this.confirm.text : '',
       confirmYesLabel: this.confirm ? this.confirm.yes : '', confirmNoLabel: this.confirm ? this.confirm.no : '',
