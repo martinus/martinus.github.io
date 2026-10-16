@@ -672,17 +672,13 @@ class Component extends DCLogic {
     if (d && (d.mode === 'paint' || d.mode === 'pinch' || d.moved)) return null;
     var sel = this.validSelection();
     if (!sel) return null;
-    var w = this.world(), c = this.cam, s = c.s, P = w.P, B = 44, gap = 6;
-    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-    sel.forEach(function (j) { var o = w.cells[j]; x0 = Math.min(x0, o.x); y0 = Math.min(y0, o.y); x1 = Math.max(x1, o.x + P); y1 = Math.max(y1, o.y + P); });
-    var sx0 = (x0 - c.x) * s + this.VW / 2, sx1 = (x1 - c.x) * s + this.VW / 2;
-    var sy0 = (y0 - c.y) * s + this.VH / 2, sy1 = (y1 - c.y) * s + this.VH / 2;
-    // above and to the right of the word: a finger on the screen hides what is below it
-    var x = sx1 + gap, y = sy0 - B - gap;
-    if (x + B > this.VW - 4) x = sx0 - B - gap;
-    if (x < 4) x = Math.min(this.VW - B - 4, Math.max(4, sx1 - B));
-    if (y < 4) y = sy1 + gap;
-    if (y + B > this.VH - 4) y = Math.max(4, sy0 - B - gap);
+    var w = this.world(), c = this.cam, s = c.s, P = w.P, B = 44;
+    // next to the last letter: the one the finger stopped on, else the last one in reading order
+    var j = this.game.sel[this.lastCell] && sel.indexOf(this.lastCell) >= 0 ? this.lastCell : sel[sel.length - 1];
+    var o = w.cells[j];
+    var cx = (o.x + P - c.x) * s + this.VW / 2, cy = (o.y - c.y) * s + this.VH / 2;
+    // centre on the upper right corner of that letter, so it covers only a part of it
+    var x = cx - B / 2, y = cy - B / 2;
     x = Math.round(Math.min(this.VW - B - 4, Math.max(4, x)));
     y = Math.round(Math.min(this.VH - B - 4, Math.max(4, y)));
     return { x: x, y: y };
@@ -1415,7 +1411,7 @@ class Component extends DCLogic {
     var g = this.game;
     if (!o || o.f !== this.focus || g.cellWord[o.i] >= 0) return;
     var d = this.drag;
-    if (d.add && !g.sel[o.i]) { g.sel[o.i] = 1; g.selN++; d.changed.push(o.i); this.dirtyCells([o.i], 1); }
+    if (d.add && !g.sel[o.i]) { g.sel[o.i] = 1; g.selN++; d.changed.push(o.i); this.dirtyCells([o.i], 1); this.lastCell = o.i; }
     else if (!d.add && g.sel[o.i]) { delete g.sel[o.i]; g.selN--; d.changed.push(o.i); this.dirtyCells([o.i], 1); }
   }
   undoStroke() {
