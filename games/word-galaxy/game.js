@@ -1079,6 +1079,7 @@ class Component extends DCLogic {
       ctx.setLineDash([]);
     }
     w.fields.forEach(function (f) { if (g.state[f.i] === 'O' && f.i !== self.focus) outline(f.i, '#a9c4ff', true, 2); });
+    w.fields.forEach(function (f) { if (g.state[f.i] === 'S' && f.i !== self.focus) outline(f.i, '#7fd17a', false, 2.5); });
     outline(this.focus, '#f2c063', false, 3);
     // word outlines: marked wrong (red dashed), picked for removal (white)
     function wordOutline(wd, colour, dashed) {
@@ -1210,9 +1211,50 @@ class Component extends DCLogic {
   }
 
   // edge arrows and a small map when the field is bigger than the screen
+  // share of letters already in words, per field (cached until words change)
+  fieldProgress() {
+    var w = this.world(), g = this.game, key = g.words.length + '|' + g.state.join('');
+    if (this._progKey === key) return this._prog;
+    var done = w.fields.map(function () { return 0; });
+    for (var j = 0; j < w.cells.length; j++) if (g.cellWord[j] >= 0) done[w.cells[j].f]++;
+    this._prog = done.map(function (d, i) { return d / w.fields[i].cells.length; });
+    this._progKey = key;
+    return this._prog;
+  }
+  // zoomed out: a green check on solved fields, the percent on started ones
+  renderBadges(ox, oy, s) {
+    var ctx = this.ctx, w = this.world(), g = this.game, VW = this.VW, VH = this.VH, prog = this.fieldProgress();
+    ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    w.fields.forEach(function (f) {
+      var st = g.state[f.i];
+      if (st === 'L') return;
+      var done = st === 'S', p = prog[f.i];
+      if (!done && (p <= 0 || p >= 1)) return;
+      var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
+      if (fw < 14 || fh < 14) return;
+      var cx = (f.x0 + f.x1) / 2 * s + ox, cy = (f.y0 + f.y1) / 2 * s + oy;
+      if (cx < -30 || cy < -30 || cx > VW + 30 || cy > VH + 30) return;
+      var r = Math.max(7, Math.min(13, Math.min(fw, fh) * 0.22));
+      if (done) {
+        ctx.fillStyle = '#2f8a3a'; ctx.strokeStyle = '#d8f5cf'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.8, r * 0.22); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(cx - r * 0.45, cy + r * 0.02); ctx.lineTo(cx - r * 0.1, cy + r * 0.38); ctx.lineTo(cx + r * 0.48, cy - r * 0.35); ctx.stroke();
+        ctx.lineCap = 'butt';
+      } else {
+        var txt = Math.round(p * 100) + '%', tw = Math.max(30, ctx.measureText(txt).width + 12), th = 19;
+        ctx.fillStyle = 'rgba(17,26,51,0.92)'; ctx.strokeStyle = '#a9c4ff'; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, th / 2); else ctx.rect(cx - tw / 2, cy - th / 2, tw, th);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#eef0f7'; ctx.fillText(txt, cx, cy + 0.5);
+      }
+    });
+  }
+
   renderOverlay(ox, oy, s) {
     var ctx = this.ctx, w = this.world(), g = this.game, f = w.fields[this.focus], VW = this.VW, VH = this.VH;
-    if (s < this.fieldScale(this.focus) * 0.75) return;
+    if (s < this.fieldScale(this.focus) * 0.75) { this.renderBadges(ox, oy, s); return; }
     var x0 = f.x0 * s + ox, x1 = f.x1 * s + ox, y0 = f.y0 * s + oy, y1 = f.y1 * s + oy;
     var more = { l: x0 < -4, r: x1 > VW + 4, t: y0 < -4, b: y1 > VH + 4 };
     if (!more.l && !more.r && !more.t && !more.b) return;
