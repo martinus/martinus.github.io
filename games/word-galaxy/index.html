@@ -19,7 +19,8 @@ body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; 
 .app { height: 100dvh; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; }
 header { flex: none; min-height: 56px; padding: env(safe-area-inset-top) 10px 0 4px; display: flex; align-items: center; gap: 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .level { flex: none; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
-.name { flex: 1; min-width: 0; font-size: 21px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mid { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.name { flex: 0 1 auto; min-width: 0; font-size: 21px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .progress { font-size: 17px; font-weight: 800; color: var(--soft); flex: none; }
 .zoom { position: relative; flex: none; height: 70px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .zoom canvas { position: absolute; left: 0; top: 0; width: 100%; height: 70px; }
@@ -69,8 +70,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
     <div class="name" id="name">Word Galaxy</div>
-    <div class="level" id="level"></div>
-    <div class="progress" id="progress"></div>
+    <div class="mid">
+      <div class="level" id="level"></div>
+      <div class="progress" id="progress"></div>
+    </div>
     <button type="button" class="stars" id="lightBtn" aria-label="Use one star for a hint" title="Use a star for a hint"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z" fill="#f2c063" stroke="#f2c063" stroke-width="1.2" stroke-linejoin="round"></path></svg><span id="lightText">0</span></button>
   </header>
   <div class="zoom" id="zoomBar">
@@ -114,7 +117,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = 'a36adf0a5b';
+var BUILD = '6642c13853';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
