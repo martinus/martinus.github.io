@@ -1034,7 +1034,7 @@ class Component extends DCLogic {
         ctx.roundRect(rx, ry, rw, rh, [(!sT && !sL) ? rr : 0, (!sT && !sR) ? rr : 0, (!sB && !sR) ? rr : 0, (!sB && !sL) ? rr : 0]);
         ctx.fill();
       } else ctx.fillRect(rx, ry, rw, rh);
-      if ((fl & 16) && wid < 0 && fst !== 'L') { ctx.strokeStyle = '#e0a32a'; ctx.lineWidth = Math.max(px, 2 * s); ctx.strokeRect(rx + s, ry + s, rw - 2 * s, rh - 2 * s); }
+      // (flag 16 marks an old 'star cell' idea that has no meaning in the game; it is not drawn)
       if (text) {
         var fog = false;
         ctx.fillStyle = fg;
