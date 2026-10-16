@@ -54,7 +54,7 @@ class Component extends DCLogic {
     this.clearSel = function () { self.dirtyCells(Object.keys(self.game.sel).map(Number), 1); self.game.sel = {}; self.game.selN = 0; self.draw(); self.refreshQuick(); };
     this.accept = function () { self.doAccept(); };
     this.useLight = function () { self.doLight(); };
-    this.cancelPick = function () { var pw = self.game.words[self.game.picked]; if (pw) self.dirtyCells(pw.cells, 1); self.game.picked = -1; self.say('', 'info'); self.draw(); self.bump(); };
+    this.cancelPick = function () { var pw = self.game.words[self.game.picked]; if (pw) self.dirtyCells(pw.cells, 1); self.game.picked = -1; self.say('', 'info'); self.quick = self.quickPos(); self.draw(); self.bump(); };
     this.removePick = function () { self.doRemove(); };
   }
 
@@ -670,22 +670,30 @@ class Component extends DCLogic {
     var d = this.drag;
     if (this.moving || this._anim) return null;
     if (d && (d.mode === 'paint' || d.mode === 'pinch' || d.moved)) return null;
-    var sel = this.validSelection();
-    if (!sel) return null;
-    var w = this.world(), c = this.cam, s = c.s, P = w.P, B = 44;
-    // next to the last letter: the one the finger stopped on, else the last one in reading order
-    var j = this.game.sel[this.lastCell] && sel.indexOf(this.lastCell) >= 0 ? this.lastCell : sel[sel.length - 1];
+    var g = this.game, w = this.world(), kind = 'accept', j;
+    if (g.picked >= 0 && g.words[g.picked] && g.words[g.picked].alive) {
+      // a held word: the remove button goes on the letter that was held
+      var pc = g.words[g.picked].cells;
+      kind = 'remove';
+      j = pc.indexOf(this.pickCell) >= 0 ? this.pickCell : pc[pc.length - 1];
+    } else {
+      var sel = this.validSelection();
+      if (!sel) return null;
+      // next to the last letter: the one the finger stopped on, else the last one in reading order
+      j = g.sel[this.lastCell] && sel.indexOf(this.lastCell) >= 0 ? this.lastCell : sel[sel.length - 1];
+    }
+    var c = this.cam, s = c.s, P = w.P, B = 44;
     var o = w.cells[j];
     var cx = (o.x + P - c.x) * s + this.VW / 2, cy = (o.y - c.y) * s + this.VH / 2;
     // centre on the upper right corner of that letter, so it covers only a part of it
     var x = cx - B / 2, y = cy - B / 2;
     x = Math.round(Math.min(this.VW - B - 4, Math.max(4, x)));
     y = Math.round(Math.min(this.VH - B - 4, Math.max(4, y)));
-    return { x: x, y: y };
+    return { x: x, y: y, kind: kind };
   }
   refreshQuick() {
     var q = this.quickPos(), o = this.quick;
-    if ((!q && !o) || (q && o && q.x === o.x && q.y === o.y)) return;
+    if ((!q && !o) || (q && o && q.x === o.x && q.y === o.y && q.kind === o.kind)) return;
     this.quick = q;
     this.bump();
   }
@@ -1382,6 +1390,8 @@ class Component extends DCLogic {
     if (ids.length > 2) return;
     var g = this.game, o = this.cellAtPt(p, false);
     var mouseRight = e.button === 2 || e.button === 1;
+    // a held word waits for its remove button; a touch anywhere else keeps the word
+    if (g.picked >= 0) { this.cancelPick(); }
     if (!mouseRight && o && o.f === this.focus && this.canPaint()) {
       if (g.cellWord[o.i] >= 0) {
         var self = this, wid = g.cellWord[o.i];
@@ -1390,8 +1400,10 @@ class Component extends DCLogic {
           if (!self.drag || self.drag.moved) return;
           self.dirtyCells(Object.keys(g.sel).map(Number), 1); self.dirtyCells(g.words[wid].cells, 1);
           g.picked = wid; g.sel = {}; g.selN = 0;
-          self.say('Remove ' + g.words[wid].word + '?', 'warn');
+          self.pickCell = self.drag.cellI;
+          self.say('Remove ' + g.words[wid].word + '? Tap anywhere else to keep it.', 'warn');
           self.drag.mode = 'held';
+          self.quick = self.quickPos();
           self.paint(); self.bump();
         }, 550);
         return;
@@ -1673,6 +1685,7 @@ class Component extends DCLogic {
       focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? 'Solved' : '\u2605 Solved') : g.state[fi] === 'L' ? 'Locked' : Math.round(100 * covered / f.cells.length) + '%',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
       lightLeft: left, zoomBtns: zoomBtns,
+      quickAccept: !!this.quick && this.quick.kind === 'accept', quickRemove: !!this.quick && this.quick.kind === 'remove', quickWord: picking ? g.words[g.picked].word : '',
       quickShow: !!this.quick, quickX: this.quick ? this.quick.x : 0, quickY: this.quick ? this.quick.y : 0,
       toggleMenu: this.toggleMenu, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
       menuOpen: this.menuOpen, menuExpanded: this.menuOpen ? 'true' : 'false', seed: this.seed,
