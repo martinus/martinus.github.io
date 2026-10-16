@@ -1691,7 +1691,7 @@ class Component extends DCLogic {
       menuOpen: this.menuOpen, menuExpanded: this.menuOpen ? 'true' : 'false', seed: this.seed,
       confirmOpen: !!this.confirm, confirmTitle: this.confirm ? this.confirm.title : '', confirmText: this.confirm ? this.confirm.text : '',
       confirmYesLabel: this.confirm ? this.confirm.yes : '', confirmNoLabel: this.confirm ? this.confirm.no : '',
-      showPick: picking && !this.seedMode, showActions: !picking && !this.seedMode, seedMode: this.seedMode,
+      showPick: false, showActions: !this.seedMode, seedMode: this.seedMode,
       seedText: this.seedText, onSeedInput: this.onSeedInput, buildSeed: this.buildSeed, randomSeed: this.randomSeed,
       picking: picking, notPicking: !picking, pickWord: picking ? g.words[g.picked].word : '',
       msg: g.msg, msgTitle: g.msgTitle || '', msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
