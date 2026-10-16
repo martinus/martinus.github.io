@@ -481,7 +481,7 @@ class Component extends DCLogic {
         self.dirtyAll();
         self.seedMode = false;
         self.save();
-        self.say('Galaxy ' + n + ' is ready. Swipe over letters to select a word, then tap Accept.', 'good');
+        self.say('Galaxy ' + n + ' is ready. Swipe over letters to select a word, then tap the ✓ button.', 'good');
         self.cam = self.camFor('galaxy', self.focus);
         self.paint(); self.bump();
         self.flyTo(self.camFor('field', self.focus));
@@ -552,7 +552,7 @@ class Component extends DCLogic {
       used: w.fields.map(function () { return 0; }),
       hints: w.fields.map(function () { return []; }),
       wrongMarked: {},
-      msg: 'Swipe over letters to select a word, then tap Accept.', msgKind: 'info'
+      msg: 'Swipe over letters to select a word, then tap the ✓ button.', msgKind: 'info'
     };
     this.game = g;
     var self = this;
@@ -1469,7 +1469,7 @@ class Component extends DCLogic {
       this.save();
       g.sel = {}; g.selN = 0; g.picked = -1;
       var st = g.state[o.f];
-      this.say(st === 'L' ? f.name + ' is locked. Solve a field next to it first.' : st === 'S' ? f.name + ' is solved.' : 'Swipe over letters to select a word, then tap Accept.', st === 'L' ? 'warn' : 'info');
+      this.say(st === 'L' ? f.name + ' is locked. Solve a field next to it first.' : st === 'S' ? f.name + ' is solved.' : 'Swipe over letters to select a word, then tap the ✓ button.', st === 'L' ? 'warn' : 'info');
       this.flyTo(this.camFor('field', o.f));
       this.bump();
       return;
@@ -1546,7 +1546,7 @@ class Component extends DCLogic {
     wd.cells.forEach(function (j) { g.cellWord[j] = -1; g.sel[j] = 1; g.selN++; });
     delete g.wrongMarked[wd.id];
     g.picked = -1;
-    this.say('The letters stay selected. Swipe to change them, then tap Accept.', 'info', wd.word + ' removed.');
+    this.say('The letters stay selected. Swipe to change them, then tap the ✓ button.', 'info', wd.word + ' removed.');
     this.save();
     this.paint(); this.bump();
   }

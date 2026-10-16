@@ -34,7 +34,9 @@ header { flex: none; min-height: 56px; padding: env(safe-area-inset-top) 8px 0 1
 button { font-family: inherit; cursor: pointer; }
 .btn { flex: 1; height: 44px; border-radius: 10px; border: 1px solid var(--btn); background: transparent; color: var(--text); font-size: 15px; font-weight: 700; }
 .btn.main { border: none; background: var(--gold); color: #1d2433; font-weight: 800; }
-.btn.light { flex: 1.3; display: flex; align-items: center; justify-content: center; gap: 8px; border-color: var(--gold); color: var(--gold); font-weight: 800; }
+.btn.light { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--gold); color: var(--gold); font-size: 18px; font-weight: 800; }
+.btn.icon { display: flex; align-items: center; justify-content: center; }
+.btn.wide { flex: 1.3; }
 .btn.danger { border: none; background: #e07a5a; color: #1d2433; font-weight: 800; }
 .btn.auto { flex: none; padding: 0 12px; }
 .seed { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--soft); }
@@ -102,12 +104,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <button type="button" class="btn danger" id="removeBtn">Remove</button>
     </div>
     <div class="row" id="actRow">
-      <button type="button" class="btn light" id="lightBtn" aria-label="Use one star for a hint">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f2c063" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l2.6 6.4 6.9.5-5.3 4.4 1.7 6.7L12 16.9 6.1 20.5l1.7-6.7L2.5 9.4l6.9-.5z"></path></svg>
-        <span id="lightText">Stars 0</span>
+      <button type="button" class="btn light" id="lightBtn" aria-label="Use one star for a hint" title="Use a star for a hint">
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z" fill="#f2c063" stroke="#f2c063" stroke-width="1.2" stroke-linejoin="round"></path></svg>
+        <span id="lightText">0</span>
       </button>
-      <button type="button" class="btn" id="clearBtn">Clear</button>
-      <button type="button" class="btn main" id="acceptBtn">Accept</button>
+      <button type="button" class="btn icon" id="clearBtn" aria-label="Clear the selection" title="Clear the selection"><svg width="46" height="30" viewBox="0 0 46 30" aria-hidden="true"><rect x="2" y="9" width="13" height="13" rx="3" fill="#3a4bb0" stroke="#8d9be8" stroke-width="1"></rect><rect x="16.5" y="9" width="13" height="13" rx="3" fill="#3a4bb0" stroke="#8d9be8" stroke-width="1"></rect><circle cx="36" cy="9" r="7.5" fill="#e07a5a"></circle><path d="M33 6l6 6M39 6l-6 6" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"></path></svg></button>
+      <button type="button" class="btn main icon wide" id="acceptBtn" aria-label="Accept the selected word" title="Accept the selected word"><svg width="46" height="30" viewBox="0 0 46 30" aria-hidden="true"><rect x="2" y="9" width="27.5" height="13" rx="3" fill="#9cc9ea" stroke="#1d2433" stroke-width="1"></rect><circle cx="36" cy="9" r="7.5" fill="#2f8a3a" stroke="#ffffff" stroke-width="1.2"></circle><path d="M32.6 9.2l2.4 2.4 4.4-4.6" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
     </div>
     <div class="row hidden" id="seedRow">
       <label class="seed">Seed <input type="text" inputmode="numeric" id="seedInput" autocomplete="off"></label>
@@ -120,7 +122,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '5a3a80ece3';
+var BUILD = '458502c643';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -144,7 +146,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=6524fbda5e"></script>
-<script src="game.js?v=e0f7bd3113"></script>
+<script src="game.js?v=7af099f274"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -216,7 +218,8 @@ class DCLogic {
     $('actRow').classList.toggle('hidden', !v.showActions);
     $('seedRow').classList.toggle('hidden', !v.seedMode);
     $('removeBtn').textContent = 'Remove ' + v.pickWord;
-    $('lightText').textContent = 'Stars ' + v.lightLeft;
+    $('lightText').textContent = v.lightLeft;
+    $('lightBtn').setAttribute('aria-label', 'Use one star for a hint (' + v.lightLeft + ' left)');
     var inp = $('seedInput');
     if (document.activeElement !== inp) inp.value = v.seedText;
     (v.zoomBtns || []).forEach(function (z, i) { var b = $('z' + i); b.style.left = z.x + 'px'; b.style.top = z.y + 'px'; b.style.width = z.w + 'px'; b.style.height = z.h + 'px'; });
