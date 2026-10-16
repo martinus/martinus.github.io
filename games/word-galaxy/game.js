@@ -110,7 +110,7 @@ class Component extends DCLogic {
         locked: '{0} is locked. Solve a field next to it first.', isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
         solvedOther: '{0} is solved. Tap a field with a dashed outline.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
         nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
-        cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!',
+        cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!', notHere: '{0} is a word, but not the one we look for here. Hold it to remove it.',
         removed: '{0} removed.', staySelected: 'The letters stay selected. Swipe to change them, then tap the ✓ button.',
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
         starWrong: 'A star shows: {0} is not part of the solution.', starNothing: 'A star has nothing more to show in this field.',
@@ -142,7 +142,7 @@ class Component extends DCLogic {
         locked: '{0} ist gesperrt. Löse zuerst ein Feld daneben.', isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
         solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit gestricheltem Rand.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
         nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
-        cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!',
+        cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!', notHere: '{0} ist ein Wort, aber nicht das gesuchte. Halte es gedrückt, um es zu entfernen.',
         removed: '{0} entfernt.', staySelected: 'Die Buchstaben bleiben gewählt. Wische, um sie zu ändern, dann tippe auf ✓.',
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
         starWrong: 'Ein Stern zeigt: {0} gehört nicht zur Lösung.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
@@ -232,13 +232,47 @@ class Component extends DCLogic {
     function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
     var stars = [];
     for (var i = 0; i < 420; i++) stars.push([rnd() * W, rnd() * W, 0.6 + rnd() * 1.4, 0.2 + rnd() * 0.7]);
-    var dict = this.words().dict;
+    // accepted words: the common ones, and every word of this galaxy's solution
+    var dict = new Set(this.words().accept);
+    regions.forEach(function (g) { dict.add(g.cells.map(function (j) { return cells[j].l; }).join('')); });
     this._w = { fields: fields, regions: regions, cells: cells, owner: owner, at: at, stars: stars, dict: dict, current: DATA.current, N: N, P: P, M: M, W: W };
     return this._w;
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 2; }
+  static get GEN() { return 3; }
+  // all beginnings of accepted words, to stop searching early
+  // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
+  static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
+  acceptCodes() {
+    var W = this.words();
+    if (!W.acceptCodes) {
+      var set = new Set();
+      W.accept.forEach(function (w) {
+        if (w.length < 4 || w.length > 6) return;
+        var code = 0;
+        for (var i = 0; i < w.length; i++) code = code * 32 + Component.letterCode(w[i]);
+        set.add(code);
+      });
+      W.acceptCodes = set;
+    }
+    return W.acceptCodes;
+  }
+  loadTrapCache(key) {
+    try { var c = JSON.parse(localStorage.getItem('wordgalaxy:cache:' + key.split(':')[0])); return c && c.key === key ? c.fields : null; } catch (e) { return null; }
+  }
+  saveTrapCache(key, fields) {
+    try { localStorage.setItem('wordgalaxy:cache:' + key.split(':')[0], JSON.stringify({ key: key, fields: fields })); } catch (e) {}
+  }
+  acceptPrefixes() {
+    var W = this.words();
+    if (!W.acceptPre) {
+      var pre = new Set();
+      W.accept.forEach(function (w) { for (var i = 1; i <= w.length; i++) pre.add(w.slice(0, i)); });
+      W.acceptPre = pre;
+    }
+    return W.acceptPre;
+  }
   wordSource(lang) {
     if (lang === 'de') return typeof window !== 'undefined' && window.WORDS_DE ? window.WORDS_DE : window.WORDS_DE;
     return window.WORDS;
@@ -270,8 +304,15 @@ class Component extends DCLogic {
       return out;
     }
     var space = byLen(WD.space.split(' '));
+    // accepted when selected: common words only (rare words make dead ends nobody thinks of), never rude ones
+    var bad = new Set((WD.bad || '').split(' ')), accept = new Set();
+    for (var ai = 0; ai < list.length; ai++) {
+      var av = lv.charCodeAt(ai) - 48;
+      if ((lang === 'de' ? av !== 9 : av <= 3) && !bad.has(list[ai])) accept.add(list[ai]);
+    }
+    WD.space.split(' ').forEach(function (w) { if (w) accept.add(w); });
     this._wordsBy[lang] = {
-      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang,
+      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang, accept: accept,
       pools: {
         easy: pool(function (l) { return l === 1; }),
         mid: pool(function (l) { return l <= 2; }),
@@ -293,8 +334,8 @@ class Component extends DCLogic {
     // overall difficulty: 'hard' is the original galaxy and must never change (saved games depend on it)
     var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
     // generator version: galaxies started before version 2 keep their words (their saves depend on them)
-    var GEN2 = (this.gen || 1) >= 2;
-    var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1);
+    var GEN2 = (this.gen || 1) >= 2, GEN3 = (this.gen || 1) >= 3, self = this;
+    var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1), seed0 = seed;
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
     function pick(a) { return a[Math.floor(rnd() * a.length)]; }
@@ -557,6 +598,7 @@ class Component extends DCLogic {
       }
       return go() ? out : null;
     }
+    var cacheKey = [WDS.lang, LV, seedIn, this.gen, WDS.accept.size].join(':'), trapCache = GEN3 && !HARD ? self.loadTrapCache(cacheKey) : null, newCache = {};
     fields.forEach(function (f) {
       var regs = null, a;
       for (a = 0; a < 12 && !regs; a++) regs = partition(f, f.len[0], f.len[1]);
@@ -571,7 +613,109 @@ class Component extends DCLogic {
       });
       f.len = [mn, mx];
       if (GEN2 && LV === 'easy') avoidLookalikes(f);
+      if (GEN3 && !HARD) {
+        // the swaps take a while: their result is kept in this browser and reused on the next visit
+        var hit = trapCache && trapCache[f.id], added = [];
+        if (hit && hit.w && hit.w.length === f.regions.length) {
+          f.regions.forEach(function (reg, i) { if (hit.w[i].length === reg.cells.length) reg.word = hit.w[i]; });
+          hit.u.forEach(function (w) { used.add(w); });
+          added = hit.u;
+        } else added = reduceTraps(f);
+        newCache[f.id] = { w: f.regions.map(function (reg) { return reg.word; }), u: added };
+      }
     });
+    if (GEN3 && !HARD) self.saveTrapCache(cacheKey, newCache);
+
+    // A trap is a word the player can select that is not a word of the solution: a dead end.
+    // Easy and medium galaxies swap words until a field has few traps left.
+    function reduceTraps(f) {
+      var acc = self.acceptCodes();
+      var cells = f.cells.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }), n = cells.length;
+      var idx = {}; cells.forEach(function (x, i) { idx[K(x[0], x[1])] = i; });
+      var nb = cells.map(function (x) {
+        var out = [];
+        for (var d = 0; d < 4; d++) { var q = idx[K(x[0] + D4[d][0], x[1] + D4[d][1])]; if (q !== undefined) out.push(q); }
+        return out;
+      });
+      var R = f.regions.length, regOf = new Int32Array(n), regPos = new Int32Array(n);
+      f.regions.forEach(function (reg, ri) { reg.cells.forEach(function (x, i) { var q = idx[K(x[0], x[1])]; regOf[q] = ri; regPos[q] = i; }); });
+      // every connected group of 4 to S cells, listed once (the shapes do not depend on the letters)
+      var S = Math.min(f.len[1] + 1, 6), shapes = [], touch = []; for (var r0 = 0; r0 < R; r0++) touch.push([]);
+      var mark = new Uint8Array(n);
+      function record(sub) {
+        if (sub.length < 4) return;
+        var sh = sub.slice().sort(function (a, b) { return a - b; }), rs = [];
+        for (var a = 0; a < sh.length; a++) { var rg = regOf[sh[a]]; if (rs.indexOf(rg) < 0) rs.push(rg); }
+        // the solution's own word is no trap
+        if (rs.length === 1 && f.regions[rs[0]].cells.length === sh.length) return;
+        var id = shapes.length; shapes.push(sh);
+        rs.forEach(function (rg) { touch[rg].push(id); });
+      }
+      function grow(v, sub, untried) {
+        while (untried.length) {
+          var u = untried.pop();
+          sub.push(u); record(sub);
+          if (sub.length < S) {
+            var added = [];
+            nb[u].forEach(function (w) { if (w > v && !mark[w]) { mark[w] = 1; added.push(w); } });
+            grow(v, sub, untried.concat(added));
+            added.forEach(function (w) { mark[w] = 0; });
+          }
+          sub.pop();
+        }
+      }
+      for (var v = 0; v < n; v++) {
+        var untried = [];
+        mark.fill(0); mark[v] = 1;
+        nb[v].forEach(function (w) { if (w > v) { mark[w] = 1; untried.push(w); } });
+        grow(v, [v], untried);
+      }
+      var L = new Int32Array(n), trap = new Uint8Array(shapes.length), total = 0;
+      function letters() { for (var q = 0; q < n; q++) L[q] = Component.letterCode(f.regions[regOf[q]].word[regPos[q]]); }
+      function isTrap(id) { var sh = shapes[id], code = 0; for (var a = 0; a < sh.length; a++) code = code * 32 + L[sh[a]]; return acc.has(code) ? 1 : 0; }
+      letters();
+      for (var id0 = 0; id0 < shapes.length; id0++) { trap[id0] = isTrap(id0); total += trap[id0]; }
+      function perRegion(rg) { var c = 0, t = touch[rg]; for (var a = 0; a < t.length; a++) c += trap[t[a]]; return c; }
+      // traps after giving region rg another word (only the shapes touching it can change)
+      function tryWord(rg, w) {
+        var old = f.regions[rg].word; f.regions[rg].word = w; letters();
+        var t = touch[rg], d = 0;
+        for (var a = 0; a < t.length; a++) d += isTrap(t[a]) - trap[t[a]];
+        f.regions[rg].word = old; letters();
+        return total + d;
+      }
+      function setWord(rg, w) {
+        f.regions[rg].word = w; letters();
+        var t = touch[rg];
+        for (var a = 0; a < t.length; a++) { var nt = isTrap(t[a]); total += nt - trap[t[a]]; trap[t[a]] = nt; }
+      }
+      // own random numbers, so the rest of the galaxy does not depend on the swaps
+      var ls = ((seed0 * 31 + f.id * 7919) % 2147483646) + 1;
+      function lrnd() { ls = (ls * 16807) % 2147483647; return (ls - 1) / 2147483646; }
+      function fresh(len, pools) {
+        for (var p = 0; p < pools.length; p++) {
+          var arr = pools[p][len]; if (!arr) continue;
+          var c = arr.filter(function (w) { return !used.has(w); });
+          if (c.length) return c[Math.floor(lrnd() * c.length)];
+        }
+        return null;
+      }
+      var target = LV === 'easy' ? 0 : Math.floor(R * 0.8), stuck = {}, added = [];
+      for (var round = 0; round < 2 * R && total > target; round++) {
+        var worst = -1, wc = 0;
+        for (var r = 0; r < R; r++) { if (stuck[r]) continue; var c = perRegion(r); if (c > wc) { wc = c; worst = r; } }
+        if (worst < 0) break;
+        var len = f.regions[worst].cells.length, best = total, bestWord = null;
+        for (var t2 = 0; t2 < 3; t2++) {
+          var cand = fresh(len, f.pools);
+          if (!cand) break;
+          var tt = tryWord(worst, cand);
+          if (tt < best) { best = tt; bestWord = cand; }
+        }
+        if (bestWord) { setWord(worst, bestWord); used.add(bestWord); added.push(bestWord); } else stuck[worst] = 1;
+      }
+      return added;
+    }
 
     // A word is confusing when one letter more or one letter less also makes a word,
     // e.g. GEHÖR next to a T (GEHÖRT). For children, pick other words until nothing like that is left.
@@ -1929,7 +2073,10 @@ class Component extends DCLogic {
     var gi = w.cells[sel[0]].g, reg = w.regions[gi];
     var correct = reg.cells.length === sel.length && sel.every(function (j) { return w.cells[j].g === gi; });
     this.dirtyCells(sel, 1);
-    this.addWord(sel, this.pickColour(sel), correct);
+    var newId = this.addWord(sel, this.pickColour(sel), correct);
+    // easy galaxies say at once when a word is not part of the solution
+    var notHere = this.level === 'easy' && !correct;
+    if (notHere) g.wrongMarked[newId] = 1;
     g.sel = {}; g.selN = 0;
     var fi = this.focus, f = w.fields[fi];
     var full = f.cells.every(function (j) { return g.cellWord[j] >= 0; });
@@ -1944,7 +2091,8 @@ class Component extends DCLogic {
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
       this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + (g.used[fi] ? '' : this.T('perfectNo')));
-    } else { var mn = this.meaning(word); this.say(mn.text, 'good', mn.title); }
+    } else if (notHere) { this.say(this.T('notHere', word), 'warn'); }
+    else { var mn = this.meaning(word); this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title); }
     this.save();
     this.quick = this.quickPos();
     this.paint(); this.bump();
