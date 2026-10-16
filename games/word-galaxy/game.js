@@ -14,11 +14,13 @@ class Component extends DCLogic {
     this.seed = asked != null ? asked : (saved ? saved.seed : 23);
     // a galaxy without a level is from before levels existed: hard. New players start with medium.
     this.level = asked != null ? askedLevel : (saved ? this.cleanLevel(saved.level) : 'medium');
+    // the newest generator for new galaxies; a saved galaxy keeps the version it was made with
+    this.gen = saved && saved.seed === this.seed && this.cleanLevel(saved.level) === this.level ? (saved.gen || 1) : Component.GEN;
     this.menuOpen = false;
     this.confirm = null;
     this.newOpen = false; this.newLevel = this.level;
     if (saved && asked != null && (saved.seed !== asked || this.cleanLevel(saved.level) !== askedLevel) && this.saveHasProgress(saved)) {
-      this.seed = saved.seed; this.level = this.cleanLevel(saved.level);
+      this.seed = saved.seed; this.level = this.cleanLevel(saved.level); this.gen = saved.gen || 1;
       this.confirm = { title: this.T('openTitle', asked), text: this.T('openText', saved.seed, asked), yes: this.T('openYes', asked), no: this.T('openNo'),
         action: function () { self.reseed(asked, askedLevel); } };
     }
@@ -236,6 +238,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
+  static get GEN() { return 2; }
   wordSource(lang) {
     if (lang === 'de') return typeof window !== 'undefined' && window.WORDS_DE ? window.WORDS_DE : window.WORDS_DE;
     return window.WORDS;
@@ -289,6 +292,8 @@ class Component extends DCLogic {
     var WDS = this.words();
     // overall difficulty: 'hard' is the original galaxy and must never change (saved games depend on it)
     var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
+    // generator version: galaxies started before version 2 keep their words (their saves depend on them)
+    var GEN2 = (this.gen || 1) >= 2;
     var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1);
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -565,7 +570,56 @@ class Component extends DCLogic {
         return { cells: ord, word: word(ord.length, f.pools) };
       });
       f.len = [mn, mx];
+      if (GEN2 && LV === 'easy') avoidLookalikes(f);
     });
+
+    // A word is confusing when one letter more or one letter less also makes a word,
+    // e.g. GEHÖR next to a T (GEHÖRT). For children, pick other words until nothing like that is left.
+    function avoidLookalikes(f) {
+      var dict = WDS.dict;
+      function letters() {
+        var at = {};
+        f.regions.forEach(function (reg) { reg.cells.forEach(function (x, i) { at[K(x[0], x[1])] = reg.word[i]; }); });
+        return at;
+      }
+      function read(cells, at) {
+        return cells.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }).map(function (x) { return at[K(x[0], x[1])]; }).join('');
+      }
+      function joined(cells) {
+        if (!cells.length) return false;
+        var set = {}, seen = {}, st = [cells[0]], n = 0;
+        cells.forEach(function (x) { set[K(x[0], x[1])] = 1; });
+        seen[K(cells[0][0], cells[0][1])] = 1;
+        while (st.length) {
+          var x = st.pop(); n++;
+          for (var d = 0; d < 4; d++) { var kk = K(x[0] + D4[d][0], x[1] + D4[d][1]); if (set[kk] && !seen[kk]) { seen[kk] = 1; st.push([x[0] + D4[d][0], x[1] + D4[d][1]]); } }
+        }
+        return n === cells.length;
+      }
+      function confusing(reg, at) {
+        var mine = {};
+        reg.cells.forEach(function (x) { mine[K(x[0], x[1])] = 1; });
+        // one letter less (the rest still touching)
+        if (reg.cells.length > 4) for (var i = 0; i < reg.cells.length; i++) {
+          var rest = reg.cells.filter(function (x, j) { return j !== i; });
+          if (joined(rest) && dict.has(read(rest, at))) return true;
+        }
+        // one letter more from a neighbouring cell of the same field
+        var tried = {};
+        for (var a = 0; a < reg.cells.length; a++) for (var d = 0; d < 4; d++) {
+          var y = reg.cells[a][0] + D4[d][0], x2 = reg.cells[a][1] + D4[d][1], kk = K(y, x2);
+          if (mine[kk] || tried[kk] || at[kk] === undefined) continue;
+          tried[kk] = 1;
+          if (dict.has(read(reg.cells.concat([[y, x2]]), at))) return true;
+        }
+        return false;
+      }
+      for (var round = 0; round < 8; round++) {
+        var at = letters(), bad = f.regions.filter(function (reg) { return confusing(reg, at); });
+        if (!bad.length) return;
+        bad.forEach(function (reg) { reg.word = word(reg.cells.length, f.pools); });
+      }
+    }
 
     // start: a very easy field at the tip of an arm; everything else locked
     function isTall(f) {
@@ -584,10 +638,24 @@ class Component extends DCLogic {
     function low(f) { return f.r > MID ? 1 : 0; }
     startCands.sort(function (a, b) { return (isTall(b) - isTall(a)) || (low(b) - low(a)) || (isRect(b) - isRect(a)) || (b.dist - a.dist) || (a.id - b.id); });
     var current = startCands[0].id;
+    // more starting points, as far from each other as possible (no random numbers, so the galaxy itself stays the same)
+    var starts = [startCands[0]], NS = LV === 'easy' ? 4 : 2;
+    while (starts.length < NS && starts.length < startCands.length) {
+      var best = null, bestD = -1;
+      startCands.forEach(function (f) {
+        if (starts.indexOf(f) >= 0) return;
+        var dmin = 1e18;
+        starts.forEach(function (o) { var dr = f.r - o.r, dc = f.c - o.c; dmin = Math.min(dmin, dr * dr + dc * dc); });
+        if (dmin > bestD) { bestD = dmin; best = f; }
+      });
+      starts.push(best);
+    }
+    var startIds = starts.map(function (f) { return f.id; });
 
     var regions = [], cellReg = {};
     fields.forEach(function (f) {
-      var gift = f.id === current && (f.mods.indexOf('GIFT') >= 0 || LV === 'easy') ? pick(f.regions) : null;
+      var isStart = GEN2 && LV === 'easy' ? startIds.indexOf(f.id) >= 0 : f.id === current;
+      var gift = isStart && (f.mods.indexOf('GIFT') >= 0 || LV === 'easy') ? pick(f.regions) : null;
       if (f.mods.indexOf('STAR') >= 0) { var sc0 = pick(pick(f.regions).cells); f.star = K(sc0[0], sc0[1]); }
       f.regions.forEach(function (reg) {
         var gi = regions.length;
@@ -608,7 +676,7 @@ class Component extends DCLogic {
     return {
       N: N, current: current, cells: cells, regions: regions,
       fields: fields.map(function (f) {
-        return { name: f.name, mods: f.mods, tier: f.tier, state: f.id === current ? 'O' : 'L', goal: f.id === 0 ? 1 : 0, words: f.regions.length, len: f.len, shape: '' };
+        return { name: f.name, mods: f.mods, tier: f.tier, state: startIds.indexOf(f.id) >= 0 ? 'O' : 'L', goal: f.id === 0 ? 1 : 0, words: f.regions.length, len: f.len, shape: '' };
       })
     };
   }
@@ -619,9 +687,9 @@ class Component extends DCLogic {
     this.say(this.T('building', n), 'info');
     this.bump();
     setTimeout(function () {
-      var old = { w: self._w, seed: self.seed, level: self.level, game: self.game, focus: self.focus };
+      var old = { w: self._w, seed: self.seed, level: self.level, gen: self.gen, game: self.game, focus: self.focus };
       try {
-        self.seed = n; self._w = null; self._grp = null; self.fx = null;
+        self.seed = n; self._w = null; self._grp = null; self.fx = null; self.gen = Component.GEN;
         if (level) self.level = self.cleanLevel(level);
         self.world();
         self.newGame();
@@ -634,7 +702,7 @@ class Component extends DCLogic {
         self.paint(); self.bump();
         self.flyTo(self.camFor('field', self.focus));
       } catch (err) {
-        self._w = old.w; self.seed = old.seed; self.level = old.level; self.game = old.game; self.focus = old.focus;
+        self._w = old.w; self.seed = old.seed; self.level = old.level; self.gen = old.gen; self.game = old.game; self.focus = old.focus;
         self.say(self.T('seedFail', n, err.message), 'warn');
         self.bump();
       }
@@ -668,14 +736,14 @@ class Component extends DCLogic {
     var g = this.game, alive = [], index = {};
     g.words.forEach(function (wd) { if (wd.alive) { index[wd.id] = alive.length; alive.push([wd.cells, wd.colour, wd.correct ? 1 : 0, wd.gift ? 1 : 0]); } });
     var wrong = Object.keys(g.wrongMarked).map(function (id) { return index[id]; }).filter(function (x) { return x != null; });
-    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
+    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, gen: this.gen || 1, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
   }
 
   // ---------- moving progress to another device: the whole save in a link ----------
   // The code is the save as JSON, with word cells as differences (small numbers), deflated, in base64url.
   exportCode() {
     var sv = this.saveData();
-    var c = { v: 1, seed: sv.seed, level: sv.level, lang: sv.lang, focus: sv.focus, state: sv.state.join(''), used: sv.used, hints: sv.hints, wrong: sv.wrong,
+    var c = { v: 1, seed: sv.seed, level: sv.level, lang: sv.lang, gen: sv.gen, focus: sv.focus, state: sv.state.join(''), used: sv.used, hints: sv.hints, wrong: sv.wrong,
       words: sv.words.map(function (x) { var d = x[0].map(function (j, i) { return i ? j - x[0][i - 1] : j; }); return [d, x[1], x[2], x[3]]; }) };
     var json = JSON.stringify(c);
     var b64 = function (bytes) {
@@ -696,7 +764,7 @@ class Component extends DCLogic {
     var done = function (text) {
       var c = JSON.parse(text);
       if (!c || c.v !== 1 || typeof c.seed !== 'number') throw new Error('not a Word Galaxy progress link');
-      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
+      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', gen: c.gen || 1, focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
         words: c.words.map(function (x) { var cells = [], a = 0; x[0].forEach(function (d, i) { a = i ? a + d : d; cells.push(a); }); return [cells, x[1], x[2], x[3]]; }) };
     };
     if (kind === 'j') return Promise.resolve(done(new TextDecoder().decode(u)));
@@ -755,6 +823,8 @@ class Component extends DCLogic {
       ids.push(id);
     });
     g.state = sv.state.slice();
+    // starting points added later are open in older saves too
+    w.fields.forEach(function (f, i) { if (f.state0 === 'O' && g.state[i] === 'L') g.state[i] = 'O'; });
     if (sv.used && sv.used.length === w.fields.length) g.used = sv.used.slice();
     if (sv.hints && sv.hints.length === w.fields.length) g.hints = sv.hints;
     (sv.wrong || []).forEach(function (i) { if (ids[i] >= 0) g.wrongMarked[ids[i]] = 1; });
@@ -784,7 +854,7 @@ class Component extends DCLogic {
     var sv = this.loadSave(to);
     this.lang = to;
     try { localStorage.setItem('wordgalaxy:lang', to); } catch (e) {}
-    this.seed = sv ? sv.seed : 23; this.level = sv ? this.cleanLevel(sv.level) : 'medium';
+    this.seed = sv ? sv.seed : 23; this.level = sv ? this.cleanLevel(sv.level) : 'medium'; this.gen = sv ? (sv.gen || 1) : Component.GEN;
     this._w = null; this._grp = null; this.fx = null;
     this.world();
     this.newGame();
