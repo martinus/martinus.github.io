@@ -727,7 +727,8 @@ class Component extends DCLogic {
         for (var k = 0; k < 4; k++) { var q = o.nb[k]; if (q >= 0 && w.cells[q].f !== f.i && g.state[w.cells[q].f] === 'S') glow.push([j, k]); }
       });
     });
-    this.glow = glow;
+    // the glow from solved neighbours is switched off: it distracted from the letters
+    this.glow = [];
     this.dirtyAll();
   }
 
@@ -1017,7 +1018,8 @@ class Component extends DCLogic {
       else if (f.goal) { bg = '#f2c063'; fg = '#3a2806'; }
       else { bg = f.lockBg; fg = f.lockFg; }
       ctx.fillStyle = bg;
-      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); continue; }
+      var dimIt = o.f !== this.focus && fst !== 'L';
+      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = 'rgba(6,9,19,0.45)'; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
       var me = grp[i], fl = o.flags;
       var sT = me !== 0 && o.nb[0] >= 0 && grp[o.nb[0]] === me;
       var sR = me !== 0 && o.nb[1] >= 0 && grp[o.nb[1]] === me;
@@ -1040,6 +1042,8 @@ class Component extends DCLogic {
         ctx.fillStyle = fg;
         ctx.fillText(fog ? '·' : o.l, x + tile / 2, y + tile / 2 + tile * 0.03);
       }
+      // other fields are darker, so the field being played stands out
+      if (dimIt) { ctx.fillStyle = 'rgba(6,9,19,0.45)'; ctx.fillRect(rx, ry, rw, rh); }
     }
     // a soft gold line where the light enters
     if (fine && this.glow.length) {
