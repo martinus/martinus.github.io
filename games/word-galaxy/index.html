@@ -37,6 +37,7 @@ button { font-family: inherit; cursor: pointer; }
 .btn.light { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--gold); color: var(--gold); font-size: 18px; font-weight: 800; }
 .btn.icon { display: flex; align-items: center; justify-content: center; }
 #acceptBtn { border: 1px solid var(--gold); }
+.quick { position: absolute; left: 0; top: 0; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid #fff; background: #2f8a3a; box-shadow: 0 4px 14px rgba(0,0,0,.55); touch-action: manipulation; }
 .btn.danger { border: none; background: #e07a5a; color: #1d2433; font-weight: 800; }
 .btn.auto { flex: none; padding: 0 12px; }
 .seed { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--soft); }
@@ -80,6 +81,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <div class="loading" id="loading">Building the galaxy…</div>
     <canvas id="lo" aria-hidden="true"></canvas>
     <canvas id="cv" aria-label="Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom."></canvas>
+    <button type="button" class="quick hidden" id="quickBtn" aria-label="Accept the selected word" title="Accept the selected word"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
     <div class="menu hidden" id="menu">
       <div class="label" id="menuLabel">Galaxy</div>
       <button type="button" id="newGalaxyBtn">New galaxy…</button>
@@ -122,7 +124,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '1d2a61db17';
+var BUILD = '075a3a4a7b';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -146,7 +148,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=6524fbda5e"></script>
-<script src="game.js?v=7af099f274"></script>
+<script src="game.js?v=be35c316e8"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -190,6 +192,7 @@ class DCLogic {
   $('lightBtn').onclick = function () { v.useLight && v.useLight(); };
   $('clearBtn').onclick = function () { v.clearSel && v.clearSel(); };
   $('acceptBtn').onclick = function () { v.accept && v.accept(); };
+  $('quickBtn').onclick = function () { v.accept && v.accept(); };
   $('randomBtn').onclick = function () { v.randomSeed && v.randomSeed(); };
   $('buildBtn').onclick = function () { v.buildSeed && v.buildSeed(); };
   $('seedCloseBtn').onclick = function () { v.closeSeed && v.closeSeed(); };
@@ -219,6 +222,9 @@ class DCLogic {
     $('seedRow').classList.toggle('hidden', !v.seedMode);
     $('removeBtn').textContent = 'Remove ' + v.pickWord;
     $('lightText').textContent = v.lightLeft;
+    var qb = $('quickBtn');
+    qb.classList.toggle('hidden', !v.quickShow);
+    if (v.quickShow) qb.style.transform = 'translate(' + v.quickX + 'px,' + v.quickY + 'px)';
     $('lightBtn').setAttribute('aria-label', 'Use one star for a hint (' + v.lightLeft + ' left)');
     var inp = $('seedInput');
     if (document.activeElement !== inp) inp.value = v.seedText;

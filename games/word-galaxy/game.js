@@ -51,7 +51,7 @@ class Component extends DCLogic {
     this.onUp = function (e) { self.up(e); };
     this.onWheel = function (e) { self.wheel(e); };
     this.onMenu = function (e) { if (e.preventDefault) e.preventDefault(); };
-    this.clearSel = function () { self.dirtyCells(Object.keys(self.game.sel).map(Number), 1); self.game.sel = {}; self.game.selN = 0; self.draw(); };
+    this.clearSel = function () { self.dirtyCells(Object.keys(self.game.sel).map(Number), 1); self.game.sel = {}; self.game.selN = 0; self.draw(); self.refreshQuick(); };
     this.accept = function () { self.doAccept(); };
     this.useLight = function () { self.doLight(); };
     this.cancelPick = function () { var pw = self.game.words[self.game.picked]; if (pw) self.dirtyCells(pw.cells, 1); self.game.picked = -1; self.say('', 'info'); self.draw(); self.bump(); };
@@ -650,6 +650,49 @@ class Component extends DCLogic {
     this.loCam = null;
   }
   draw() { this.paint(); }
+
+  // the selected letters, when they form a word from the word list (no hint: any listed word counts)
+  validSelection() {
+    var w = this.world(), g = this.game;
+    if (g.state[this.focus] !== 'O' || g.picked >= 0) return null;
+    var sel = Object.keys(g.sel).map(Number).filter(function (j) { return g.cellWord[j] < 0; });
+    if (sel.length < 4) return null;
+    sel.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
+    var inSel = {}; sel.forEach(function (j) { inSel[j] = 1; });
+    var seen = {}, stack = [sel[0]], n = 0; seen[sel[0]] = 1;
+    while (stack.length) { var j = stack.pop(); n++; w.cells[j].nb.forEach(function (q) { if (q >= 0 && inSel[q] && !seen[q]) { seen[q] = 1; stack.push(q); } }); }
+    if (n !== sel.length) return null;
+    if (!w.dict.has(sel.map(function (j) { return w.cells[j].l; }).join(''))) return null;
+    return sel;
+  }
+  // a small accept button next to a valid selection, so the finger does not travel to the bottom bar
+  quickPos() {
+    var d = this.drag;
+    if (this.moving || this._anim) return null;
+    if (d && (d.mode === 'paint' || d.mode === 'pinch' || d.moved)) return null;
+    var sel = this.validSelection();
+    if (!sel) return null;
+    var w = this.world(), c = this.cam, s = c.s, P = w.P, B = 44, gap = 6;
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    sel.forEach(function (j) { var o = w.cells[j]; x0 = Math.min(x0, o.x); y0 = Math.min(y0, o.y); x1 = Math.max(x1, o.x + P); y1 = Math.max(y1, o.y + P); });
+    var sx0 = (x0 - c.x) * s + this.VW / 2, sx1 = (x1 - c.x) * s + this.VW / 2;
+    var sy0 = (y0 - c.y) * s + this.VH / 2, sy1 = (y1 - c.y) * s + this.VH / 2;
+    // above and to the right of the word: a finger on the screen hides what is below it
+    var x = sx1 + gap, y = sy0 - B - gap;
+    if (x + B > this.VW - 4) x = sx0 - B - gap;
+    if (x < 4) x = Math.min(this.VW - B - 4, Math.max(4, sx1 - B));
+    if (y < 4) y = sy1 + gap;
+    if (y + B > this.VH - 4) y = Math.max(4, sy0 - B - gap);
+    x = Math.round(Math.min(this.VW - B - 4, Math.max(4, x)));
+    y = Math.round(Math.min(this.VH - B - 4, Math.max(4, y)));
+    return { x: x, y: y };
+  }
+  refreshQuick() {
+    var q = this.quickPos(), o = this.quick;
+    if ((!q && !o) || (q && o && q.x === o.x && q.y === o.y)) return;
+    this.quick = q;
+    this.bump();
+  }
   // called on every camera change; the sharp redraw comes when the view stands still
   moved() {
     var self = this;
@@ -657,6 +700,7 @@ class Component extends DCLogic {
       this.moving = true;
       this.renderLo();
       if (this._cv) this._cv.style.opacity = '0';
+      this.refreshQuick();
     }
     if (this._idle) clearTimeout(this._idle);
     this._idle = setTimeout(function () {
@@ -665,6 +709,7 @@ class Component extends DCLogic {
       self.moving = false;
       self.render();
       if (self._cv) self._cv.style.opacity = '1';
+      self.refreshQuick();
     }, 140);
     this.paint();
   }
@@ -675,6 +720,7 @@ class Component extends DCLogic {
     this.moving = false;
     this.render();
     if (this._cv) this._cv.style.opacity = '1';
+    this.refreshQuick();
   }
   paint() {
     var self = this;
@@ -1359,6 +1405,7 @@ class Component extends DCLogic {
       this.drag = { mode: 'paint', add: add, last: p, changed: [] };
       this.paintCell(o);
       this.paint();
+      this.refreshQuick();
       return;
     }
     this.drag = { mode: 'pan', start: p, last: p, moved: false, cell: o };
@@ -1457,6 +1504,7 @@ class Component extends DCLogic {
       this.say(mn.text + ' Hold the word to remove it.', 'info', mn.title);
       this.bump();
     }
+    this.refreshQuick();
   }
 
   tap(o) {
@@ -1521,6 +1569,7 @@ class Component extends DCLogic {
       this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'You earned ' + gave + ' star' + (gave > 1 ? 's' : '') + '. Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect, no stars used.'));
     } else { var mn = this.meaning(word); this.say(mn.text, 'good', mn.title); }
     this.save();
+    this.quick = this.quickPos();
     this.paint(); this.bump();
   }
 
@@ -1548,6 +1597,7 @@ class Component extends DCLogic {
     g.picked = -1;
     this.say('The letters stay selected. Swipe to change them, then tap the ✓ button.', 'info', wd.word + ' removed.');
     this.save();
+    this.quick = this.quickPos();
     this.paint(); this.bump();
   }
 
@@ -1627,6 +1677,7 @@ class Component extends DCLogic {
       focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? 'Solved' : '\u2605 Solved') : g.state[fi] === 'L' ? 'Locked' : Math.round(100 * covered / f.cells.length) + '%',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
       lightLeft: left, zoomBtns: zoomBtns,
+      quickShow: !!this.quick, quickX: this.quick ? this.quick.x : 0, quickY: this.quick ? this.quick.y : 0,
       toggleMenu: this.toggleMenu, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
       menuOpen: this.menuOpen, menuExpanded: this.menuOpen ? 'true' : 'false', seed: this.seed,
       confirmOpen: !!this.confirm, confirmTitle: this.confirm ? this.confirm.title : '', confirmText: this.confirm ? this.confirm.text : '',
