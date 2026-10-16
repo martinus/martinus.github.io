@@ -3,7 +3,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     var self = this;
-    this.VW = 390; this.VH = 599;
+    this.VW = 390; this.VH = 648;
     // a saved game continues; a different seed in the address asks first
     var saved = this.loadSave();
     var asked = (props && props.seed != null) ? +props.seed : null;
@@ -1517,7 +1517,8 @@ class Component extends DCLogic {
 
   tap(o) {
     var w = this.world(), g = this.game;
-    if (!o) return;
+    // a tap on empty space clears the selection
+    if (!o) { if (g.selN) this.clearSel(); return; }
     var f = w.fields[o.f];
     if (o.f !== this.focus || this.cam.s < this.fieldScale(o.f) * 0.6) {
       this.dirtyField(this.focus); this.dirtyField(o.f);
