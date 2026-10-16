@@ -3,7 +3,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     var self = this;
-    this.VW = 390; this.VH = 620;
+    this.VW = 390; this.VH = 599;
     // a saved game continues; a different seed in the address asks first
     var saved = this.loadSave();
     var asked = (props && props.seed != null) ? +props.seed : null;
@@ -45,6 +45,7 @@ class Component extends DCLogic {
     this._raf = 0; this._anim = 0; this._auto = 0;
     this.canvasRef = function (el) { self.setupCanvas(el); };
     this.loRef = function (el) { self.setupLo(el); };
+    this.zoomRef = function (el) { self.setupZoom(el); };
     this.onDown = function (e) { self.down(e); };
     this.onMove = function (e) { self.move(e); };
     this.onUp = function (e) { self.up(e); };
@@ -730,6 +731,96 @@ class Component extends DCLogic {
     this.dirtyAll();
   }
 
+  // ---------- zoom strip: galaxy -> area -> field, joined by lines like a NASA zoom picture ----------
+  setupZoom(el) {
+    if (!el || el === this._zc) return;
+    this._zc = el;
+    var dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    this.zDpr = dpr;
+    this.zW = this.VW; this.zH = 70;
+    el.width = Math.round(this.zW * dpr); el.height = Math.round(this.zH * dpr);
+    this.zCtx = el.getContext('2d');
+    this._zoomKey = null;
+    this.paint();
+  }
+  zoomLayout() {
+    var W = this.zW || this.VW, gap = 24, m = 9, pw = Math.floor((W - 2 * m - 2 * gap) / 3), ph = 58;
+    return [0, 1, 2].map(function (i) { return { x: m + i * (pw + gap), y: 6, w: pw, h: ph }; });
+  }
+  zoomLevel() {
+    var s = this.cam.s;
+    if (s >= this.fieldScale(this.focus) * 0.7) return 2;
+    if (s >= this.camFor('area', this.focus).s * 0.5) return 1;
+    return 0;
+  }
+  // the world rectangles the three pictures show
+  zoomRects() {
+    var w = this.world(), f = w.fields[this.focus], P = w.P, L = this.zoomLayout(), asp = L[0].w / L[0].h;
+    function fit(x0, y0, x1, y1) {
+      var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rw = x1 - x0, rh = y1 - y0;
+      if (rw / rh < asp) rw = rh * asp; else rh = rw / asp;
+      return { x0: cx - rw / 2, y0: cy - rh / 2, x1: cx + rw / 2, y1: cy + rh / 2 };
+    }
+    var fr = fit(f.x0 - P, f.y0 - P, f.x1 + P, f.y1 + P);
+    var as = this.camFor('area', this.focus).s, aw = this.VW / as;
+    var cx = (f.x0 + f.x1) / 2, cy = (f.y0 + f.y1) / 2;
+    var ar = fit(Math.min(cx - aw / 2, fr.x0 - 2 * P), Math.min(cy - aw / asp / 2, fr.y0 - 2 * P), Math.max(cx + aw / 2, fr.x1 + 2 * P), Math.max(cy + aw / asp / 2, fr.y1 + 2 * P));
+    var gr = fit(0, 0, w.W, w.W);
+    return [gr, ar, fr];
+  }
+  renderZoomStrip() {
+    var ctx = this.zCtx; if (!ctx) return;
+    var dpr = this.zDpr, L = this.zoomLayout(), R = this.zoomRects(), self = this, missing = false;
+    var level = this.zoomLevel();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, this._zc.width, this._zc.height);
+    this._zp = this._zp || [];
+    L.forEach(function (b, i) {
+      var pc = self._zp[i];
+      if (!pc) { pc = self._zp[i] = document.createElement('canvas'); }
+      var PW = Math.round(b.w * dpr), PH = Math.round(b.h * dpr);
+      if (pc.width !== PW || pc.height !== PH) { pc.width = PW; pc.height = PH; }
+      var r = R[i], s = b.w / (r.x1 - r.x0);
+      if (self.renderBase(pc.getContext('2d'), b.w, b.h, dpr, { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2, s: s }, true)) missing = true;
+      ctx.drawImage(pc, Math.round(b.x * dpr), Math.round(b.y * dpr));
+    });
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // a box for the next picture, and two lines from the box to it
+    function boxIn(i) {
+      var b = L[i], r = R[i], n = R[i + 1], k = b.w / (r.x1 - r.x0);
+      return { x0: b.x + (n.x0 - r.x0) * k, y0: b.y + (n.y0 - r.y0) * k, x1: b.x + (n.x1 - r.x0) * k, y1: b.y + (n.y1 - r.y0) * k };
+    }
+    ctx.lineWidth = 1.2;
+    [0, 1].forEach(function (i) {
+      var q = boxIn(i), nb = L[i + 1];
+      var x0 = Math.max(L[i].x, q.x0), y0 = Math.max(L[i].y, q.y0), x1 = Math.min(L[i].x + L[i].w, q.x1), y1 = Math.min(L[i].y + L[i].h, q.y1);
+      ctx.strokeStyle = 'rgba(238,240,247,0.9)';
+      ctx.strokeRect(x0, y0, Math.max(2, x1 - x0), Math.max(2, y1 - y0));
+      ctx.strokeStyle = 'rgba(201,209,234,0.5)';
+      ctx.beginPath();
+      ctx.moveTo(x1, y0); ctx.lineTo(nb.x, nb.y);
+      ctx.moveTo(x1, y1); ctx.lineTo(nb.x, nb.y + nb.h);
+      ctx.stroke();
+    });
+    // frames: the current zoom in gold
+    L.forEach(function (b, i) {
+      ctx.strokeStyle = i === level ? '#f2c063' : '#2e3a62';
+      ctx.lineWidth = i === level ? 2.5 : 1;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(b.x, b.y, b.w, b.h, 6); else ctx.rect(b.x, b.y, b.w, b.h);
+      ctx.stroke();
+    });
+    this._zoomMissing = missing;
+  }
+  updateZoomStrip() {
+    if (!this.zCtx) return;
+    var g = this.game, key = [this.seed, this.focus, this.zoomLevel(), g.words.length, g.state.join(''), this.VW].join('|');
+    if (key === this._zoomKey && !this._zoomMissing) return;
+    this._zoomKey = key;
+    this.renderZoomStrip();
+    if (this._zoomMissing) this.paint();
+  }
+
   render() {
     if (!this.ctx) return;
     var c = this.cam, s = c.s, ox = this.VW / 2 - c.x * s, oy = this.VH / 2 - c.y * s;
@@ -737,10 +828,11 @@ class Component extends DCLogic {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.renderOverlay(ox, oy, s);
     if (this.fx) this.renderFx(ox, oy, s);
+    this.updateZoomStrip();
   }
 
   // background, stars and the cached letter tiles for one canvas; returns true while some tiles are still missing
-  renderBase(ctx, VW, VH, dpr, c) {
+  renderBase(ctx, VW, VH, dpr, c, small) {
     var w = this.world();
     var DW = Math.round(VW * dpr), DH = Math.round(VH * dpr);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -748,10 +840,11 @@ class Component extends DCLogic {
     ctx.fillRect(0, 0, DW, DH);
     var s = c.s, sd = s * dpr, oxd = (VW / 2 - c.x * s) * dpr, oyd = (VH / 2 - c.y * s) * dpr;
     ctx.fillStyle = '#dfe6ff';
-    for (var i = 0; i < w.stars.length; i++) {
+    // small pictures: only every fourth star, and fainter
+    for (var i = 0; i < w.stars.length; i += small ? 4 : 1) {
       var st = w.stars[i], sx = st[0] * sd + oxd, sy = st[1] * sd + oyd;
       if (sx < -8 || sy < -8 || sx > DW + 8 || sy > DH + 8) continue;
-      ctx.globalAlpha = st[3];
+      ctx.globalAlpha = small ? st[3] * 0.6 : st[3];
       var d = Math.max(dpr, st[2] * dpr * Math.min(2, s * 4));
       ctx.fillRect(sx, sy, d, d);
     }
@@ -1110,7 +1203,8 @@ class Component extends DCLogic {
     ctx.fillText(fx.name + ' solved', 0, -4);
     ctx.fillStyle = '#f2c063';
     ctx.font = '800 18px Archivo, system-ui, sans-serif';
-    ctx.fillText(fx.perfect ? '★ Perfect, no stars used ★' : (fx.opened.length ? fx.opened.length + ' new field' + (fx.opened.length > 1 ? 's' : '') + ' open' : 'Well done'), 0, 34);
+    var gotStars = this.starsFor(fx.fi);
+    ctx.fillText((fx.perfect ? 'Perfect  ·  ' : '') + '+' + gotStars + ' ★', 0, 34);
     ctx.restore();
     this.paint();
   }
@@ -1376,9 +1470,9 @@ class Component extends DCLogic {
       this.recalcLit();
       var selfA = this, perfectA = !g.used[fi];
       this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
-      var gave = Math.min(5, f.tier);
+      var gave = this.starsFor(fi);
       var mw = this.meaning(word);
-      this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'Each neighbour gets ' + gave + ' star' + (gave > 1 ? 's' : '') + ' from here. Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect, no stars used.'));
+      this.say((opened.length ? 'Now open: ' + opened.join(', ') + '. ' : '') + 'You earned ' + gave + ' star' + (gave > 1 ? 's' : '') + '. Last word ' + mw.title + ' ' + mw.text, 'good', f.name + ' solved!' + (g.used[fi] ? '' : ' Perfect, no stars used.'));
     } else { var mn = this.meaning(word); this.say(mn.text, 'good', mn.title); }
     this.save();
     this.paint(); this.bump();
@@ -1411,23 +1505,24 @@ class Component extends DCLogic {
     this.paint(); this.bump();
   }
 
-  lightTotal(fi) {
-    var w = this.world(), g = this.game;
-    // each solved neighbour gives as many stars as its difficulty: very easy 1 ... expert 5 (at most 10 per field)
-    var sum = 0;
-    w.fields[fi].nbList.forEach(function (n) { if (g.state[n] === 'S') sum += Math.min(5, w.fields[n].tier); });
-    return Math.min(10, sum);
+  // one pool of stars: every solved field adds as many as its difficulty (very easy 1 ... expert 5);
+  // they can be used in any open field
+  starsFor(fi) { return Math.min(5, this.world().fields[fi].tier); }
+  starsLeft() {
+    var w = this.world(), g = this.game, self = this, sum = 0, used = 0;
+    w.fields.forEach(function (f) { if (g.state[f.i] === 'S') sum += self.starsFor(f.i); used += g.used[f.i] || 0; });
+    return Math.max(0, sum - used);
   }
 
   doLight() {
-    var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi], lit = this.lit;
+    var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi];
     if (g.state[fi] !== 'O') { this.say('Stars work only in an open field.', 'warn'); this.bump(); return; }
-    if (this.lightTotal(fi) - g.used[fi] <= 0) { this.say('No stars left here. Solve another neighbour of ' + f.name + ' to get more. Harder neighbours give more stars.', 'warn'); this.bump(); return; }
+    if (this.starsLeft() <= 0) { this.say('No stars left. Solve fields to earn stars: harder fields give more.', 'warn'); this.bump(); return; }
     var have = {};
     g.hints[fi].forEach(function (h) { have[h.key] = 1; });
-    // 1. a wrong word that the light reaches
+    // 1. a wrong word in this field
     var wrong = g.words.filter(function (wd) {
-      return wd.alive && wd.f === fi && !wd.correct && !g.wrongMarked[wd.id] && wd.cells.some(function (j) { return lit[j]; });
+      return wd.alive && wd.f === fi && !wd.correct && !g.wrongMarked[wd.id];
     });
     var hint = null;
     if (wrong.length) {
@@ -1438,26 +1533,26 @@ class Component extends DCLogic {
       this.save();
       this.paint(); this.bump(); return;
     }
-    // 2. walls and word starts in the lit band
+    // 2. walls and word starts anywhere in the field
     var open = function (j) { var x = g.cellWord[j]; return x < 0 || !g.words[x].correct; };
     var walls = [], starts = [];
     f.cells.forEach(function (j) {
-      if (!lit[j] || !open(j)) return;
+      if (!open(j)) return;
       var o = w.cells[j];
       [1, 2].forEach(function (k) {
         var q = o.nb[k];
-        if (q >= 0 && lit[q] && open(q) && w.cells[q].f === fi && w.cells[q].g !== o.g && !have['w' + j + '-' + q]) walls.push({ key: 'w' + j + '-' + q, kind: 'wall', a: j, b: q });
+        if (q >= 0 && open(q) && w.cells[q].f === fi && w.cells[q].g !== o.g && !have['w' + j + '-' + q]) walls.push({ key: 'w' + j + '-' + q, kind: 'wall', a: j, b: q });
       });
       if (o.k === 0 && !have['s' + j]) starts.push({ key: 's' + j, kind: 'start', a: j });
     });
     var n = g.used[fi];
     var pool = (n % 3 === 2 && starts.length) ? starts : (walls.length ? walls : starts);
-    if (!pool.length) { this.say('Nothing left to show where the light reaches.', 'warn'); this.bump(); return; }
+    if (!pool.length) { this.say('A star has nothing more to show in this field.', 'warn'); this.bump(); return; }
     hint = pool[(n * 7 + 3) % pool.length];
     g.hints[fi].push(hint);
-    this.save();
     this.dirtyCells(hint.b != null ? [hint.a, hint.b] : [hint.a], 1);
     g.used[fi]++;
+    this.save();
     this.say(hint.kind === 'wall' ? 'A star shows a wall: the cells on each side belong to different words.' : 'A star shows a word start: a word begins in the marked cell.', 'info');
     this.paint(); this.bump();
   }
@@ -1472,19 +1567,20 @@ class Component extends DCLogic {
     var meta = f.shape + ' · ' + f.words + ' words · ' + f.len[0] + '–' + f.len[1] + ' letters';
     if (f.mods.length) meta += ' · ' + f.mods.map(function (m) { return MODS[m]; }).join(', ');
     var covered = f.cells.filter(function (j) { return g.cellWord[j] >= 0; }).length;
-    var left = Math.max(0, this.lightTotal(fi) - g.used[fi]);
-    var presets = [['field', 'Field'], ['area', 'Area'], ['galaxy', 'Galaxy']].map(function (p) {
-      return { label: p[1], pick: function () { self.flyTo(self.camFor(p[0], self.focus)); } };
+    var left = this.starsLeft();
+    var ZL = this.zoomLayout();
+    var zoomBtns = [['galaxy', 'Show the whole galaxy'], ['area', 'Show the area around this field'], ['field', 'Show this field']].map(function (p, i) {
+      return { label: p[1], x: ZL[i].x, y: ZL[i].y, w: ZL[i].w, h: ZL[i].h, pick: function () { self.flyTo(self.camFor(p[0], self.focus)); } };
     });
     var picking = g.picked >= 0 && g.words[g.picked].alive;
     return {
-      canvasRef: this.canvasRef, loRef: this.loRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
+      canvasRef: this.canvasRef, loRef: this.loRef, zoomRef: this.zoomRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
       clearSel: this.clearSel, accept: this.accept, useLight: this.useLight, cancelPick: this.cancelPick, removePick: this.removePick,
       focusName: f.name, focusPips: pips,
       focusLevel: ['', 'Very easy', 'Easy', 'Medium', 'Hard', 'Expert', 'Master'][f.tier],
       focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? 'Solved' : '\u2605 Solved') : g.state[fi] === 'L' ? 'Locked' : Math.round(100 * covered / f.cells.length) + '%',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
-      lightLeft: left, presets: presets,
+      lightLeft: left, zoomBtns: zoomBtns,
       toggleMenu: this.toggleMenu, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
       menuOpen: this.menuOpen, menuExpanded: this.menuOpen ? 'true' : 'false', seed: this.seed,
       confirmOpen: !!this.confirm, confirmTitle: this.confirm ? this.confirm.title : '', confirmText: this.confirm ? this.confirm.text : '',

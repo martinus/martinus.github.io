@@ -21,6 +21,9 @@ header { flex: none; min-height: 56px; padding: env(safe-area-inset-top) 8px 0 1
 .level { flex: none; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
 .name { flex: 1; min-width: 0; font-size: 21px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .progress { font-size: 17px; font-weight: 800; color: var(--soft); flex: none; }
+.zoom { position: relative; flex: none; height: 70px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.zoom canvas { position: absolute; left: 0; top: 0; width: 100%; height: 70px; }
+.zoom button { position: absolute; padding: 0; border: none; border-radius: 8px; background: transparent; }
 .stage { position: relative; flex: 1; min-height: 0; background: #060913; overflow: hidden; }
 #cv { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 #lo { position: absolute; display: block; pointer-events: none; transform-origin: 50% 50%; will-change: transform; }
@@ -34,8 +37,6 @@ button { font-family: inherit; cursor: pointer; }
 .btn.light { flex: 1.3; display: flex; align-items: center; justify-content: center; gap: 8px; border-color: var(--gold); color: var(--gold); font-weight: 800; }
 .btn.danger { border: none; background: #e07a5a; color: #1d2433; font-weight: 800; }
 .btn.auto { flex: none; padding: 0 12px; }
-.presets { display: flex; gap: 6px; }
-.presets button { flex: 1; height: 36px; border-radius: 10px; border: 1px solid var(--btn); background: transparent; color: var(--text); font-size: 14px; font-weight: 800; }
 .seed { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--soft); }
 .seed input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--btn); background: #111a33; color: var(--text); font: 700 16px 'Archivo', system-ui, sans-serif; -webkit-user-select: text; user-select: text; }
 .hidden { display: none !important; }
@@ -67,6 +68,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
   </header>
+  <div class="zoom" id="zoomBar">
+    <canvas id="zc" aria-hidden="true"></canvas>
+    <button type="button" id="z0" aria-label="Show the whole galaxy"></button>
+    <button type="button" id="z1" aria-label="Show the area around this field"></button>
+    <button type="button" id="z2" aria-label="Show this field"></button>
+  </div>
   <div class="stage" id="stage">
     <div class="loading" id="loading">Building the galaxy…</div>
     <canvas id="lo" aria-hidden="true"></canvas>
@@ -108,17 +115,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <button type="button" class="btn main auto" id="buildBtn">Build</button>
       <button type="button" class="btn x" id="seedCloseBtn" aria-label="Close">×</button>
     </div>
-    <div class="presets" id="presets">
-      <button type="button" data-i="0">Field</button>
-      <button type="button" data-i="1">Area</button>
-      <button type="button" data-i="2">Galaxy</button>
-    </div>
   </div>
 </div>
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '1320c47a5a';
+var BUILD = '3911149751';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -142,7 +144,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=6524fbda5e"></script>
-<script src="game.js?v=a275479435"></script>
+<script src="game.js?v=6873972abf"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -165,6 +167,8 @@ class DCLogic {
     C._cv = null; C._lo = null;
     C.setupCanvas(cv);
     C.setupLo(document.getElementById('lo'));
+    C._zc = null;
+    C.setupZoom(document.getElementById('zc'));
     if (!fit.done) { C.cam = C.camFor('field', C.focus); fit.done = true; }
     C.clampCam();
     C.paint();
@@ -194,9 +198,7 @@ class DCLogic {
   $('dlgNo').onclick = function () { v.confirmNo && v.confirmNo(); };
   $('seedInput').addEventListener('input', function (e) { v.onSeedInput && v.onSeedInput(e); });
   $('seedInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); v.buildSeed && v.buildSeed(); } });
-  Array.prototype.forEach.call($('presets').children, function (b) {
-    b.onclick = function () { var p = v.presets && v.presets[+b.dataset.i]; if (p) p.pick(); };
-  });
+  [0, 1, 2].forEach(function (i) { $('z' + i).onclick = function () { var z = v.zoomBtns && v.zoomBtns[i]; if (z) z.pick(); }; });
 
   var shownSeed = null;
   window.update = function () {
@@ -217,7 +219,7 @@ class DCLogic {
     $('lightText').textContent = 'Stars ' + v.lightLeft;
     var inp = $('seedInput');
     if (document.activeElement !== inp) inp.value = v.seedText;
-    Array.prototype.forEach.call($('presets').children, function (b, i) { if (v.presets[i]) b.textContent = v.presets[i].label; });
+    (v.zoomBtns || []).forEach(function (z, i) { var b = $('z' + i); b.style.left = z.x + 'px'; b.style.top = z.y + 'px'; b.style.width = z.w + 'px'; b.style.height = z.h + 'px'; });
     $('menu').classList.toggle('hidden', !v.menuOpen);
     $('menuBtn').setAttribute('aria-expanded', v.menuExpanded);
     $('menuLabel').textContent = 'Galaxy ' + v.seed + ' · version ' + BUILD.slice(0, 7);
