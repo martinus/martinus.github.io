@@ -111,7 +111,7 @@ class Component extends DCLogic {
         locked: '{0} is locked. Solve a field next to it first.', isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
         solvedOther: '{0} is solved. Tap a field with a dashed outline.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
         nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
-        cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!', notHere: '{0} is a word, but not the one we look for here. Hold it to remove it.',
+        cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!', notHere: '{0} is a word, but not the one we look for here. Try again!',
         removed: '{0} removed.', staySelected: 'The letters stay selected. Swipe to change them, then tap the ✓ button.',
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
         starWrong: 'A star shows: {0} is not part of the solution.', starNothing: 'A star has nothing more to show in this field.',
@@ -143,7 +143,7 @@ class Component extends DCLogic {
         locked: '{0} ist gesperrt. Löse zuerst ein Feld daneben.', isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
         solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit gestricheltem Rand.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
         nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
-        cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!', notHere: '{0} ist ein Wort, aber nicht das gesuchte. Halte es gedrückt, um es zu entfernen.',
+        cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!', notHere: '{0} ist ein Wort, aber nicht das gesuchte. Versuch es noch einmal!',
         removed: '{0} entfernt.', staySelected: 'Die Buchstaben bleiben gewählt. Wische, um sie zu ändern, dann tippe auf ✓.',
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
         starWrong: 'Ein Stern zeigt: {0} gehört nicht zur Lösung.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
@@ -241,7 +241,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 4; }
+  static get GEN() { return 5; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -329,6 +329,9 @@ class Component extends DCLogic {
         // version 4: very easy words for children, then easy ones (German: checked by hand)
         kid1: byLen((WD.kid1 || WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
         kid2: byLen((WD.kid2 || '').split(' ').filter(function (w) { return defs.has(w); })),
+        // version 5: only everyday words of an 8-year-old (A), then known ones (B)
+        kidA: byLen((WD.kidA || WD.kid1 || WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
+        kidB: byLen((WD.kidB || WD.kid2 || '').split(' ').filter(function (w) { return defs.has(w); })),
         all: pool(function (l) { return l !== 7; })
       }
     };
@@ -343,7 +346,7 @@ class Component extends DCLogic {
     var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
     // generator version: galaxies started before version 2 keep their words (their saves depend on them)
     var GEN2 = (this.gen || 1) >= 2, GEN3 = (this.gen || 1) >= 3, GEN4 = (this.gen || 1) >= 4, self = this;
-    var KIDS = GEN4 && LV === 'easy';
+    var KIDS = GEN4 && LV === 'easy', GEN5 = (this.gen || 1) >= 5;
     var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1), seed0 = seed;
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -351,6 +354,7 @@ class Component extends DCLogic {
     function K(r, c) { return r * 1000 + c; }
     var N = WDS.N, MID = N / 2;
     var POOL = WDS.pools;
+    var KP = GEN5 ? [POOL.kidA, POOL.kidB] : [POOL.kid1, POOL.kid2];
     var used = new Set();
     function word(len, pools) {
       for (var p = 0; p < pools.length; p++) {
@@ -511,11 +515,11 @@ class Component extends DCLogic {
     function levelField(f, i) {
       var n = f.cells.length;
       if (LV === 'easy') {
-        if (i === 0) { f.tier = 3; f.len = [4, 6]; f.pools = KIDS ? [POOL.kidSpace, POOL.kid1, POOL.kid2] : [POOL.kidSpace, POOL.kid, POOL.easy]; f.mods.push('THEME'); return; }
+        if (i === 0) { f.tier = 3; f.len = [4, 6]; f.pools = KIDS ? [POOL.kidSpace].concat(KP) : [POOL.kidSpace, POOL.kid, POOL.easy]; f.mods.push('THEME'); return; }
         f.tier = Math.min(3, Math.max(tierAt(f.dist), n >= 40 ? 2 : 1, n >= 60 ? 3 : 1));
         f.len = f.tier < 3 ? [4, 5] : [4, 6];
         // version 4: only words for children; a word may come twice rather than a harder word
-        f.pools = KIDS ? [POOL.kid1, POOL.kid2] : [POOL.kid, POOL.easy];
+        f.pools = KIDS ? KP : [POOL.kid, POOL.easy];
         if (rnd() < 0.5) f.mods.push('GIFT');
         return;
       }
@@ -1639,17 +1643,35 @@ class Component extends DCLogic {
       var sR = me !== 0 && o.nb[1] >= 0 && grp[o.nb[1]] === me;
       var sB = me !== 0 && o.nb[2] >= 0 && grp[o.nb[2]] === me;
       var sL = me !== 0 && o.nb[3] >= 0 && grp[o.nb[3]] === me;
-      var inT = sT ? 0 : (fl & 1 ? 3 : 1), inR = sR ? 0 : (fl & 2 ? 3 : 1), inB = sB ? 0 : (fl & 4 ? 3 : 1), inL = sL ? 0 : (fl & 8 ? 3 : 1);
-      var rx = x + inL * s, ry = y + inT * s, rw = tile - (inL + inR) * s, rh = tile - (inT + inB) * s;
-      // overlap merged sides a little so no hairline shows between letters of one word
-      if (sL) { rx -= 0.6 * px; rw += 0.6 * px; } if (sR) rw += 0.6 * px;
-      if (sT) { ry -= 0.6 * px; rh += 0.6 * px; } if (sB) rh += 0.6 * px;
-      var rr = Math.min(5 * s, tile * 0.2);
-      if (ctx.roundRect && tileCss >= 12) {
+      // one even gap around every letter box (no steps where a word runs along the field border)
+      var I = 1.5 * s, ov = 0.6 * px;
+      var xl = sL ? x - ov : x + I, xr = sR ? x + tile + ov : x + tile - I;
+      var yt = sT ? y - ov : y + I, yb = sB ? y + tile + ov : y + tile - I;
+      if (!(ctx.roundRect && tileCss >= 12)) {
+        ctx.fillRect(xl, yt, xr - xl, yb - yt);
+      } else {
+        // the box as one outline: round outer corners; inner corners of a word are cut out with a small curve
+        var r = Math.min(5 * s, tile * 0.2), rf = Math.min(r, I);
+        var dg = function (dr, dc) { var q = w.at(o.r + dr, o.c + dc); return q >= 0 && grp[q] === me; };
+        var nTL = sT && sL && !dg(-1, -1), nTR = sT && sR && !dg(-1, 1), nBR = sB && sR && !dg(1, 1), nBL = sB && sL && !dg(1, -1);
+        var X0 = x + I, X1 = x + tile - I, Y0 = y + I, Y1 = y + tile - I;
         ctx.beginPath();
-        ctx.roundRect(rx, ry, rw, rh, [(!sT && !sL) ? rr : 0, (!sT && !sR) ? rr : 0, (!sB && !sR) ? rr : 0, (!sB && !sL) ? rr : 0]);
+        if (!sT && !sL) { ctx.moveTo(xl, yt + r); ctx.arcTo(xl, yt, xl + r, yt, r); }
+        else if (nTL) { ctx.moveTo(xl, Y0); ctx.lineTo(X0 - rf, Y0); ctx.arcTo(X0, Y0, X0, Y0 - rf, rf); ctx.lineTo(X0, yt); }
+        else ctx.moveTo(xl, yt);
+        if (!sT && !sR) { ctx.lineTo(xr - r, yt); ctx.arcTo(xr, yt, xr, yt + r, r); }
+        else if (nTR) { ctx.lineTo(X1, yt); ctx.lineTo(X1, Y0 - rf); ctx.arcTo(X1, Y0, X1 + rf, Y0, rf); ctx.lineTo(xr, Y0); }
+        else ctx.lineTo(xr, yt);
+        if (!sB && !sR) { ctx.lineTo(xr, yb - r); ctx.arcTo(xr, yb, xr - r, yb, r); }
+        else if (nBR) { ctx.lineTo(xr, Y1); ctx.lineTo(X1 + rf, Y1); ctx.arcTo(X1, Y1, X1, Y1 + rf, rf); ctx.lineTo(X1, yb); }
+        else ctx.lineTo(xr, yb);
+        if (!sB && !sL) { ctx.lineTo(xl + r, yb); ctx.arcTo(xl, yb, xl, yb - r, r); }
+        else if (nBL) { ctx.lineTo(X0, yb); ctx.lineTo(X0, Y1 + rf); ctx.arcTo(X0, Y1, X0 - rf, Y1, rf); ctx.lineTo(xl, Y1); }
+        else ctx.lineTo(xl, yb);
+        ctx.closePath();
         ctx.fill();
-      } else ctx.fillRect(rx, ry, rw, rh);
+      }
+      var rx = xl, ry = yt, rw = xr - xl, rh = yb - yt;
       // (flag 16 marks an old 'star cell' idea that has no meaning in the game; it is not drawn)
       if (text) {
         var fog = false;
@@ -1657,7 +1679,7 @@ class Component extends DCLogic {
         ctx.fillText(fog ? '·' : o.l, x + tile / 2, y + tile / 2 + tile * 0.03);
       }
       // other fields are darker, so the field being played stands out
-      if (dimIt) { ctx.fillStyle = 'rgba(6,9,19,0.45)'; ctx.fillRect(rx, ry, rw, rh); }
+      if (dimIt) { ctx.fillStyle = 'rgba(6,9,19,0.45)'; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
     }
     // a soft gold line where the light enters
     if (fine && this.glow.length) {
@@ -2132,6 +2154,25 @@ class Component extends DCLogic {
     if (notHere) g.wrongMarked[newId] = 1;
     g.sel = {}; g.selN = 0;
     var fi = this.focus, f = w.fields[fi];
+    if (notHere) {
+      // easy galaxies: show the wrong word in red for a moment, then take it away again (it is never saved)
+      var selfW = this;
+      this.say(this.T('notHere', word), 'warn');
+      this.quick = this.quickPos();
+      this.paint(); this.bump();
+      setTimeout(function () {
+        var wd = g.words[newId];
+        if (!wd || !wd.alive || selfW.game !== g) return;
+        if (g.picked === newId) g.picked = -1;
+        selfW.dirtyCells(wd.cells, 1);
+        wd.alive = false;
+        wd.cells.forEach(function (j) { g.cellWord[j] = -1; });
+        delete g.wrongMarked[newId];
+        selfW.quick = selfW.quickPos();
+        selfW.paint(); selfW.bump();
+      }, 1100);
+      return;
+    }
     var full = f.cells.every(function (j) { return g.cellWord[j] >= 0; });
     if (full) {
       g.state[fi] = 'S';
@@ -2144,8 +2185,7 @@ class Component extends DCLogic {
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
       this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + (g.used[fi] ? '' : this.T('perfectNo')));
-    } else if (notHere) { this.say(this.T('notHere', word), 'warn'); }
-    else { var mn = this.meaning(word); this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title); }
+    } else { var mn = this.meaning(word); this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title); }
     this.save();
     this.quick = this.quickPos();
     this.paint(); this.bump();
