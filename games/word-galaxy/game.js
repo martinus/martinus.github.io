@@ -1191,7 +1191,7 @@ class Component extends DCLogic {
       this.moving = true;
       var L = this.loCam, c0 = this.cam;
       if (!L || this.loMissing || this.loVer !== this._ver || Math.abs(L.s / c0.s - 1) > 0.3) this.renderLo();
-      if (this._cv) this._cv.style.opacity = '0';
+      // the sharp picture stays visible and moves along (see updateLo); no switch to the blurrier one
       this.refreshQuick();
     }
     if (this._idle) clearTimeout(this._idle);
@@ -1200,7 +1200,6 @@ class Component extends DCLogic {
       if (!self.moving) return;
       self.moving = false;
       self.render();
-      if (self._cv) self._cv.style.opacity = '1';
       self.refreshQuick();
     }, 140);
     this.paint();
@@ -1211,7 +1210,6 @@ class Component extends DCLogic {
     if (!this.moving) return;
     this.moving = false;
     this.render();
-    if (this._cv) this._cv.style.opacity = '1';
     this.refreshQuick();
   }
   paint() {
@@ -1254,6 +1252,17 @@ class Component extends DCLogic {
     if (outside || k > 1.8 || k < 0.55 || this.loMissing || this.loVer !== this._ver) { this.renderLo(); L = this.loCam; k = 1; }
     var tx = (L.x - c.x) * c.s, ty = (L.y - c.y) * c.s;
     this._lo.style.transform = 'translate(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px) scale(' + k.toFixed(5) + ')';
+    // the sharp picture moves the same way on top; the motion layer only fills the edges that come into view.
+    // When letters changed while moving, or the zoom changed a lot, the sharp picture is out of date: hide it.
+    var M = this.mainCam, cv = this._cv;
+    if (cv) {
+      var km = M ? c.s / M.s : 0;
+      if (!M || this.mainVer !== this._ver || km > 2.2 || km < 0.45) cv.style.opacity = '0';
+      else {
+        cv.style.transform = 'translate(' + ((M.x - c.x) * c.s).toFixed(2) + 'px,' + ((M.y - c.y) * c.s).toFixed(2) + 'px) scale(' + km.toFixed(5) + ')';
+        cv.style.opacity = '1';
+      }
+    }
     if (this.loMissing) this.paint();
   }
 
@@ -1379,6 +1388,9 @@ class Component extends DCLogic {
     if (!this.ctx) return;
     var c = this.cam, s = c.s, ox = this.VW / 2 - c.x * s, oy = this.VH / 2 - c.y * s;
     this.renderBase(this.ctx, this.VW, this.VH, this.dpr, c);
+    // the sharp canvas now shows exactly this view
+    this.mainCam = { x: c.x, y: c.y, s: c.s }; this.mainVer = this._ver;
+    if (this._cv) { this._cv.style.transform = 'none'; this._cv.style.opacity = '1'; }
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.renderOverlay(ox, oy, s);
     if (this.fx) this.renderFx(ox, oy, s);
