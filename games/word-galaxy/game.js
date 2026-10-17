@@ -1942,7 +1942,8 @@ class Component extends DCLogic {
 
   // ---------- input ----------
   pt(e) {
-    var r = this._cv.getBoundingClientRect();
+    // measure against the fixed area around the canvas: the canvas itself is moved while the view moves
+    var box = this._cv.parentNode || this._cv, r = box.getBoundingClientRect();
     return { x: (e.clientX - r.left) * this.VW / r.width, y: (e.clientY - r.top) * this.VH / r.height };
   }
   cellAtPt(p, strict) {
