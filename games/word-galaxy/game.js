@@ -1250,7 +1250,8 @@ class Component extends DCLogic {
     var halfW = this.VW / 2 / c.s, halfH = this.VH / 2 / c.s;
     var coverW = this.loW / 2 / L.s, coverH = this.loH / 2 / L.s;
     var outside = Math.abs(c.x - L.x) + halfW > coverW || Math.abs(c.y - L.y) + halfH > coverH;
-    if (outside || k > 1.8 || k < 0.55 || this.loMissing) { this.renderLo(); L = this.loCam; k = 1; }
+    // also redraw when the letters changed while moving (e.g. selecting while the view scrolls by itself)
+    if (outside || k > 1.8 || k < 0.55 || this.loMissing || this.loVer !== this._ver) { this.renderLo(); L = this.loCam; k = 1; }
     var tx = (L.x - c.x) * c.s, ty = (L.y - c.y) * c.s;
     this._lo.style.transform = 'translate(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px) scale(' + k.toFixed(5) + ')';
     if (this.loMissing) this.paint();
@@ -1419,7 +1420,8 @@ class Component extends DCLogic {
   dirtyRect(x0, y0, x1, y1) {
     this._ver = (this._ver || 0) + 1;
     if (!this.tiles) return;
-    this.tiles.forEach(function (tl) { if (tl.x0 < x1 && tl.x1 > x0 && tl.y0 < y1 && tl.y1 > y0) tl.stale = true; });
+    // a changed tile is redrawn in the very next frame (never half old, half new); see drawTiles
+    this.tiles.forEach(function (tl) { if (tl.x0 < x1 && tl.x1 > x0 && tl.y0 < y1 && tl.y1 > y0) tl.stale = 'now'; });
     this.paint();
   }
   dirtyCells(list, margin) {
@@ -1461,7 +1463,9 @@ class Component extends DCLogic {
       if (!make) { tl = tl || find(kk, tx, ty); if (tl) tl.used = frame; return tl || null; }
       var now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       // no time left this frame: show the old picture of a changed tile, and draw it next frame
-      if (now - t0 > budget) { if (tl) { tl.used = frame; missing = true; } return tl || null; }
+      // no time left this frame: a tile changed by the player is still drawn now, so the picture never shows
+      // half a change; other old tiles (e.g. after the font arrived) are shown and redrawn in the next frames
+      if (now - t0 > budget && !(tl && tl.stale === 'now')) { if (tl) { tl.used = frame; missing = true; self._staleShown = (self._staleShown || 0) + 1; } return tl || null; }
       var nt = self.renderTile(kk, tx, ty, dpr);
       if (tl && tl.cv) self.spare.push(tl.cv);
       nt.used = frame;
