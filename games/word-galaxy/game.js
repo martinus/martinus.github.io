@@ -240,23 +240,23 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 3; }
+  static get GEN() { return 4; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
-  acceptCodes() {
-    var W = this.words();
-    if (!W.acceptCodes) {
+  acceptCodes(old) {
+    var W = this.words(), key = old ? 'acceptCodesOld' : 'acceptCodes';
+    if (!W[key]) {
       var set = new Set();
-      W.accept.forEach(function (w) {
+      (old ? W.acceptOld : W.accept).forEach(function (w) {
         if (w.length < 4 || w.length > 6) return;
         var code = 0;
         for (var i = 0; i < w.length; i++) code = code * 32 + Component.letterCode(w[i]);
         set.add(code);
       });
-      W.acceptCodes = set;
+      W[key] = set;
     }
-    return W.acceptCodes;
+    return W[key];
   }
   loadTrapCache(key) {
     try { var c = JSON.parse(localStorage.getItem('wordgalaxy:cache:' + key.split(':')[0])); return c && c.key === key ? c.fields : null; } catch (e) { return null; }
@@ -311,8 +311,12 @@ class Component extends DCLogic {
       if ((lang === 'de' ? av !== 9 : av <= 3) && !bad.has(list[ai])) accept.add(list[ai]);
     }
     WD.space.split(' ').forEach(function (w) { if (w) accept.add(w); });
+    // words added for children later (level 7): galaxies from older generator versions must not see them
+    var dictOld = new Set(), acceptOld = new Set();
+    for (var oi = 0; oi < list.length; oi++) { if (lv.charCodeAt(oi) - 48 === 7) continue; dictOld.add(list[oi]); if (accept.has(list[oi])) acceptOld.add(list[oi]); }
+    WD.space.split(' ').forEach(function (w) { if (w) acceptOld.add(w); });
     this._wordsBy[lang] = {
-      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang, accept: accept,
+      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang, accept: accept, dictOld: dictOld, acceptOld: acceptOld,
       pools: {
         easy: pool(function (l) { return l === 1; }),
         mid: pool(function (l) { return l <= 2; }),
@@ -321,7 +325,10 @@ class Component extends DCLogic {
         // for children: well known, friendly words (checked by hand for German)
         kid: byLen((WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
         kidSpace: byLen((WD.kidspace || '').split(' ')),
-        all: pool(function () { return true; })
+        // version 4: very easy words for children, then easy ones (German: checked by hand)
+        kid1: byLen((WD.kid1 || WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
+        kid2: byLen((WD.kid2 || '').split(' ').filter(function (w) { return defs.has(w); })),
+        all: pool(function (l) { return l !== 7; })
       }
     };
     return this._wordsBy[lang];
@@ -334,7 +341,8 @@ class Component extends DCLogic {
     // overall difficulty: 'hard' is the original galaxy and must never change (saved games depend on it)
     var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
     // generator version: galaxies started before version 2 keep their words (their saves depend on them)
-    var GEN2 = (this.gen || 1) >= 2, GEN3 = (this.gen || 1) >= 3, self = this;
+    var GEN2 = (this.gen || 1) >= 2, GEN3 = (this.gen || 1) >= 3, GEN4 = (this.gen || 1) >= 4, self = this;
+    var KIDS = GEN4 && LV === 'easy';
     var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1), seed0 = seed;
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -349,6 +357,8 @@ class Component extends DCLogic {
         if (!arr) continue;
         var c = arr.filter(function (w) { return !used.has(w); });
         if (c.length) { var w = pick(c); used.add(w); return w; }
+        // children: a very easy word again is better than a harder new one
+        if (KIDS && p === 0 && arr.length) return pick(arr);
       }
       if (!HARD || WDS.lang !== 'en') {
         // easier galaxies (and German ones) may use a word twice, or take any word of that length
@@ -500,10 +510,11 @@ class Component extends DCLogic {
     function levelField(f, i) {
       var n = f.cells.length;
       if (LV === 'easy') {
-        if (i === 0) { f.tier = 3; f.len = [4, 6]; f.pools = [POOL.kidSpace, POOL.kid, POOL.easy]; f.mods.push('THEME'); return; }
+        if (i === 0) { f.tier = 3; f.len = [4, 6]; f.pools = KIDS ? [POOL.kidSpace, POOL.kid1, POOL.kid2] : [POOL.kidSpace, POOL.kid, POOL.easy]; f.mods.push('THEME'); return; }
         f.tier = Math.min(3, Math.max(tierAt(f.dist), n >= 40 ? 2 : 1, n >= 60 ? 3 : 1));
         f.len = f.tier < 3 ? [4, 5] : [4, 6];
-        f.pools = [POOL.kid, POOL.easy];
+        // version 4: only words for children; a word may come twice rather than a harder word
+        f.pools = KIDS ? [POOL.kid1, POOL.kid2] : [POOL.kid, POOL.easy];
         if (rnd() < 0.5) f.mods.push('GIFT');
         return;
       }
@@ -542,7 +553,8 @@ class Component extends DCLogic {
       }
       function shape(start, L) {
         var inS = new Set([K(start[0], start[1])]), S = [start];
-        var style = pick(['spread', 'spread', 'snake', 'compact']);
+        // children find straight words (a row or a column, sometimes with one bend) much more easily
+        var style = KIDS ? pick(['line', 'line', 'line', 'snake']) : pick(['spread', 'spread', 'snake', 'compact']);
         while (S.length < L) {
           var fr = [], tot = 0;
           for (var a = 0; a < S.length; a++) {
@@ -557,6 +569,7 @@ class Component extends DCLogic {
               if (style === 'spread') wt = (1 + far) * (touching === 1 ? 3 : 0.4);
               if (style === 'snake') wt = touching === 1 ? 4 + far : 0.2;
               if (style === 'compact') wt = touching * touching;
+              if (style === 'line') wt = touching !== 1 ? 0.05 : (qq[0] === start[0] || qq[1] === start[1]) ? 12 : 0.6;
               fr.push([qq, wt]); tot += wt;
             }
           }
@@ -598,7 +611,7 @@ class Component extends DCLogic {
       }
       return go() ? out : null;
     }
-    var cacheKey = [WDS.lang, LV, seedIn, this.gen, WDS.accept.size].join(':'), trapCache = GEN3 && !HARD ? self.loadTrapCache(cacheKey) : null, newCache = {};
+    var cacheKey = [WDS.lang, LV, seedIn, this.gen, (GEN4 ? WDS.accept : WDS.acceptOld).size].join(':'), trapCache = GEN3 && !HARD ? self.loadTrapCache(cacheKey) : null, newCache = {};
     fields.forEach(function (f) {
       var regs = null, a;
       for (a = 0; a < 12 && !regs; a++) regs = partition(f, f.len[0], f.len[1]);
@@ -629,7 +642,7 @@ class Component extends DCLogic {
     // A trap is a word the player can select that is not a word of the solution: a dead end.
     // Easy and medium galaxies swap words until a field has few traps left.
     function reduceTraps(f) {
-      var acc = self.acceptCodes();
+      var acc = self.acceptCodes(!GEN4);
       var cells = f.cells.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }), n = cells.length;
       var idx = {}; cells.forEach(function (x, i) { idx[K(x[0], x[1])] = i; });
       var nb = cells.map(function (x) {
@@ -697,6 +710,7 @@ class Component extends DCLogic {
           var arr = pools[p][len]; if (!arr) continue;
           var c = arr.filter(function (w) { return !used.has(w); });
           if (c.length) return c[Math.floor(lrnd() * c.length)];
+          if (KIDS && p === 0 && arr.length) return arr[Math.floor(lrnd() * arr.length)];
         }
         return null;
       }
@@ -720,7 +734,7 @@ class Component extends DCLogic {
     // A word is confusing when one letter more or one letter less also makes a word,
     // e.g. GEHÖR next to a T (GEHÖRT). For children, pick other words until nothing like that is left.
     function avoidLookalikes(f) {
-      var dict = WDS.dict;
+      var dict = GEN4 ? WDS.dict : WDS.dictOld;
       function letters() {
         var at = {};
         f.regions.forEach(function (reg) { reg.cells.forEach(function (x, i) { at[K(x[0], x[1])] = reg.word[i]; }); });
