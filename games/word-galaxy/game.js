@@ -1963,6 +1963,8 @@ class Component extends DCLogic {
     if (this._anim) { cancelAnimationFrame(this._anim); this._anim = 0; }
     try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
     var p = this.pt(e);
+    // a new first finger: forget fingers whose 'lifted' event never arrived (they would turn a touch into a pinch)
+    if (e.isPrimary) { this.ptrs = {}; if (this.drag && this.drag.mode === 'pinch') this.drag = null; }
     this.ptrs[e.pointerId] = p;
     var ids = Object.keys(this.ptrs);
     if (ids.length === 2) {
@@ -2088,7 +2090,13 @@ class Component extends DCLogic {
     var d = this.drag;
     if (!d) return;
     if (d.timer) { clearTimeout(d.timer); d.timer = 0; }
-    if (d.mode === 'pinch') { if (Object.keys(this.ptrs).length === 0) { this.drag = null; this.bump(); } return; }
+    if (d.mode === 'pinch') {
+      var rest = Object.keys(this.ptrs);
+      // one finger stays down: it keeps moving the map
+      if (rest.length === 1) { var q = this.ptrs[rest[0]]; this.drag = { mode: 'pan', start: q, last: q, moved: true, cell: null }; }
+      else if (rest.length === 0) { this.drag = null; this.bump(); }
+      return;
+    }
     this.drag = null;
     this._autoV = { x: 0, y: 0 };
     if (d.mode === 'pan' && !d.moved) this.tap(d.cell);
@@ -2126,8 +2134,21 @@ class Component extends DCLogic {
     if (!this._cv) return;
     if (this._anim) { cancelAnimationFrame(this._anim); this._anim = 0; }
     var p = this.pt(e), c = this.cam;
+    // wheel amounts can come in lines or pages (Firefox mouse wheel): make them pixels
+    var unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 600 : 1;
+    var dx = (e.deltaX || 0) * unit, dy = (e.deltaY || 0) * unit;
+    var now = Date.now();
+    // a touchpad sends many small steps, often sideways too: two fingers move the map, a pinch (ctrl) zooms.
+    // A mouse wheel sends big steps straight up or down: it zooms.
+    var pad = !e.ctrlKey && e.deltaMode === 0 && (dx !== 0 || Math.abs(dy) < 40 || now - (this._padT || 0) < 300);
+    if (pad) {
+      this._padT = now;
+      this.cam = { s: c.s, x: c.x + dx / c.s, y: c.y + dy / c.s };
+      this.clampCam(); this.moved();
+      return;
+    }
     var q = this.toWorld(p.x, p.y);
-    var s = c.s * Math.exp(-e.deltaY * 0.0015);
+    var s = c.s * Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0015));
     this.cam = { s: s, x: q.x - (p.x - this.VW / 2) / s, y: q.y - (p.y - this.VH / 2) / s };
     this.clampCam(); this.moved();
   }
