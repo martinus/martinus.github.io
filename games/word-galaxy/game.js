@@ -66,6 +66,7 @@ class Component extends DCLogic {
     this._raf = 0; this._anim = 0; this._auto = 0;
     this.canvasRef = function (el) { self.setupCanvas(el); };
     this.loRef = function (el) { self.setupLo(el); };
+    this.ovRef = function (el) { self.setupOv(el); };
     this.zoomRef = function (el) { self.setupZoom(el); };
     this.onDown = function (e) { self.down(e); };
     this.onMove = function (e) { self.move(e); };
@@ -1124,6 +1125,28 @@ class Component extends DCLogic {
   }
   // the motion layer: twice the size of the view in each direction, drawn at 1x.
   // While the view moves, the browser only moves and scales this picture (a GPU job), so motion stays smooth.
+  // the overlay: hints tied to the screen (edge arrows, mini map, badges, celebration) on their own transparent
+  // canvas above the map, so they stay in place while the map picture moves
+  setupOv(el) {
+    if (!el || el === this._ov) return;
+    this._ov = el;
+    var d = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    var W = Math.round(this.VW * d), H = Math.round(this.VH * d);
+    if (el.width !== W || el.height !== H) { el.width = W; el.height = H; }
+    this.ovDpr = d;
+    this.ovCtx = el.getContext('2d');
+  }
+  drawOverlay() {
+    var c = this.cam, s = c.s, ox = this.VW / 2 - c.x * s, oy = this.VH / 2 - c.y * s;
+    var ctx = this.ovCtx, d = this.ovDpr;
+    if (!ctx) { ctx = this.ctx; d = this.dpr; }
+    else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this._ov.width, this._ov.height); }
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    this.dctx = ctx;
+    this.renderOverlay(ox, oy, s);
+    if (this.fx) this.renderFx(ox, oy, s);
+    this.dctx = null;
+  }
   setupLo(el) {
     if (!el || el === this._lo) return;
     this._lo = el;
@@ -1257,12 +1280,14 @@ class Component extends DCLogic {
     var M = this.mainCam, cv = this._cv;
     if (cv) {
       var km = M ? c.s / M.s : 0;
-      if (!M || this.mainVer !== this._ver || km > 2.2 || km < 0.45) cv.style.opacity = '0';
+      // flights between fields zoom out and back: there the motion layer alone looks calmer
+      if (!M || this._anim || this.mainVer !== this._ver || km > 2.2 || km < 0.45) cv.style.opacity = '0';
       else {
         cv.style.transform = 'translate(' + ((M.x - c.x) * c.s).toFixed(2) + 'px,' + ((M.y - c.y) * c.s).toFixed(2) + 'px) scale(' + km.toFixed(5) + ')';
         cv.style.opacity = '1';
       }
     }
+    this.drawOverlay();
     if (this.loMissing) this.paint();
   }
 
@@ -1391,9 +1416,7 @@ class Component extends DCLogic {
     // the sharp canvas now shows exactly this view
     this.mainCam = { x: c.x, y: c.y, s: c.s }; this.mainVer = this._ver;
     if (this._cv) { this._cv.style.transform = 'none'; this._cv.style.opacity = '1'; }
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.renderOverlay(ox, oy, s);
-    if (this.fx) this.renderFx(ox, oy, s);
+    this.drawOverlay();
     this.updateZoomStrip();
     this.prepareLo();
   }
@@ -1722,7 +1745,7 @@ class Component extends DCLogic {
   }
 
   renderFx(ox, oy, s) {
-    var ctx = this.ctx, w = this.world(), fx = this.fx, f = w.fields[fx.fi], VW = this.VW, VH = this.VH, P = w.P;
+    var ctx = this.dctx || this.ctx, w = this.world(), fx = this.fx, f = w.fields[fx.fi], VW = this.VW, VH = this.VH, P = w.P;
     var now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     // 0.6: the celebration runs at a calm pace, about 4.3 seconds
     var t = (now - fx.t0) / 1000 * 0.6;
@@ -1818,7 +1841,7 @@ class Component extends DCLogic {
   }
   // zoomed out: a green check on solved fields, the percent on started ones
   renderBadges(ox, oy, s) {
-    var ctx = this.ctx, w = this.world(), g = this.game, VW = this.VW, VH = this.VH, prog = this.fieldProgress();
+    var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, VW = this.VW, VH = this.VH, prog = this.fieldProgress();
     ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     w.fields.forEach(function (f) {
       var st = g.state[f.i];
@@ -1848,7 +1871,7 @@ class Component extends DCLogic {
   }
 
   renderOverlay(ox, oy, s) {
-    var ctx = this.ctx, w = this.world(), g = this.game, f = w.fields[this.focus], VW = this.VW, VH = this.VH;
+    var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, f = w.fields[this.focus], VW = this.VW, VH = this.VH;
     if (s < this.fieldScale(this.focus) * 0.75) { this.renderBadges(ox, oy, s); return; }
     var x0 = f.x0 * s + ox, x1 = f.x1 * s + ox, y0 = f.y0 * s + oy, y1 = f.y1 * s + oy;
     var more = { l: x0 < -4, r: x1 > VW + 4, t: y0 < -4, b: y1 > VH + 4 };
@@ -2225,7 +2248,7 @@ class Component extends DCLogic {
     });
     var picking = g.picked >= 0 && g.words[g.picked].alive;
     return {
-      canvasRef: this.canvasRef, loRef: this.loRef, zoomRef: this.zoomRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
+      canvasRef: this.canvasRef, loRef: this.loRef, ovRef: this.ovRef, zoomRef: this.zoomRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
       clearSel: this.clearSel, accept: this.accept, useLight: this.useLight, cancelPick: this.cancelPick, removePick: this.removePick,
       focusName: f.name, focusPips: pips,
       focusLevel: this.T('tiers').split('|')[f.tier],
