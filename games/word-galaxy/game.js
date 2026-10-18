@@ -303,7 +303,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 7; }
+  static get GEN() { return 8; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -408,7 +408,7 @@ class Component extends DCLogic {
     var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
     // generator version: galaxies started before version 2 keep their words (their saves depend on them)
     var GEN2 = (this.gen || 1) >= 2, GEN3 = (this.gen || 1) >= 3, GEN4 = (this.gen || 1) >= 4, self = this;
-    var KIDS = GEN4 && LV === 'easy', GEN5 = (this.gen || 1) >= 5, ROUND = (this.gen || 1) >= 6;
+    var KIDS = GEN4 && LV === 'easy', GEN5 = (this.gen || 1) >= 5, ROUND = (this.gen || 1) >= 6, GEN8 = (this.gen || 1) >= 8;
     var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1), seed0 = seed;
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -609,6 +609,8 @@ class Component extends DCLogic {
     var coreSub = null;
     if (ROUND) {
       var f0 = fields[0], kSub = LV === 'easy' ? 1 : 2 / 3, nSub = Math.round(DISC / kSub);
+      // version 8: a denser core with even smaller letters, so it takes longer
+      if (GEN8) { nSub = LV === 'easy' ? 11 : LV === 'medium' ? 18 : 24; kSub = DISC / nSub; }
       var ccx = (nSub - 1) / 2, rad2 = (nSub / 2 - 0.15) * (nSub / 2 - 0.15), disc = [];
       for (var sr = 0; sr < nSub; sr++) for (var sc = 0; sc < nSub; sc++) { var ddr = sr - ccx, ddc = sc - ccx; if (ddr * ddr + ddc * ddc <= rad2) disc.push([sr, sc]); }
       coreSub = { r0: MID - DISC / 2, c0: MID - DISC / 2, k: kSub, n: nSub, sq0: MID - CORE / 2, sq: CORE };
@@ -724,9 +726,9 @@ class Component extends DCLogic {
           f.regions.forEach(function (reg, i) { if (hit.w[i].length === reg.cells.length) reg.word = hit.w[i]; });
           hit.u.forEach(function (w) { used.add(w); });
           added = hit.u;
-        } else added = reduceTraps(f);
+        } else { added = reduceTraps(f); if (GEN8) added = added.concat(polish(f)); }
         newCache[f.id] = { w: f.regions.map(function (reg) { return reg.word; }), u: added };
-      }
+      } else if (GEN8) polish(f);
     });
     if (GEN3 && !HARD) self.saveTrapCache(cacheKey, newCache);
 
@@ -818,6 +820,74 @@ class Component extends DCLogic {
           if (tt < best) { best = tt; bestWord = cand; }
         }
         if (bestWord) { setWord(worst, bestWord); used.add(bestWord); added.push(bestWord); } else stuck[worst] = 1;
+      }
+      return added;
+    }
+
+    // version 8: no word twice in a field, and no solution word that one or two more letters
+    // make into a longer word the player can select (the player tries the longer word first)
+    function polish(f) {
+      var acc = GEN4 ? WDS.accept : WDS.acceptOld, added = [];
+      var ls = ((seed0 * 17 + f.id * 104729) % 2147483646) + 1;
+      function prnd() { ls = (ls * 16807) % 2147483647; return (ls - 1) / 2147483646; }
+      var at = {};
+      function place(reg, w) { reg.cells.forEach(function (x, i) { at[K(x[0], x[1])] = w[i]; }); }
+      f.regions.forEach(function (reg) { place(reg, reg.word); });
+      function read(cells) { return cells.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }).map(function (x) { return at[K(x[0], x[1])]; }).join(''); }
+      function around(cells, not) {
+        var out = [], seen = {};
+        cells.forEach(function (x) {
+          for (var d = 0; d < 4; d++) {
+            var y = x[0] + D4[d][0], c2 = x[1] + D4[d][1], kk = K(y, c2);
+            if (at[kk] === undefined || not[kk] || seen[kk]) continue;
+            seen[kk] = 1; out.push([y, c2]);
+          }
+        });
+        return out;
+      }
+      function longer(reg) {
+        var not = {};
+        reg.cells.forEach(function (x) { not[K(x[0], x[1])] = 1; });
+        var one = around(reg.cells, not);
+        for (var a = 0; a < one.length; a++) {
+          var c1 = reg.cells.concat([one[a]]);
+          if (acc.has(read(c1))) return true;
+          not[K(one[a][0], one[a][1])] = 1;
+          var two = around(c1, not);
+          for (var b = 0; b < two.length; b++) if (acc.has(read(c1.concat([two[b]])))) { delete not[K(one[a][0], one[a][1])]; return true; }
+          delete not[K(one[a][0], one[a][1])];
+        }
+        return false;
+      }
+      function counts() { var n = {}; f.regions.forEach(function (reg) { n[reg.word] = (n[reg.word] || 0) + 1; }); return n; }
+      function candidates(len, n) {
+        var fresh = [], old = [];
+        f.pools.forEach(function (pl) { (pl[len] || []).forEach(function (w) { if (n[w]) return; (used.has(w) ? old : fresh).push(w); }); });
+        if (!fresh.length && !old.length && !HARD) (POOL.all[len] || []).forEach(function (w) { if (!n[w]) old.push(w); });
+        return [fresh, old];
+      }
+      for (var round = 0; round < 10; round++) {
+        var n = counts(), seen = {}, bad = [];
+        f.regions.forEach(function (reg) {
+          var twice = seen[reg.word]; seen[reg.word] = 1;
+          if (twice || longer(reg)) bad.push(reg);
+        });
+        if (!bad.length) break;
+        bad.forEach(function (reg) {
+          var len = reg.cells.length, cs = candidates(len, counts()), keep = reg.word, best = null;
+          for (var t = 0; t < 6; t++) {
+            var list = cs[0].length && (t < 4 || !cs[1].length) ? cs[0] : cs[1];
+            if (!list.length) break;
+            var w = list[Math.floor(prnd() * list.length)];
+            place(reg, w); reg.word = w;
+            if (!longer(reg)) { best = w; break; }
+            if (!best) best = w;
+          }
+          if (!best) { reg.word = keep; place(reg, keep); return; }
+          // a word that is still twice is worse than a longer match: then keep the first new word
+          reg.word = best; place(reg, best);
+          if (!used.has(best)) { used.add(best); added.push(best); }
+        });
       }
       return added;
     }
@@ -1162,6 +1232,15 @@ class Component extends DCLogic {
     var cx = (f.x0 + f.x1) / 2, cy = (f.y0 + f.y1) / 2;
     if (kind === 'galaxy') return { x: w.W / 2, y: w.W / 2, s: this.galaxyScale() * 0.98 };
     if (kind === 'area') return { x: cx, y: cy, s: 9 / w.P };
+    if (f.round) {
+      // the round core: the whole circle with its ring when its letters are big enough to tap,
+      // else letters of 24 px, starting at the top of the circle
+      var cr = w.core, lp = w.P * cr.k, D = 2 * f.round.R + 2.2 * w.P;
+      var sf = Math.min((VW - 20) / D, (VH - 20) / D, 2.4);
+      if (sf * lp >= 22) return { x: f.round.cx, y: f.round.cy, s: sf };
+      var s0 = 24 / lp, y0 = f.round.cy - f.round.R - 0.5 * w.P + VH / 2 / s0;
+      return { x: f.round.cx, y: Math.min(f.round.cy, y0), s: s0 };
+    }
     var fw = f.x1 - f.x0, fh = f.y1 - f.y0;
     var s = Math.min((VW - 28) / fw, (VH - 28) / fh, 2.4);
     // the whole field fits with letters of 32 px or more: show it all; else use 40 px letters and pan
