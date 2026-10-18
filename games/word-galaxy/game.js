@@ -36,6 +36,15 @@ class Component extends DCLogic {
       if (c && c.action) c.action(); else if (c && c.seed != null) self.reseed(c.seed); else self.bump();
     };
     this.shareProgress = function () { self.menuOpen = false; self.doShare(); };
+    // test mode: open the game once with ?cheat=1 (and ?cheat=0 to stop); the menu then can solve the shown field
+    this.cheat = false;
+    try {
+      var cq = (typeof location !== 'undefined' && location.search) || '';
+      if (/[?&]cheat=1/.test(cq)) localStorage.setItem('wordgalaxy:cheat', '1');
+      if (/[?&]cheat=0/.test(cq)) localStorage.removeItem('wordgalaxy:cheat');
+      this.cheat = localStorage.getItem('wordgalaxy:cheat') === '1';
+    } catch (e) {}
+    this.cheatSolve = function () { self.menuOpen = false; self.doCheat(); };
     this.onSeedInput = function (e) { self.seedText = e.target.value; self.bump(); };
     this.buildSeed = function () {
       var n = parseInt(String(self.seedText).replace(/[^0-9]/g, ''), 10);
@@ -125,7 +134,7 @@ class Component extends DCLogic {
         menu: 'Menu', starsAria: 'Use one star for a hint ({0} left)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word', remove: 'Remove {0}',
         zGalaxy: 'Show the whole galaxy', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
-        menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
+        menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', cheat: '🪄 Solve this field (test)', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
         ngTitle: 'New galaxy', ngLevel: 'Difficulty', ngNumber: 'Galaxy number', ngRandom: 'Random', ngStart: 'Start', ngCancel: 'Cancel',
         loadingWords: 'Loading the words…', loadFail: 'Could not load the words. Check the connection and try again.', firstGame: 'Choose how hard your galaxy should be.'
       },
@@ -160,7 +169,7 @@ class Component extends DCLogic {
         menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen', remove: '{0} entfernen',
         zGalaxy: 'Die ganze Galaxie zeigen', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
-        menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
+        menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', cheat: '🪄 Feld lösen (Test)', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
         ngTitle: 'Neue Galaxie', ngLevel: 'Schwierigkeit', ngNumber: 'Galaxie-Nummer', ngRandom: 'Zufällig', ngStart: 'Starten', ngCancel: 'Abbrechen',
         loadingWords: 'Die Wörter werden geladen …', loadFail: 'Die Wörter konnten nicht geladen werden. Prüfe die Verbindung und versuche es noch einmal.', firstGame: 'Wähle, wie schwer deine Galaxie sein soll.'
       }
@@ -2469,6 +2478,32 @@ class Component extends DCLogic {
     return c;
   }
 
+  // test mode: put the correct words into the shown field, one by one, as if the player found them
+  doCheat() {
+    var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi], self = this;
+    if (g.state[fi] !== 'O') { this.say(g.state[fi] === 'S' ? this.T('isSolved', f.name) : f.round ? this.T('coreGate', f.nbList.length) : this.T('locked', f.name), 'warn'); this.bump(); return; }
+    g.picked = -1;
+    f.regions.slice().forEach(function (gi) {
+      if (g.state[fi] !== 'O') return;
+      var reg = w.regions[gi], cw = g.cellWord[reg.cells[0]];
+      if (cw >= 0 && g.words[cw].alive && g.words[cw].correct) return;
+      // words in the way are taken away first
+      reg.cells.forEach(function (j) {
+        var k = g.cellWord[j];
+        if (k < 0) return;
+        var wd = g.words[k];
+        self.dirtyCells(wd.cells, 1);
+        wd.alive = false; wd.cells.forEach(function (q) { g.cellWord[q] = -1; });
+        delete g.wrongMarked[wd.id];
+      });
+      g.sel = {}; g.selN = reg.cells.length;
+      reg.cells.forEach(function (j) { g.sel[j] = 1; });
+      self.doAccept();
+    });
+    g.sel = {}; g.selN = 0;
+    this.save(); this.paint(); this.bump();
+  }
+
   doRemove() {
     var g = this.game, wd = g.words[g.picked];
     if (!wd || !wd.alive) return;
@@ -2567,7 +2602,7 @@ class Component extends DCLogic {
           on: on, bg: on ? '#2a3a6e' : 'transparent', bd: on ? '#f2c063' : '#34405c', pressed: on ? 'true' : 'false' };
       }),
       tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'), tRemove: this.T('remove', picking ? g.words[g.picked].word : ''),
-      tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
+      tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tCheat: this.T('cheat'), cheat: this.cheat, cheatSolve: this.cheatSolve, tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
       tOtherLang: this.T('otherLang'), tOtherLangAria: this.T('otherLangAria'),
       tNgTitle: this.T('ngTitle'), tNgLevel: this.T('ngLevel'), tNgNumber: this.T('ngNumber'), tNgRandom: this.T('ngRandom'), tNgStart: this.T('ngStart'), tNgCancel: this.T('ngCancel'),
       quickAccept: !!this.quick && this.quick.kind === 'accept', quickRemove: !!this.quick && this.quick.kind === 'remove', quickWord: picking ? g.words[g.picked].word : '',
