@@ -249,7 +249,13 @@ class Component extends DCLogic {
         if (o.sub) return;
         [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (d) {
           var rr = o.r + d[0], cc = o.c + d[1];
-          if (rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side) { fields[o.f].nb[0] = 1; fields[0].nb[o.f] = 1; }
+          var inCore = rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side;
+          if (inCore && core.hole) {
+            // version 7: the free space is round
+            var hdy = Math.max(0, Math.abs(rr + 0.5 - core.mid) - 0.5), hdx = Math.max(0, Math.abs(cc + 0.5 - core.mid) - 0.5);
+            inCore = hdx * hdx + hdy * hdy < core.hole * core.hole;
+          }
+          if (inCore) { fields[o.f].nb[0] = 1; fields[0].nb[o.f] = 1; }
         });
       });
       var f0 = fields[0], disc = core.n * core.k;
@@ -288,7 +294,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 6; }
+  static get GEN() { return 7; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -437,7 +443,17 @@ class Component extends DCLogic {
     var CORE = HARD ? 12 : LV === 'medium' ? 10 : 8, DISC = CORE;
     // version 6: room for the ring and the stars around the round core
     if ((this.gen || 1) >= 6) CORE += 2;
-    place(MID - CORE / 2, MID - CORE / 2, CORE, CORE); // the core
+    var HOLE = 0;
+    if ((this.gen || 1) >= 7) {
+      // version 7: the free space around the round core is round too, so the fields around it form a circle
+      HOLE = DISC / 2 + 1.25; CORE = DISC + 4;
+      var hc = [], h0 = MID - CORE / 2;
+      for (r = h0; r < h0 + CORE; r++) for (c = h0; c < h0 + CORE; c++) {
+        var hdy = Math.max(0, Math.abs(r + 0.5 - MID) - 0.5), hdx = Math.max(0, Math.abs(c + 0.5 - MID) - 0.5);
+        if (hdx * hdx + hdy * hdy < HOLE * HOLE) { owner[r][c] = 0; hc.push([r, c]); }
+      }
+      fields.push({ id: 0, cells: hc });
+    } else place(MID - CORE / 2, MID - CORE / 2, CORE, CORE); // the core
     // [rows, columns]: fields are taller than wide, so they fit a phone held upright
     var SIZES = {
       1: [[6, 5], [7, 5], [6, 5], [7, 6]],
@@ -587,6 +603,7 @@ class Component extends DCLogic {
       var ccx = (nSub - 1) / 2, rad2 = (nSub / 2 - 0.15) * (nSub / 2 - 0.15), disc = [];
       for (var sr = 0; sr < nSub; sr++) for (var sc = 0; sc < nSub; sc++) { var ddr = sr - ccx, ddc = sc - ccx; if (ddr * ddr + ddc * ddc <= rad2) disc.push([sr, sc]); }
       coreSub = { r0: MID - DISC / 2, c0: MID - DISC / 2, k: kSub, n: nSub, sq0: MID - CORE / 2, sq: CORE };
+      if (HOLE) { coreSub.hole = HOLE; coreSub.mid = MID; }
       f0.sub = coreSub; f0.cells = disc;
       f0.len = LV === 'easy' ? [4, 6] : LV === 'medium' ? [5, 10] : [6, 12];
     }
