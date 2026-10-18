@@ -111,6 +111,9 @@ class Component extends DCLogic {
         locked: '{0} is locked. Solve a field next to it first.', isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
         solvedOther: '{0} is solved. Tap a field with a dashed outline.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
         nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
+        coreOpen: 'All fields around the core are solved: the core is open!', coreGate: 'The core opens when all {0} fields around it are solved.',
+        finaleTitle: 'Core reached!', finaleSub: 'GALAXY {0}', stFields: 'fields', stWords: 'words', stStars: 'stars used', stPerfect: 'perfect',
+        coreDone: 'You solved the Galactic Core! {0} of {1} fields of this galaxy are solved.',
         cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!', notHere: '{0} is a word, but not the one we look for here. Try again!',
         removed: '{0} removed.', staySelected: 'The letters stay selected. Swipe to change them, then tap the ✓ button.',
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
@@ -143,6 +146,9 @@ class Component extends DCLogic {
         locked: '{0} ist gesperrt. Löse zuerst ein Feld daneben.', isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
         solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit gestricheltem Rand.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
         nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
+        coreOpen: 'Alle Felder rund um den Kern sind gelöst: Der Kern ist offen!', coreGate: 'Der Kern öffnet sich, wenn alle {0} Felder rundherum gelöst sind.',
+        finaleTitle: 'Kern erreicht!', finaleSub: 'GALAXIE {0}', stFields: 'Felder', stWords: 'Wörter', stStars: 'Sterne genutzt', stPerfect: 'perfekt',
+        coreDone: 'Du hast den Galaktischen Kern gelöst! {0} von {1} Feldern dieser Galaxie sind gelöst.',
         cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!', notHere: '{0} ist ein Wort, aber nicht das gesuchte. Versuch es noch einmal!',
         removed: '{0} entfernt.', staySelected: 'Die Buchstaben bleiben gewählt. Wische, um sie zu ändern, dann tippe auf ✓.',
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
@@ -185,37 +191,72 @@ class Component extends DCLogic {
     var self = this;
     var DATA = this.generate(this.seed);
     var P = 28, M = 120, N = DATA.N, W = 2 * M + N * P;
+    // version 6: the core is round, with its own finer grid of smaller letters
+    var core = DATA.core || null, coreIdx = core ? new Int32Array(core.n * core.n).fill(-1) : null;
     var fields = DATA.fields.map(function (f, i) {
       return { i: i, name: i === 0 ? self.T('core') : f.name, mods: f.mods, tier: f.tier, state0: f.state, goal: !!f.goal, words: f.words, len: f.len, shape: f.shape,
-        cells: [], regions: [], nb: {}, minR: 1e9, maxR: -1, minC: 1e9, maxC: -1 };
+        cells: [], regions: [], nb: {}, minR: 1e9, maxR: -1, minC: 1e9, maxC: -1, x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
     });
     var regions = DATA.regions.map(function (g, i) { return { i: i, f: g[0], found0: !!g[1], colour0: g[2], cells: [] }; });
     var owner = new Int32Array(N * N).fill(-1);
     var cells = DATA.cells.map(function (c, i) {
-      var o = { i: i, r: c[0], c: c[1], l: c[2], f: c[3], g: c[4], k: c[5], flags: c[6], x: M + c[1] * P, y: M + c[0] * P };
-      owner[o.r * N + o.c] = i;
+      var o;
+      if (c[7] === 1) {
+        // a letter of the round core: position on the core's own grid, size k of a normal letter
+        o = { i: i, sr: c[0], sc: c[1], r: core.r0 + c[0] * core.k, c: core.c0 + c[1] * core.k, l: c[2], f: c[3], g: c[4], k: c[5], flags: c[6], sub: true,
+          x: M + (core.c0 + c[1] * core.k) * P, y: M + (core.r0 + c[0] * core.k) * P, p: P * core.k };
+        coreIdx[c[0] * core.n + c[1]] = i;
+      } else {
+        o = { i: i, r: c[0], c: c[1], l: c[2], f: c[3], g: c[4], k: c[5], flags: c[6], x: M + c[1] * P, y: M + c[0] * P, p: P };
+        owner[o.r * N + o.c] = i;
+      }
       var f = fields[o.f];
       f.cells.push(i);
       if (o.r < f.minR) f.minR = o.r; if (o.r > f.maxR) f.maxR = o.r;
       if (o.c < f.minC) f.minC = o.c; if (o.c > f.maxC) f.maxC = o.c;
+      if (o.x < f.x0) f.x0 = o.x; if (o.x + o.p > f.x1) f.x1 = o.x + o.p;
+      if (o.y < f.y0) f.y0 = o.y; if (o.y + o.p > f.y1) f.y1 = o.y + o.p;
       regions[o.g].cells[o.k] = i;
       return o;
     });
     regions.forEach(function (g) { fields[g.f].regions.push(g.i); });
     function at(r, c) { return r < 0 || c < 0 || r >= N || c >= N ? -1 : owner[r * N + c]; }
+    function coreAt(r, c) { return r < 0 || c < 0 || r >= core.n || c >= core.n ? -1 : coreIdx[r * core.n + c]; }
     cells.forEach(function (o) {
+      if (o.sub) {
+        o.nb = [coreAt(o.sr - 1, o.sc), coreAt(o.sr, o.sc + 1), coreAt(o.sr + 1, o.sc), coreAt(o.sr, o.sc - 1)];
+        o.nd = [coreAt(o.sr - 1, o.sc - 1), coreAt(o.sr - 1, o.sc + 1), coreAt(o.sr + 1, o.sc + 1), coreAt(o.sr + 1, o.sc - 1)];
+        return;
+      }
       o.nb = [at(o.r - 1, o.c), at(o.r, o.c + 1), at(o.r + 1, o.c), at(o.r, o.c - 1)];
+      o.nd = [at(o.r - 1, o.c - 1), at(o.r - 1, o.c + 1), at(o.r + 1, o.c + 1), at(o.r + 1, o.c - 1)];
       for (var s = 1; s <= 2; s++) {
         var j = o.nb[s];
         if (j >= 0 && cells[j] && cells[j].f !== o.f) { fields[o.f].nb[cells[j].f] = 1; fields[cells[j].f].nb[o.f] = 1; }
       }
     });
     cells.forEach(function (o) {
+      if (o.sub) return;
       for (var s = 1; s <= 2; s++) {
         var j = o.nb[s];
         if (j >= 0 && cells[j].f !== o.f) { fields[o.f].nb[cells[j].f] = 1; fields[cells[j].f].nb[o.f] = 1; }
       }
     });
+    if (core) {
+      // the round core sits in a square of normal cells: every field touching that square is its neighbour
+      var sq0 = core.sq0 != null ? core.sq0 : core.r0, side = core.sq || Math.round(core.n * core.k);
+      cells.forEach(function (o) {
+        if (o.sub) return;
+        [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (d) {
+          var rr = o.r + d[0], cc = o.c + d[1];
+          if (rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side) { fields[o.f].nb[0] = 1; fields[0].nb[o.f] = 1; }
+        });
+      });
+      var f0 = fields[0], disc = core.n * core.k;
+      f0.round = { cx: M + (core.c0 + disc / 2) * P, cy: M + (core.r0 + disc / 2) * P, R: disc * P / 2 };
+      // the round core's area is the whole square, so the camera and the tiles see its glow and ring
+      f0.x0 = M + sq0 * P; f0.y0 = M + sq0 * P; f0.x1 = f0.x0 + side * P; f0.y1 = f0.y0 + side * P;
+    }
     function mix(a, b, t) {
       var pa = [1, 3, 5].map(function (i) { return parseInt(a.substr(i, 2), 16); });
       var pb = [1, 3, 5].map(function (i) { return parseInt(b.substr(i, 2), 16); });
@@ -223,11 +264,17 @@ class Component extends DCLogic {
     }
     fields.forEach(function (f) {
       f.nbList = Object.keys(f.nb).map(Number);
-      f.x0 = M + f.minC * P; f.x1 = M + (f.maxC + 1) * P;
-      f.y0 = M + f.minR * P; f.y1 = M + (f.maxR + 1) * P;
-      var t = Math.min(1, Math.hypot((f.minC + f.maxC) / 2 - N / 2, (f.minR + f.maxR) / 2 - N / 2) / (N / 2));
+      var fcx = (f.x0 + f.x1) / 2, fcy = (f.y0 + f.y1) / 2, gc = M + N * P / 2;
+      var t = Math.min(1, Math.hypot(fcx - gc, fcy - gc) / P / (N / 2));
       f.lockBg = mix('#5a3f86', '#1b2552', t);
+      // the closer to the core, the warmer: fields near the core turn a little gold
+      var warm = Math.max(0, Math.min(1, 1 - (Math.hypot(fcx - gc, fcy - gc) / P - 6) / 26));
+      f.warm = warm * warm;
+      f.lockBg = mix(f.lockBg, '#8a6620', 0.75 * f.warm);
       f.lockFg = mix(f.lockBg, '#c0c6e8', 0.45);
+      f.openBg = mix('#f4efe4', '#f3d27e', 0.75 * f.warm);
+      // other fields are darkened; near the core with a warm shade
+      f.dim = f.warm > 0.25 ? 'rgba(30,20,4,0.42)' : 'rgba(6,9,19,0.45)';
     });
     var seed = 11;
     function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
@@ -236,12 +283,12 @@ class Component extends DCLogic {
     // accepted words: the common ones, and every word of this galaxy's solution
     var dict = new Set(this.words().accept);
     regions.forEach(function (g) { dict.add(g.cells.map(function (j) { return cells[j].l; }).join('')); });
-    this._w = { fields: fields, regions: regions, cells: cells, owner: owner, at: at, stars: stars, dict: dict, current: DATA.current, N: N, P: P, M: M, W: W };
+    this._w = { fields: fields, regions: regions, cells: cells, owner: owner, at: at, core: core, coreAt: core ? coreAt : null, stars: stars, dict: dict, current: DATA.current, N: N, P: P, M: M, W: W };
     return this._w;
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 5; }
+  static get GEN() { return 6; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -346,7 +393,7 @@ class Component extends DCLogic {
     var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
     // generator version: galaxies started before version 2 keep their words (their saves depend on them)
     var GEN2 = (this.gen || 1) >= 2, GEN3 = (this.gen || 1) >= 3, GEN4 = (this.gen || 1) >= 4, self = this;
-    var KIDS = GEN4 && LV === 'easy', GEN5 = (this.gen || 1) >= 5;
+    var KIDS = GEN4 && LV === 'easy', GEN5 = (this.gen || 1) >= 5, ROUND = (this.gen || 1) >= 6;
     var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1), seed0 = seed;
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -387,7 +434,9 @@ class Component extends DCLogic {
       fields.push({ id: id, cells: cells });
       return true;
     }
-    var CORE = HARD ? 12 : LV === 'medium' ? 10 : 8;
+    var CORE = HARD ? 12 : LV === 'medium' ? 10 : 8, DISC = CORE;
+    // version 6: room for the ring and the stars around the round core
+    if ((this.gen || 1) >= 6) CORE += 2;
     place(MID - CORE / 2, MID - CORE / 2, CORE, CORE); // the core
     // [rows, columns]: fields are taller than wide, so they fit a phone held upright
     var SIZES = {
@@ -529,6 +578,17 @@ class Component extends DCLogic {
       f.len = T[0]; f.pools = T[1];
       if (f.tier <= 2 && rnd() < 0.4) f.mods.push('GIFT');
       if (f.tier >= 3 && rnd() < 0.12) { f.mods.push('THEME'); f.pools = [POOL.space].concat(f.pools); }
+    }
+
+    // version 6: the core is round, with smaller letters (more of them) on its own finer grid
+    var coreSub = null;
+    if (ROUND) {
+      var f0 = fields[0], kSub = LV === 'easy' ? 1 : 2 / 3, nSub = Math.round(DISC / kSub);
+      var ccx = (nSub - 1) / 2, rad2 = (nSub / 2 - 0.15) * (nSub / 2 - 0.15), disc = [];
+      for (var sr = 0; sr < nSub; sr++) for (var sc = 0; sc < nSub; sc++) { var ddr = sr - ccx, ddc = sc - ccx; if (ddr * ddr + ddc * ddc <= rad2) disc.push([sr, sc]); }
+      coreSub = { r0: MID - DISC / 2, c0: MID - DISC / 2, k: kSub, n: nSub, sq0: MID - CORE / 2, sq: CORE };
+      f0.sub = coreSub; f0.cells = disc;
+      f0.len = LV === 'easy' ? [4, 6] : LV === 'medium' ? [5, 10] : [6, 12];
     }
 
     // cut each field into word shapes
@@ -823,12 +883,14 @@ class Component extends DCLogic {
       f.regions.forEach(function (reg) {
         var gi = regions.length;
         regions.push([f.id, reg === gift ? 1 : 0, -1]);
+        // the round core has its own grid: its letters are added below, not by position in the galaxy
+        if (f.sub) { reg.gi = gi; return; }
         reg.cells.forEach(function (x, i) { cellReg[K(x[0], x[1])] = [gi, i, reg.word[i]]; });
       });
     });
     var cells = [];
     for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
-      var o3 = owner[r][c]; if (o3 < 0) continue;
+      var o3 = owner[r][c]; if (o3 < 0 || (coreSub && o3 === 0)) continue;
       var fl = 0;
       var dirs = [[-1, 0], [0, 1], [1, 0], [0, -1]];
       for (var bit = 0; bit < 4; bit++) { if (own(r + dirs[bit][0], c + dirs[bit][1]) !== o3) fl |= 1 << bit; }
@@ -836,8 +898,19 @@ class Component extends DCLogic {
       var cr = cellReg[K(r, c)];
       cells.push([r, c, cr[2], o3, cr[0], cr[1], fl]);
     }
+    if (coreSub) {
+      var inCore = {};
+      fields[0].cells.forEach(function (x) { inCore[K(x[0], x[1])] = 1; });
+      fields[0].regions.forEach(function (reg) {
+        reg.cells.forEach(function (x, i) {
+          var fl2 = 0, dd = [[-1, 0], [0, 1], [1, 0], [0, -1]];
+          for (var b2 = 0; b2 < 4; b2++) if (!inCore[K(x[0] + dd[b2][0], x[1] + dd[b2][1])]) fl2 |= 1 << b2;
+          cells.push([x[0], x[1], reg.word[i], 0, reg.gi, i, fl2, 1]);
+        });
+      });
+    }
     return {
-      N: N, current: current, cells: cells, regions: regions,
+      N: N, current: current, cells: cells, regions: regions, core: coreSub,
       fields: fields.map(function (f) {
         return { name: f.name, mods: f.mods, tier: f.tier, state: startIds.indexOf(f.id) >= 0 ? 'O' : 'L', goal: f.id === 0 ? 1 : 0, words: f.regions.length, len: f.len, shape: '' };
       })
@@ -1196,8 +1269,8 @@ class Component extends DCLogic {
       // next to the last letter: the one the finger stopped on, else the last one in reading order
       j = g.sel[this.lastCell] && sel.indexOf(this.lastCell) >= 0 ? this.lastCell : sel[sel.length - 1];
     }
-    var c = this.cam, s = c.s, P = w.P, B = 44;
-    var o = w.cells[j];
+    var c = this.cam, s = c.s, B = 44;
+    var o = w.cells[j], P = o.p;
     var cx = (o.x + P - c.x) * s + this.VW / 2, cy = (o.y - c.y) * s + this.VH / 2;
     // centre on the upper right corner of that letter, so it covers only a part of it
     var x = cx - B / 2, y = cy - B / 2;
@@ -1301,6 +1374,7 @@ class Component extends DCLogic {
       if (g.state[f.i] !== 'O') return;
       f.cells.forEach(function (j) {
         var o = w.cells[j];
+        if (o.sub) return;
         for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++) {
           if (Math.abs(dy) + Math.abs(dx) > 2) continue;
           var q = w.at(o.r + dy, o.c + dx);
@@ -1471,8 +1545,8 @@ class Component extends DCLogic {
     this.dirtyRect(x0 - m, y0 - m, x1 + m, y1 + m);
   }
   dirtyField(fi) {
-    var f = this.world().fields[fi];
-    if (f) this.dirtyRect(f.x0 - 34, f.y0 - 34, f.x1 + 34, f.y1 + 34);
+    var f = this.world().fields[fi], m = f && f.round ? 4 * this.world().P : 34;
+    if (f) this.dirtyRect(f.x0 - m, f.y0 - m, f.x1 + m, f.y1 + m);
   }
 
   tileCanvas() {
@@ -1623,21 +1697,26 @@ class Component extends DCLogic {
         ctx.fillRect(rx0, ry0, rw0, rh0);
       }
     }
-    var lit = this.lit;
+    var lit = this.lit, fontTile = tile;
+    var core0 = w.fields[0].round ? w.fields[0] : null;
+    if (core0 && fine) this.drawCoreBack(ctx, core0, s, ox, oy, px);
     for (i = 0; i < w.cells.length; i++) {
       var o = w.cells[i];
+      // letters of the round core are smaller
+      tile = o.p * s; tileCss = tile / px; fine = tileCss >= 6; text = tileCss >= 10;
+      if (text && tile !== fontTile) { ctx.font = '800 ' + (tile * 0.5).toFixed(1) + 'px Archivo, system-ui, sans-serif'; fontTile = tile; }
       var x = o.x * s + ox, y = o.y * s + oy;
       if (x > VW || y > VH || x + tile < 0 || y + tile < 0) continue;
       var f = w.fields[o.f], fst = g.state[o.f], wid = g.cellWord[i], sel = !!g.sel[i];
       var bg, fg = '#1d2433';
       if (wid >= 0) bg = COLORS[g.words[wid].colour % COLORS.length];
       else if (sel) { bg = '#25327f'; fg = '#ffffff'; }
-      else if (fst === 'O') bg = '#f4efe4';
+      else if (fst === 'O') bg = f.openBg || '#f4efe4';
       else if (f.goal) { bg = '#f2c063'; fg = '#3a2806'; }
       else { bg = f.lockBg; fg = f.lockFg; }
       ctx.fillStyle = bg;
       var dimIt = o.f !== this.focus && fst !== 'L';
-      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = 'rgba(6,9,19,0.45)'; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
+      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = f.dim; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
       var me = grp[i], fl = o.flags;
       var sT = me !== 0 && o.nb[0] >= 0 && grp[o.nb[0]] === me;
       var sR = me !== 0 && o.nb[1] >= 0 && grp[o.nb[1]] === me;
@@ -1652,8 +1731,8 @@ class Component extends DCLogic {
       } else {
         // the box as one outline: round outer corners; inner corners of a word are cut out with a small curve
         var r = Math.min(5 * s, tile * 0.2), rf = Math.min(r, I);
-        var dg = function (dr, dc) { var q = w.at(o.r + dr, o.c + dc); return q >= 0 && grp[q] === me; };
-        var nTL = sT && sL && !dg(-1, -1), nTR = sT && sR && !dg(-1, 1), nBR = sB && sR && !dg(1, 1), nBL = sB && sL && !dg(1, -1);
+        var dg = function (k) { var q = o.nd[k]; return q >= 0 && grp[q] === me; };
+        var nTL = sT && sL && !dg(0), nTR = sT && sR && !dg(1), nBR = sB && sR && !dg(2), nBL = sB && sL && !dg(3);
         var X0 = x + I, X1 = x + tile - I, Y0 = y + I, Y1 = y + tile - I;
         ctx.beginPath();
         if (!sT && !sL) { ctx.moveTo(xl, yt + r); ctx.arcTo(xl, yt, xl + r, yt, r); }
@@ -1679,8 +1758,10 @@ class Component extends DCLogic {
         ctx.fillText(fog ? '·' : o.l, x + tile / 2, y + tile / 2 + tile * 0.03);
       }
       // other fields are darker, so the field being played stands out
-      if (dimIt) { ctx.fillStyle = 'rgba(6,9,19,0.45)'; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
+      if (dimIt) { ctx.fillStyle = f.dim; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
     }
+    tile = P * s; tileCss = tile / px; fine = tileCss >= 6; text = tileCss >= 10;
+    if (core0 && fine) this.drawCoreFront(ctx, core0, s, ox, oy, px);
     // a soft gold line where the light enters
     if (fine && this.glow.length) {
       ctx.save();
@@ -1706,8 +1787,9 @@ class Component extends DCLogic {
       var fx0 = f.x0 * s + ox, fy0 = f.y0 * s + oy;
       if (f.x1 * s + ox < 0 || f.y1 * s + oy < 0 || fx0 > VW || fy0 > VH) return;
       ctx.beginPath();
-      f.cells.forEach(function (j) {
-        var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, fl = o.flags;
+      if (f.round) { ctx.arc(f.round.cx * s + ox, f.round.cy * s + oy, (f.round.R + 3) * s, 0, Math.PI * 2); }
+      else f.cells.forEach(function (j) {
+        var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, fl = o.flags, tile = o.p * s;
         if (fl & 1) { ctx.moveTo(x, y); ctx.lineTo(x + tile, y); }
         if (fl & 4) { ctx.moveTo(x, y + tile); ctx.lineTo(x + tile, y + tile); }
         if (fl & 8) { ctx.moveTo(x, y); ctx.lineTo(x, y + tile); }
@@ -1725,7 +1807,7 @@ class Component extends DCLogic {
     function wordOutline(wd, colour, dashed) {
       ctx.beginPath();
       wd.cells.forEach(function (j) {
-        var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy;
+        var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, tile = o.p * s;
         for (var k = 0; k < 4; k++) {
           var n = o.nb[k];
           if (n >= 0 && g.cellWord[n] === wd.id) continue;
@@ -1743,13 +1825,137 @@ class Component extends DCLogic {
     ctx.fillStyle = '#c4700c';
     g.hints.forEach(function (list) {
       list.forEach(function (h) {
-        var a = w.cells[h.a], x = a.x * s + ox, y = a.y * s + oy;
-        if (h.kind === 'start') { ctx.beginPath(); ctx.arc(x + 7 * s, y + 7 * s, Math.max(1.5 * px, 3.2 * s), 0, Math.PI * 2); ctx.fill(); return; }
+        var a = w.cells[h.a], x = a.x * s + ox, y = a.y * s + oy, tile = a.p * s;
+        if (h.kind === 'start') { ctx.beginPath(); ctx.arc(x + tile / 4, y + tile / 4, Math.max(1.5 * px, 3.2 * s * a.p / P), 0, Math.PI * 2); ctx.fill(); return; }
         var b = w.cells[h.b];
         if (a.r === b.r) ctx.fillRect(x + tile - 2.5 * s, y + 3 * s, 5 * s, tile - 6 * s);
         else ctx.fillRect(x + 3 * s, y + tile - 2.5 * s, tile - 6 * s, 5 * s);
       });
     });
+  }
+
+  // the round core: warm glow and slow rays behind the letters
+  drawCoreBack(ctx, f, s, ox, oy, px) {
+    var w = this.world(), g = this.game, P = w.P, cx = f.round.cx * s + ox, cy = f.round.cy * s + oy, R = f.round.R * s;
+    var prog = this.coreProgress(), open = g.state[0] !== 'L';
+    var gr = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 2.1);
+    gr.addColorStop(0, 'rgba(242,192,99,' + (0.22 + 0.3 * prog) + ')'); gr.addColorStop(1, 'rgba(242,192,99,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx, cy, R * 2.1, 0, Math.PI * 2); ctx.fill();
+    // threads of light from each solved field around the core to its star (behind the letters)
+    var RR = R + 0.85 * P * s;
+    f.nbList.forEach(function (j) {
+      if (g.state[j] !== 'S') return;
+      var n = w.fields[j], ncx = (n.x0 + n.x1) / 2 * s + ox, ncy = (n.y0 + n.y1) / 2 * s + oy, a = Math.atan2(ncy - cy, ncx - cx);
+      ctx.strokeStyle = 'rgba(255,214,120,0.85)'; ctx.lineWidth = Math.max(px, 0.12 * P * s); ctx.shadowColor = 'rgba(255,200,95,0.9)'; ctx.shadowBlur = 10 * px;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * RR, cy + Math.sin(a) * RR); ctx.lineTo(ncx, ncy); ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+    ctx.fillStyle = 'rgba(255,214,120,' + (open ? 0.1 + 0.12 * prog : 0.06) + ')';
+    for (var i = 0; i < 24; i++) {
+      var a = i / 24 * Math.PI * 2, a1 = a - 0.035, a2 = a + 0.035, r0 = R + 1.3 * P * s, r1 = R + (i % 2 ? 2.4 : 3.4) * P * s;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a1) * r0, cy + Math.sin(a1) * r0); ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); ctx.lineTo(cx + Math.cos(a2) * r0, cy + Math.sin(a2) * r0); ctx.fill();
+    }
+  }
+  // ring that fills with every word, a star for each field around the core, the lock while it is closed
+  drawCoreFront(ctx, f, s, ox, oy, px) {
+    var w = this.world(), g = this.game, P = w.P, cx = f.round.cx * s + ox, cy = f.round.cy * s + oy, R = f.round.R * s;
+    var prog = this.coreProgress(), RR = R + 0.85 * P * s;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(242,192,99,0.22)'; ctx.lineWidth = Math.max(2 * px, 0.22 * P * s);
+    ctx.beginPath(); ctx.arc(cx, cy, RR, 0, Math.PI * 2); ctx.stroke();
+    if (prog > 0) {
+      ctx.strokeStyle = '#f2c063'; ctx.shadowColor = 'rgba(255,200,95,0.9)'; ctx.shadowBlur = 10 * px;
+      ctx.beginPath(); ctx.arc(cx, cy, RR, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2); ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+    var self = this, done = 0;
+    f.nbList.forEach(function (j) {
+      var n = w.fields[j], a = Math.atan2((n.y0 + n.y1) / 2 - f.round.cy, (n.x0 + n.x1) / 2 - f.round.cx), lit = g.state[j] === 'S';
+      if (lit) done++;
+      var sx = cx + Math.cos(a) * RR, sy = cy + Math.sin(a) * RR;
+      self.drawStar(ctx, sx, sy, (lit ? 0.42 : 0.3) * P * s, lit ? '#ffe39a' : '#3b3f5c', lit ? 8 * px : 0);
+    });
+    if (g.state[0] === 'L') {
+      // closed: dark veil and the count of fields around it
+      ctx.fillStyle = 'rgba(6,9,19,0.55)'; ctx.beginPath(); ctx.arc(cx, cy, R + 2, 0, Math.PI * 2); ctx.fill();
+      if (R > 30 * px) {
+        ctx.fillStyle = '#f2c063'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '800 ' + (R * 0.32).toFixed(1) + 'px Archivo, system-ui, sans-serif';
+        ctx.shadowColor = 'rgba(242,192,99,0.8)'; ctx.shadowBlur = 12 * px;
+        ctx.fillText(done + ' / ' + f.nbList.length, cx, cy);
+        ctx.shadowBlur = 0;
+      }
+    }
+    ctx.restore();
+  }
+  drawStar(ctx, x, y, r, col, blur) {
+    ctx.save(); ctx.translate(x, y); ctx.beginPath();
+    for (var i = 0; i < 10; i++) { var a = i * Math.PI / 5 - Math.PI / 2, q = i % 2 ? r * 0.45 : r; ctx.lineTo(Math.cos(a) * q, Math.sin(a) * q); }
+    ctx.closePath(); if (blur) { ctx.shadowColor = 'rgba(255,200,95,0.9)'; ctx.shadowBlur = blur; }
+    ctx.fillStyle = col; ctx.fill(); ctx.restore();
+  }
+  coreProgress() {
+    var w = this.world(), g = this.game, f = w.fields[0], n = 0;
+    f.cells.forEach(function (j) { if (g.cellWord[j] >= 0) n++; });
+    return f.cells.length ? n / f.cells.length : 0;
+  }
+  // the finale: the core flares, a wave of light runs out over every solved field, then the galaxy's numbers
+  finale() {
+    var g = this.game;
+    this.fx = { kind: 'finale', fi: 0, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+      stats: [[g.state.filter(function (x) { return x === 'S'; }).length + ' / ' + g.state.length, this.T('stFields')],
+        [g.words.filter(function (x) { return x.alive && !x.gift; }).length, this.T('stWords')],
+        [g.used.reduce(function (a, b) { return a + b; }, 0), this.T('stStars')],
+        [g.state.filter(function (x, i) { return x === 'S' && !g.used[i]; }).length, this.T('stPerfect')]] };
+    this.paint();
+  }
+  renderFinale(ox, oy, s) {
+    var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, fx = this.fx, VW = this.VW, VH = this.VH, f0 = w.fields[0];
+    var T = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - fx.t0) / 1000;
+    if (T > 10) { this.fx = null; return; }
+    var cx = f0.round.cx * s + ox, cy = f0.round.cy * s + oy, fade = T > 9 ? 1 - (T - 9) : 1;
+    ctx.save(); ctx.globalAlpha = fade;
+    // 1. the core flares
+    var flare = Math.min(1, T / 1.2), rad = (40 + 140 * flare) * Math.max(0.6, Math.min(1.6, VW / 390));
+    var gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    gr.addColorStop(0, 'rgba(255,248,225,' + (0.3 + 0.6 * flare) + ')'); gr.addColorStop(0.4, 'rgba(242,192,99,' + (0.25 + 0.35 * flare) + ')'); gr.addColorStop(1, 'rgba(242,192,99,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.fill();
+    // 2. a shock ring
+    if (T > 0.3 && T < 2.8) { var k = (T - 0.3) / 2.5; ctx.strokeStyle = 'rgba(255,230,160,' + (1 - k) + ')'; ctx.lineWidth = 6 * (1 - k) + 1; ctx.beginPath(); ctx.arc(cx, cy, 30 + k * Math.max(VW, VH) * 0.7, 0, Math.PI * 2); ctx.stroke(); }
+    // 3. a wave of light over every solved field, from the core outwards
+    var maxD = 1;
+    w.fields.forEach(function (f) { maxD = Math.max(maxD, Math.hypot((f.x0 + f.x1) / 2 - f0.round.cx, (f.y0 + f.y1) / 2 - f0.round.cy)); });
+    w.fields.forEach(function (f) {
+      if (g.state[f.i] !== 'S' || f.i === 0) return;
+      var fcx = (f.x0 + f.x1) / 2, fcy = (f.y0 + f.y1) / 2, u = Math.hypot(fcx - f0.round.cx, fcy - f0.round.cy) / maxD;
+      var age = T - 0.9 - u * 2.6;
+      if (age < 0) return;
+      var a = age < 0.35 ? age / 0.35 : Math.max(0.25, 1 - (age - 0.35) / 1.2);
+      var x = fcx * s + ox, y = fcy * s + oy, rr = Math.max(4, (f.x1 - f.x0) * s * 0.6);
+      var g2 = ctx.createRadialGradient(x, y, 0, x, y, rr);
+      g2.addColorStop(0, 'rgba(255,240,200,' + (0.85 * a) + ')'); g2.addColorStop(1, 'rgba(242,192,99,0)');
+      ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
+    });
+    // 4. title and numbers
+    var txt = Math.max(0, Math.min(1, (T - 3.2) / 0.8));
+    if (txt > 0) {
+      ctx.globalAlpha = txt * fade;
+      var by = VH - 150;
+      ctx.fillStyle = 'rgba(4,6,13,0.78)'; ctx.fillRect(0, by - 46, VW, 160);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#f2c063'; ctx.font = '800 12px Archivo, system-ui, sans-serif'; ctx.fillText(this.T('finaleSub', this.seed).split('').join(' '), VW / 2, by - 24);
+      ctx.fillStyle = '#ffffff'; ctx.font = '800 30px Archivo, system-ui, sans-serif'; ctx.shadowColor = 'rgba(242,192,99,0.8)'; ctx.shadowBlur = 16;
+      ctx.fillText(this.T('finaleTitle'), VW / 2, by + 10); ctx.shadowBlur = 0;
+      var n = fx.stats.length, cw = Math.min(100, VW / n);
+      fx.stats.forEach(function (st, i) {
+        var x = VW / 2 + (i - (n - 1) / 2) * cw;
+        ctx.fillStyle = '#eef0f7'; ctx.font = '800 20px Archivo, system-ui, sans-serif'; ctx.fillText(String(st[0]), x, by + 58);
+        ctx.fillStyle = '#a3abc6'; ctx.font = '600 12px Archivo, system-ui, sans-serif'; ctx.fillText(st[1], x, by + 80);
+      });
+    }
+    ctx.restore();
+    this.paint();
   }
 
   celebrate(fi, opened, perfect) {
@@ -1767,6 +1973,7 @@ class Component extends DCLogic {
   }
 
   renderFx(ox, oy, s) {
+    if (this.fx.kind === 'finale') { this.renderFinale(ox, oy, s); return; }
     var ctx = this.dctx || this.ctx, w = this.world(), fx = this.fx, f = w.fields[fx.fi], VW = this.VW, VH = this.VH, P = w.P;
     var now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     // 0.6: the celebration runs at a calm pace, about 4.3 seconds
@@ -1783,7 +1990,7 @@ class Component extends DCLogic {
       var d = u - head, a = Math.exp(-d * d / 3.5) * 0.85;
       if (a < 0.02) return;
       ctx.fillStyle = 'rgba(255,240,200,' + a.toFixed(3) + ')';
-      ctx.fillRect(o.x * s + ox + s, o.y * s + oy + s, tile - 2 * s, tile - 2 * s);
+      ctx.fillRect(o.x * s + ox + s, o.y * s + oy + s, o.p * s - 2 * s, o.p * s - 2 * s);
     });
     // 2. a ring of light
     var cx = (f.x0 + f.x1) / 2 * s + ox, cy = (f.y0 + f.y1) / 2 * s + oy;
@@ -1921,7 +2128,7 @@ class Component extends DCLogic {
     }
     Object.keys(more).forEach(function (k) { if (more[k]) strip(k); });
     // mini map, top right
-    var cols = f.maxC - f.minC + 1, rows = f.maxR - f.minR + 1;
+    var cols = (f.x1 - f.x0) / w.P, rows = (f.y1 - f.y0) / w.P;
     var u = Math.max(2, Math.floor(Math.min(84 / cols, 96 / rows)));
     var mw = cols * u, mh = rows * u, mx = VW - mw - 12, my = 12;
     ctx.fillStyle = 'rgba(6,9,19,0.82)';
@@ -1930,7 +2137,8 @@ class Component extends DCLogic {
     f.cells.forEach(function (j) {
       var o = w.cells[j], wid = g.cellWord[j];
       ctx.fillStyle = wid >= 0 ? COLORS[g.words[wid].colour % 6] : g.sel[j] ? '#5b6fe0' : '#8f8a80';
-      ctx.fillRect(mx + (o.c - f.minC) * u, my + (o.r - f.minR) * u, u - (u > 3 ? 1 : 0), u - (u > 3 ? 1 : 0));
+      var uu = u * o.p / w.P;
+      ctx.fillRect(mx + (o.x - f.x0) / w.P * u, my + (o.y - f.y0) / w.P * u, uu - (uu > 3 ? 1 : 0), uu - (uu > 3 ? 1 : 0));
     });
     var P = w.P;
     var vx0 = ((-ox) / s - f.x0) / P * u, vy0 = ((-oy) / s - f.y0) / P * u;
@@ -1949,11 +2157,19 @@ class Component extends DCLogic {
   cellAtPt(p, strict) {
     var w = this.world(), q = this.toWorld(p.x, p.y);
     var cc = Math.floor((q.x - w.M) / w.P), rr = Math.floor((q.y - w.M) / w.P);
-    var j = w.at(rr, cc);
+    var j = w.at(rr, cc), cr = w.core;
+    if (cr) {
+      var side = cr.sq || Math.round(cr.n * cr.k), sq0 = cr.sq0 != null ? cr.sq0 : cr.r0;
+      if (rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side) {
+        var kp = w.P * cr.k;
+        var qr = (q.y - w.M - cr.r0 * w.P) / kp, qc = (q.x - w.M - cr.c0 * w.P) / kp;
+        j = qr < 0 || qc < 0 ? -1 : w.coreAt(Math.floor(qr), Math.floor(qc));
+      }
+    }
     if (j < 0) return null;
     if (strict) {
-      var o = w.cells[j], dx = q.x - (o.x + w.P / 2), dy = q.y - (o.y + w.P / 2);
-      if (Math.abs(dx) > w.P * 0.4 || Math.abs(dy) > w.P * 0.4) return null;
+      var o = w.cells[j], dx = q.x - (o.x + o.p / 2), dy = q.y - (o.y + o.p / 2);
+      if (Math.abs(dx) > o.p * 0.4 || Math.abs(dy) > o.p * 0.4) return null;
     }
     return w.cells[j];
   }
@@ -2040,7 +2256,7 @@ class Component extends DCLogic {
       return;
     }
     if (d.mode === 'paint') {
-      var steps = Math.max(1, Math.ceil(Math.hypot(p.x - d.last.x, p.y - d.last.y) / (this.world().P * this.cam.s * 0.25)));
+      var steps = Math.max(1, Math.ceil(Math.hypot(p.x - d.last.x, p.y - d.last.y) / (this.world().P * 0.6 * this.cam.s * 0.25)));
       for (var k = 1; k <= steps; k++) {
         var q = { x: d.last.x + (p.x - d.last.x) * k / steps, y: d.last.y + (p.y - d.last.y) * k / steps };
         this.paintCell(this.cellAtPt(q, true));
@@ -2121,13 +2337,13 @@ class Component extends DCLogic {
       this.save();
       g.sel = {}; g.selN = 0; g.picked = -1;
       var st = g.state[o.f];
-      this.say(st === 'L' ? this.T('locked', f.name) : st === 'S' ? this.T('isSolved', f.name) : this.T('howTo'), st === 'L' ? 'warn' : 'info');
+      this.say(st === 'L' ? (f.round ? this.T('coreGate', f.nbList.length) : this.T('locked', f.name)) : st === 'S' ? this.T('isSolved', f.name) : this.T('howTo'), st === 'L' ? 'warn' : 'info');
       this.flyTo(this.camFor('field', o.f));
       this.bump();
       return;
     }
     if (g.cellWord[o.i] >= 0) { var mn = this.meaning(g.words[g.cellWord[o.i]].word); this.say(mn.text, 'info', mn.title); this.bump(); }
-    else if (g.state[o.f] === 'L') { this.say(this.T('locked', f.name), 'warn'); this.bump(); }
+    else if (g.state[o.f] === 'L') { this.say(f.round ? this.T('coreGate', f.nbList.length) : this.T('locked', f.name), 'warn'); this.bump(); }
     else if (g.state[o.f] === 'S') { this.say(this.T('solvedOther', f.name), 'info'); this.bump(); }
   }
 
@@ -2199,15 +2415,28 @@ class Component extends DCLogic {
     if (full) {
       g.state[fi] = 'S';
       var opened = [];
-      f.nbList.forEach(function (nb) { if (g.state[nb] === 'L') { g.state[nb] = 'O'; opened.push(w.fields[nb].name); } });
+      var core0 = w.fields[0].round ? w.fields[0] : null, coreOpened = false;
+      f.nbList.forEach(function (nb) {
+        if (g.state[nb] !== 'L') return;
+        if (core0 && nb === 0) {
+          // the round core waits until all fields around it are solved
+          if (!core0.nbList.every(function (j) { return g.state[j] === 'S'; })) return;
+          coreOpened = true;
+        }
+        g.state[nb] = 'O'; opened.push(w.fields[nb].name);
+      });
+      if (core0 && (fi === 0 || core0.nb[fi])) this.dirtyField(0);
       this.recalcLit();
       var selfA = this, perfectA = !g.used[fi];
-      this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
+      if (core0 && fi === 0) this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(); });
+      else this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
       var gave = this.starsFor(fi);
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
       this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + (g.used[fi] ? '' : this.T('perfectNo')));
-    } else { var mn = this.meaning(word); this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title); }
+      if (coreOpened) this.say(this.T('coreOpen'), 'good', cheer + this.T('fieldSolved', f.name));
+      if (core0 && fi === 0) { var nS = g.state.filter(function (x) { return x === 'S'; }).length; this.say(this.T('coreDone', nS, g.state.length), 'good', this.T('finaleTitle')); }
+    } else { var mn = this.meaning(word); this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title); if (fi === 0 && w.fields[0].round) this.dirtyField(0); }
     this.save();
     this.quick = this.quickPos();
     this.paint(); this.bump();
@@ -2217,10 +2446,7 @@ class Component extends DCLogic {
     var w = this.world(), g = this.game, taken = {};
     cells.forEach(function (j) {
       var o = w.cells[j];
-      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
-        var q = w.at(o.r + dy, o.c + dx);
-        if (q >= 0 && g.cellWord[q] >= 0) taken[g.words[g.cellWord[q]].colour] = 1;
-      }
+      o.nb.concat(o.nd).forEach(function (q) { if (q >= 0 && g.cellWord[q] >= 0) taken[g.words[g.cellWord[q]].colour] = 1; });
     });
     var c = 0; while (taken[c]) c++;
     return c;

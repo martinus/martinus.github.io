@@ -21,6 +21,8 @@ header { flex: none; min-height: 56px; padding: env(safe-area-inset-top) 10px 0 
 .level { flex: none; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
 .mid { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .name { flex: 0 1 auto; min-width: 0; font-size: 21px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name.long { font-size: 17px; }
+.mid { min-width: 0; }
 .progress { font-size: 17px; font-weight: 800; color: var(--soft); flex: none; }
 .zoom { position: relative; flex: none; height: 70px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .zoom canvas { position: absolute; left: 0; top: 0; width: 100%; height: 70px; }
@@ -135,7 +137,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = 'a768e97934';
+var BUILD = 'b9f3673b44';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -159,7 +161,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=b369c631a3"></script>
-<script src="game.js?v=ac52ee5592"></script>
+<script src="game.js?v=8aa474b74e"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=2456a30795';
 // German words are a separate file, loaded only when needed
@@ -251,6 +253,7 @@ window.loadWords = function (lang, cb) {
     $('level').textContent = v.focusLevel;
     $('level').title = v.focusPips;
     $('name').textContent = v.focusName;
+    $('name').classList.toggle('long', (v.focusName || '').length > 10);
     $('progress').textContent = v.focusProgress;
     $('msg').innerHTML = '';
     if (v.msgTitle) { var b = document.createElement('b'); b.textContent = v.msgTitle + ' '; $('msg').appendChild(b); }
