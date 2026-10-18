@@ -2186,7 +2186,8 @@ class Component extends DCLogic {
     var j = w.at(rr, cc), cr = w.core;
     if (cr) {
       var side = cr.sq || Math.round(cr.n * cr.k), sq0 = cr.sq0 != null ? cr.sq0 : cr.r0;
-      if (rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side) {
+      // version 7: the corners of that square belong to the fields around the core
+      if (j < 0 && rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side) {
         var kp = w.P * cr.k;
         var qr = (q.y - w.M - cr.r0 * w.P) / kp, qc = (q.x - w.M - cr.c0 * w.P) / kp;
         j = qr < 0 || qc < 0 ? -1 : w.coreAt(Math.floor(qr), Math.floor(qc));
