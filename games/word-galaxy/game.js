@@ -14,13 +14,11 @@ class Component extends DCLogic {
     this.seed = asked != null ? asked : (saved ? saved.seed : 23);
     // a galaxy without a level is from before levels existed: hard. New players start with medium.
     this.level = asked != null ? askedLevel : (saved ? this.cleanLevel(saved.level) : 'medium');
-    // the newest generator for new galaxies; a saved galaxy keeps the version it was made with
-    this.gen = saved && saved.seed === this.seed && this.cleanLevel(saved.level) === this.level ? (saved.gen || 1) : Component.GEN;
     this.menuOpen = false;
     this.confirm = null;
     this.newOpen = false; this.newLevel = this.level;
     if (saved && asked != null && (saved.seed !== asked || this.cleanLevel(saved.level) !== askedLevel) && this.saveHasProgress(saved)) {
-      this.seed = saved.seed; this.level = this.cleanLevel(saved.level); this.gen = saved.gen || 1;
+      this.seed = saved.seed; this.level = this.cleanLevel(saved.level);
       this.confirm = { title: this.T('openTitle', asked), text: this.T('openText', saved.seed, asked), yes: this.T('openYes', asked), no: this.T('openNo'),
         action: function () { self.reseed(asked, askedLevel); } };
     }
@@ -110,7 +108,7 @@ class Component extends DCLogic {
         building: 'Building galaxy {0}…', ready: 'Galaxy {0} is ready. Swipe over letters to select a word, then tap the ✓ button.', seedFail: 'Galaxy {0} did not work ({1}). Try another number.',
         linkOpen: 'Open the link on your other device. It asks before it replaces the progress there.', linkCopied: 'Progress link copied.', linkSent: 'Progress link sent.',
         copyFail: 'Could not copy the link in this browser.', linkFail: 'Could not make the link ({0}).', saveFail: 'Could not save the progress in this browser.',
-        linkBad: 'This progress link does not work ({0}).', shareTitle: 'Word Galaxy progress',
+        linkBad: 'This progress link does not work ({0}).', linkOld: 'it is from an older version of the game', shareTitle: 'Word Galaxy progress',
         loadTitle: 'Load progress from the link?', loadText: 'The link has {0}. This browser has {1}. Loading replaces the progress in this browser.', loadYes: 'Load progress', loadNo: 'Keep this progress',
         galaxyDesc: 'galaxy {0} ({1}) with {2}', fields1: '1 solved field', fieldsN: '{0} solved fields',
         welcome: 'Welcome back. Your galaxy is as you left it.',
@@ -126,8 +124,8 @@ class Component extends DCLogic {
         cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!', notHere: '{0} is a word, but not the one we look for here. Try again!',
         removed: '{0} removed.', staySelected: 'The letters stay selected. Swipe to change them, then tap the ✓ button.',
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
-        starWrong: 'A star shows: {0} is not part of the solution.', starNothing: 'A star has nothing more to show in this field.',
-        starWall: 'A star shows a wall: the cells on each side belong to different words.', starStart: 'A star shows a word start: a word begins in the marked cell.',
+        starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
+        starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
         tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
         lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Long words and big fields.',
@@ -145,7 +143,7 @@ class Component extends DCLogic {
         building: 'Galaxie {0} wird gebaut …', ready: 'Galaxie {0} ist fertig. Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.', seedFail: 'Galaxie {0} hat nicht funktioniert ({1}). Versuche eine andere Zahl.',
         linkOpen: 'Öffne den Link auf deinem anderen Gerät. Es fragt, bevor es den Fortschritt dort ersetzt.', linkCopied: 'Fortschritts-Link kopiert.', linkSent: 'Fortschritts-Link gesendet.',
         copyFail: 'Der Link konnte in diesem Browser nicht kopiert werden.', linkFail: 'Der Link konnte nicht erstellt werden ({0}).', saveFail: 'Der Fortschritt konnte in diesem Browser nicht gespeichert werden.',
-        linkBad: 'Dieser Fortschritts-Link funktioniert nicht ({0}).', shareTitle: 'Word Galaxy – Fortschritt',
+        linkBad: 'Dieser Fortschritts-Link funktioniert nicht ({0}).', linkOld: 'er ist von einer älteren Version des Spiels', shareTitle: 'Word Galaxy – Fortschritt',
         loadTitle: 'Fortschritt aus dem Link laden?', loadText: 'Der Link hat {0}. Dieser Browser hat {1}. Beim Laden wird der Fortschritt in diesem Browser ersetzt.', loadYes: 'Fortschritt laden', loadNo: 'Diesen Fortschritt behalten',
         galaxyDesc: 'Galaxie {0} ({1}) mit {2}', fields1: '1 gelösten Feld', fieldsN: '{0} gelösten Feldern',
         welcome: 'Willkommen zurück. Deine Galaxie ist so, wie du sie verlassen hast.',
@@ -161,8 +159,8 @@ class Component extends DCLogic {
         cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!', notHere: '{0} ist ein Wort, aber nicht das gesuchte. Versuch es noch einmal!',
         removed: '{0} entfernt.', staySelected: 'Die Buchstaben bleiben gewählt. Wische, um sie zu ändern, dann tippe auf ✓.',
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
-        starWrong: 'Ein Stern zeigt: {0} gehört nicht zur Lösung.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
-        starWall: 'Ein Stern zeigt eine Wand: Die Felder auf beiden Seiten gehören zu verschiedenen Wörtern.', starStart: 'Ein Stern zeigt einen Wortanfang: Im markierten Feld beginnt ein Wort.',
+        starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
+        starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
         tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
         lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Lange Wörter und große Felder.',
@@ -200,8 +198,8 @@ class Component extends DCLogic {
     var self = this;
     var DATA = this.generate(this.seed);
     var P = 28, M = 120, N = DATA.N, W = 2 * M + N * P;
-    // version 6: the core is round, with its own finer grid of smaller letters
-    var core = DATA.core || null, coreIdx = core ? new Int32Array(core.n * core.n).fill(-1) : null;
+    // the core is round, with its own finer grid of smaller letters
+    var core = DATA.core, coreIdx = core ? new Int32Array(core.n * core.n).fill(-1) : null;
     var fields = DATA.fields.map(function (f, i) {
       return { i: i, name: i === 0 ? self.T('core') : f.name, mods: f.mods, tier: f.tier, state0: f.state, goal: !!f.goal, words: f.words, len: f.len, shape: f.shape,
         cells: [], regions: [], nb: {}, minR: 1e9, maxR: -1, minC: 1e9, maxC: -1, x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
@@ -253,14 +251,14 @@ class Component extends DCLogic {
     });
     if (core) {
       // the round core sits in a square of normal cells: every field touching that square is its neighbour
-      var sq0 = core.sq0 != null ? core.sq0 : core.r0, side = core.sq || Math.round(core.n * core.k);
+      var sq0 = core.sq0, side = core.sq;
       cells.forEach(function (o) {
         if (o.sub) return;
         [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (d) {
           var rr = o.r + d[0], cc = o.c + d[1];
           var inCore = rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side;
-          if (inCore && core.hole) {
-            // version 7: the free space is round
+          if (inCore) {
+            // the free space is round
             var hdy = Math.max(0, Math.abs(rr + 0.5 - core.mid) - 0.5), hdx = Math.max(0, Math.abs(cc + 0.5 - core.mid) - 0.5);
             inCore = hdx * hdx + hdy * hdy < core.hole * core.hole;
           }
@@ -303,23 +301,23 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 8; }
+  static get GEN() { return 9; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
-  acceptCodes(old) {
-    var W = this.words(), key = old ? 'acceptCodesOld' : 'acceptCodes';
-    if (!W[key]) {
+  acceptCodes() {
+    var W = this.words();
+    if (!W.acceptCodes) {
       var set = new Set();
-      (old ? W.acceptOld : W.accept).forEach(function (w) {
+      W.accept.forEach(function (w) {
         if (w.length < 4 || w.length > 6) return;
         var code = 0;
         for (var i = 0; i < w.length; i++) code = code * 32 + Component.letterCode(w[i]);
         set.add(code);
       });
-      W[key] = set;
+      W.acceptCodes = set;
     }
-    return W[key];
+    return W.acceptCodes;
   }
   loadTrapCache(key) {
     try { var c = JSON.parse(localStorage.getItem('wordgalaxy:cache:' + key.split(':')[0])); return c && c.key === key ? c.fields : null; } catch (e) { return null; }
@@ -351,11 +349,13 @@ class Component extends DCLogic {
       var p = line.split('\t');
       defs.set(p[0], [p[1], p[2], p[3], p[4]]);
     });
+    // rude words: never part of a galaxy, never accepted
+    var bad = new Set((WD.bad || '').split(' '));
     // pools by frequency level; only words with a meaning, so learners can always look them up
     function pool(test) {
       var byLen = {};
       for (var i = 0; i < list.length; i++) {
-        if (!test(lv.charCodeAt(i) - 48) || !defs.has(list[i])) continue;
+        if (!test(lv.charCodeAt(i) - 48) || !defs.has(list[i]) || bad.has(list[i])) continue;
         var L = list[i].length;
         (byLen[L] || (byLen[L] = [])).push(list[i]);
       }
@@ -363,37 +363,28 @@ class Component extends DCLogic {
     }
     function byLen(words) {
       var out = {};
-      words.forEach(function (w) { if (w) (out[w.length] || (out[w.length] = [])).push(w); });
+      words.forEach(function (w) { if (w && !bad.has(w)) (out[w.length] || (out[w.length] = [])).push(w); });
       return out;
     }
-    var space = byLen(WD.space.split(' '));
-    // accepted when selected: common words only (rare words make dead ends nobody thinks of), never rude ones
-    var bad = new Set((WD.bad || '').split(' ')), accept = new Set();
+    function kid(text) { return byLen((text || '').split(' ').filter(function (w) { return defs.has(w); })); }
+    // accepted when selected: common words only (rare words make dead ends nobody thinks of)
+    var accept = new Set();
     for (var ai = 0; ai < list.length; ai++) {
       var av = lv.charCodeAt(ai) - 48;
       if ((lang === 'de' ? av !== 9 : av <= 3) && !bad.has(list[ai])) accept.add(list[ai]);
     }
     WD.space.split(' ').forEach(function (w) { if (w) accept.add(w); });
-    // words added for children later (level 7): galaxies from older generator versions must not see them
-    var dictOld = new Set(), acceptOld = new Set();
-    for (var oi = 0; oi < list.length; oi++) { if (lv.charCodeAt(oi) - 48 === 7) continue; dictOld.add(list[oi]); if (accept.has(list[oi])) acceptOld.add(list[oi]); }
-    WD.space.split(' ').forEach(function (w) { if (w) acceptOld.add(w); });
     this._wordsBy[lang] = {
-      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang, accept: accept, dictOld: dictOld, acceptOld: acceptOld,
+      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang, accept: accept,
       pools: {
         easy: pool(function (l) { return l === 1; }),
         mid: pool(function (l) { return l <= 2; }),
         hard: pool(function (l) { return l >= 2 && l <= 4; }),
-        space: space,
-        // for children: well known, friendly words (checked by hand for German)
-        kid: byLen((WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
+        space: byLen(WD.space.split(' ')),
+        // for children: only everyday words of an 8-year-old (A), then known ones (B); German: checked by hand
         kidSpace: byLen((WD.kidspace || '').split(' ')),
-        // version 4: very easy words for children, then easy ones (German: checked by hand)
-        kid1: byLen((WD.kid1 || WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
-        kid2: byLen((WD.kid2 || '').split(' ').filter(function (w) { return defs.has(w); })),
-        // version 5: only everyday words of an 8-year-old (A), then known ones (B)
-        kidA: byLen((WD.kidA || WD.kid1 || WD.kid || '').split(' ').filter(function (w) { return defs.has(w); })),
-        kidB: byLen((WD.kidB || WD.kid2 || '').split(' ').filter(function (w) { return defs.has(w); })),
+        kidA: kid(WD.kidA || WD.kid),
+        kidB: kid(WD.kidB),
         all: pool(function (l) { return l !== 7; })
       }
     };
@@ -404,11 +395,9 @@ class Component extends DCLogic {
   // Only integer maths, Math.sqrt and stable sorts with fixed comparators, so every browser agrees.
   generate(seedIn) {
     var WDS = this.words();
-    // overall difficulty: 'hard' is the original galaxy and must never change (saved games depend on it)
+    // overall difficulty
     var LV = this.level === 'easy' || this.level === 'medium' ? this.level : 'hard', HARD = LV === 'hard';
-    // generator version: galaxies started before version 2 keep their words (their saves depend on them)
-    var GEN2 = (this.gen || 1) >= 2, GEN3 = (this.gen || 1) >= 3, GEN4 = (this.gen || 1) >= 4, self = this;
-    var KIDS = GEN4 && LV === 'easy', GEN5 = (this.gen || 1) >= 5, ROUND = (this.gen || 1) >= 6, GEN8 = (this.gen || 1) >= 8;
+    var KIDS = LV === 'easy', self = this;
     var seed = ((Math.floor(Math.abs(seedIn)) % 2147483646) + 1), seed0 = seed;
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
     function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -416,7 +405,7 @@ class Component extends DCLogic {
     function K(r, c) { return r * 1000 + c; }
     var N = WDS.N, MID = N / 2;
     var POOL = WDS.pools;
-    var KP = GEN5 ? [POOL.kidA, POOL.kidB] : [POOL.kid1, POOL.kid2];
+    var KP = [POOL.kidA, POOL.kidB];
     var used = new Set();
     function word(len, pools) {
       for (var p = 0; p < pools.length; p++) {
@@ -449,20 +438,15 @@ class Component extends DCLogic {
       fields.push({ id: id, cells: cells });
       return true;
     }
-    var CORE = HARD ? 12 : LV === 'medium' ? 10 : 8, DISC = CORE;
-    // version 6: room for the ring and the stars around the round core
-    if ((this.gen || 1) >= 6) CORE += 2;
-    var HOLE = 0;
-    if ((this.gen || 1) >= 7) {
-      // version 7: the free space around the round core is round too, so the fields around it form a circle
-      HOLE = DISC / 2 + 1.25; CORE = DISC + 4;
-      var hc = [], h0 = MID - CORE / 2;
-      for (r = h0; r < h0 + CORE; r++) for (c = h0; c < h0 + CORE; c++) {
-        var hdy = Math.max(0, Math.abs(r + 0.5 - MID) - 0.5), hdx = Math.max(0, Math.abs(c + 0.5 - MID) - 0.5);
-        if (hdx * hdx + hdy * hdy < HOLE * HOLE) { owner[r][c] = 0; hc.push([r, c]); }
-      }
-      fields.push({ id: 0, cells: hc });
-    } else place(MID - CORE / 2, MID - CORE / 2, CORE, CORE); // the core
+    // the round core, with room for its ring and stars; the free space around it is round too,
+    // so the fields around it form a circle
+    var DISC = HARD ? 12 : LV === 'medium' ? 10 : 8, CORE = DISC + 4, HOLE = DISC / 2 + 1.25;
+    var hc = [], h0 = MID - CORE / 2;
+    for (r = h0; r < h0 + CORE; r++) for (c = h0; c < h0 + CORE; c++) {
+      var hdy = Math.max(0, Math.abs(r + 0.5 - MID) - 0.5), hdx = Math.max(0, Math.abs(c + 0.5 - MID) - 0.5);
+      if (hdx * hdx + hdy * hdy < HOLE * HOLE) { owner[r][c] = 0; hc.push([r, c]); }
+    }
+    fields.push({ id: 0, cells: hc });
     // [rows, columns]: fields are taller than wide, so they fit a phone held upright
     var SIZES = {
       1: [[6, 5], [7, 5], [6, 5], [7, 6]],
@@ -563,6 +547,36 @@ class Component extends DCLogic {
     fields = split;
     fields.forEach(function (f, i) { f.id = i; f.cells.forEach(function (x) { owner[x[0]][x[1]] = i; }); });
 
+    // Irregular fields: cells at the border go to the field next to them, cells at the outer edge go away.
+    // The bays and bumps limit where a word can go: the field is easier to solve, and it looks more interesting.
+    // A field loses or gains at most 15% of its cells, and stays thick enough for words.
+    var ROUGH = 0.2, fixed = new Set(), size0 = fields.map(function (f) { return f.cells.length; }), steps = 0;
+    fields.forEach(function (f) { if (f.id) steps += Math.round(f.cells.length * ROUGH); });
+    function ownNb(rr, cc, id) { var n = 0; for (var d = 0; d < 4; d++) if (own(rr + D4[d][0], cc + D4[d][1]) === id) n++; return n; }
+    for (var st = 0; st < steps; st++) {
+      var fr = fields[1 + Math.floor(rnd() * (fields.length - 1))];
+      if (fr.cells.length <= 0.85 * size0[fr.id]) continue;
+      var x = pick(fr.cells), to = [], edge = false, nearCore = false;
+      if (fixed.has(K(x[0], x[1]))) continue;
+      for (q = 0; q < 4; q++) {
+        var o = own(x[0] + D4[q][0], x[1] + D4[q][1]);
+        if (o === undefined || o < 0) edge = true;
+        else if (o === 0) nearCore = true;
+        else if (o !== fr.id && fields[o].cells.length < 1.15 * size0[o]) to.push(o);
+      }
+      // the fields around the core keep their round edge
+      if (nearCore || (!to.length && !edge)) continue;
+      owner[x[0]][x[1]] = -2;
+      // no cell of the field may be left with only one neighbour in it
+      var thin = false;
+      for (q = 0; q < 4; q++) { var y0 = x[0] + D4[q][0], y1 = x[1] + D4[q][1]; if (own(y0, y1) === fr.id && ownNb(y0, y1, fr.id) < 2) thin = true; }
+      var rest = fr.cells.filter(function (y) { return y !== x; });
+      if (thin || !connected(rest)) { owner[x[0]][x[1]] = fr.id; continue; }
+      fr.cells = rest; fixed.add(K(x[0], x[1]));
+      if (to.length && (!edge || rnd() < 0.6)) { var gt = fields[pick(to)]; owner[x[0]][x[1]] = gt.id; gt.cells.push(x); }
+      else { owner[x[0]][x[1]] = -1; mask[x[0]][x[1]] = false; }
+    }
+
     // field settings
     var NAMES = ['Vega','Altair','Deneb','Rigel','Sirius','Lyra','Mira','Castor','Pollux','Spica','Antares','Capella','Electra','Maia','Nashira','Polaris','Sadr','Wezen','Zaurak','Alcor','Mizar','Hadar','Izar','Kochab','Arcturus','Bellatrix','Rana','Okul','Tarazed','Mintaka','Alnilam','Saiph','Aldebaran','Regulus','Fomalhaut','Achernar','Canopus','Procyon','Betelgeuse','Algol','Shaula','Atria','Avior','Menkar','Diphda','Hamal','Merak','Dubhe','Phecda','Alioth','Thuban','Kaus','Nunki','Albireo','Enif','Markab','Scheat','Alpheratz','Mirach','Almach','Caph','Schedar','Ruchbah','Talitha','Tania','Alula','Chara','Muphrid','Nekkar','Seginus','Alphecca','Unuk','Sabik','Yed','Eltanin','Rastaban','Sheliak','Sulafat','Porrima','Zavijava','Denebola','Chertan','Algieba','Adhafera','Alterf','Acubens','Tegmine','Wasat','Mebsuta','Alhena','Tejat','Propus','Elnath','Alcyone','Atlas','Merope','Taygeta','Celaeno','Sterope','Pleione'];
     var nameOff = Math.floor(rnd() * NAMES.length);
@@ -589,11 +603,11 @@ class Component extends DCLogic {
     function levelField(f, i) {
       var n = f.cells.length;
       if (LV === 'easy') {
-        if (i === 0) { f.tier = 3; f.len = [4, 6]; f.pools = KIDS ? [POOL.kidSpace].concat(KP) : [POOL.kidSpace, POOL.kid, POOL.easy]; f.mods.push('THEME'); return; }
+        if (i === 0) { f.tier = 3; f.len = [4, 6]; f.pools = [POOL.kidSpace].concat(KP); f.mods.push('THEME'); return; }
         f.tier = Math.min(3, Math.max(tierAt(f.dist), n >= 40 ? 2 : 1, n >= 60 ? 3 : 1));
         f.len = f.tier < 3 ? [4, 5] : [4, 6];
-        // version 4: only words for children; a word may come twice rather than a harder word
-        f.pools = KIDS ? KP : [POOL.kid, POOL.easy];
+        // only words for children; a word may come twice rather than a harder word
+        f.pools = KP;
         if (rnd() < 0.5) f.mods.push('GIFT');
         return;
       }
@@ -605,19 +619,13 @@ class Component extends DCLogic {
       if (f.tier >= 3 && rnd() < 0.12) { f.mods.push('THEME'); f.pools = [POOL.space].concat(f.pools); }
     }
 
-    // version 6: the core is round, with smaller letters (more of them) on its own finer grid
-    var coreSub = null;
-    if (ROUND) {
-      var f0 = fields[0], kSub = LV === 'easy' ? 1 : 2 / 3, nSub = Math.round(DISC / kSub);
-      // version 8: a denser core with even smaller letters, so it takes longer
-      if (GEN8) { nSub = LV === 'easy' ? 11 : LV === 'medium' ? 18 : 24; kSub = DISC / nSub; }
-      var ccx = (nSub - 1) / 2, rad2 = (nSub / 2 - 0.15) * (nSub / 2 - 0.15), disc = [];
-      for (var sr = 0; sr < nSub; sr++) for (var sc = 0; sc < nSub; sc++) { var ddr = sr - ccx, ddc = sc - ccx; if (ddr * ddr + ddc * ddc <= rad2) disc.push([sr, sc]); }
-      coreSub = { r0: MID - DISC / 2, c0: MID - DISC / 2, k: kSub, n: nSub, sq0: MID - CORE / 2, sq: CORE };
-      if (HOLE) { coreSub.hole = HOLE; coreSub.mid = MID; }
-      f0.sub = coreSub; f0.cells = disc;
-      f0.len = LV === 'easy' ? [4, 6] : LV === 'medium' ? [5, 10] : [6, 12];
-    }
+    // the core is round, with smaller letters (more of them) on its own finer grid
+    var f0 = fields[0], nSub = LV === 'easy' ? 11 : LV === 'medium' ? 18 : 24, kSub = DISC / nSub;
+    var ccx = (nSub - 1) / 2, rad2 = (nSub / 2 - 0.15) * (nSub / 2 - 0.15), disc = [];
+    for (var sr = 0; sr < nSub; sr++) for (var sc = 0; sc < nSub; sc++) { var ddr = sr - ccx, ddc = sc - ccx; if (ddr * ddr + ddc * ddc <= rad2) disc.push([sr, sc]); }
+    var coreSub = { r0: MID - DISC / 2, c0: MID - DISC / 2, k: kSub, n: nSub, sq0: MID - CORE / 2, sq: CORE, hole: HOLE, mid: MID };
+    f0.sub = coreSub; f0.cells = disc;
+    f0.len = LV === 'easy' ? [4, 6] : LV === 'medium' ? [5, 10] : [6, 12];
 
     // cut each field into word shapes
     function partition(f, lo, hi) {
@@ -704,12 +712,13 @@ class Component extends DCLogic {
       }
       return go() ? out : null;
     }
-    var cacheKey = [WDS.lang, LV, seedIn, this.gen, (GEN4 ? WDS.accept : WDS.acceptOld).size].join(':'), trapCache = GEN3 && !HARD ? self.loadTrapCache(cacheKey) : null, newCache = {};
+    var cacheKey = [WDS.lang, LV, seedIn, Component.GEN, WDS.accept.size].join(':'), trapCache = HARD ? null : self.loadTrapCache(cacheKey), newCache = {};
     fields.forEach(function (f) {
       var regs = null, a;
       for (a = 0; a < 12 && !regs; a++) regs = partition(f, f.len[0], f.len[1]);
       if (!regs && f.len[0] > 4) { f.len[0] = 4; for (a = 0; a < 12 && !regs; a++) regs = partition(f, 4, f.len[1]); }
-      if (!regs) { f.len[1] += 2; for (a = 0; a < 12 && !regs; a++) regs = partition(f, 4, f.len[1]); }
+      // one letter longer words at most first: children know few long words
+      for (var more = 1; more <= 2 && !regs; more++) { f.len[1]++; for (a = 0; a < 12 && !regs; a++) regs = partition(f, 4, f.len[1]); }
       if (!regs) throw new Error('could not split field ' + f.id);
       var mn = 99, mx = 0;
       f.regions = regs.map(function (reg) {
@@ -718,24 +727,24 @@ class Component extends DCLogic {
         return { cells: ord, word: word(ord.length, f.pools) };
       });
       f.len = [mn, mx];
-      if (GEN2 && LV === 'easy') avoidLookalikes(f);
-      if (GEN3 && !HARD) {
+      if (LV === 'easy') avoidLookalikes(f);
+      if (!HARD) {
         // the swaps take a while: their result is kept in this browser and reused on the next visit
         var hit = trapCache && trapCache[f.id], added = [];
         if (hit && hit.w && hit.w.length === f.regions.length) {
           f.regions.forEach(function (reg, i) { if (hit.w[i].length === reg.cells.length) reg.word = hit.w[i]; });
           hit.u.forEach(function (w) { used.add(w); });
           added = hit.u;
-        } else { added = reduceTraps(f); if (GEN8) added = added.concat(polish(f)); }
+        } else added = reduceTraps(f).concat(polish(f));
         newCache[f.id] = { w: f.regions.map(function (reg) { return reg.word; }), u: added };
-      } else if (GEN8) polish(f);
+      } else polish(f);
     });
-    if (GEN3 && !HARD) self.saveTrapCache(cacheKey, newCache);
+    if (!HARD) self.saveTrapCache(cacheKey, newCache);
 
     // A trap is a word the player can select that is not a word of the solution: a dead end.
     // Easy and medium galaxies swap words until a field has few traps left.
     function reduceTraps(f) {
-      var acc = self.acceptCodes(!GEN4);
+      var acc = self.acceptCodes();
       var cells = f.cells.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }), n = cells.length;
       var idx = {}; cells.forEach(function (x, i) { idx[K(x[0], x[1])] = i; });
       var nb = cells.map(function (x) {
@@ -824,10 +833,10 @@ class Component extends DCLogic {
       return added;
     }
 
-    // version 8: no word twice in a field, and no solution word that one or two more letters
-    // make into a longer word the player can select (the player tries the longer word first)
+    // No word twice in a field, and no solution word that one or two more letters
+    // make into a longer word the player can select (the player tries the longer word first).
     function polish(f) {
-      var acc = GEN4 ? WDS.accept : WDS.acceptOld, added = [];
+      var acc = WDS.accept, added = [];
       var ls = ((seed0 * 17 + f.id * 104729) % 2147483646) + 1;
       function prnd() { ls = (ls * 16807) % 2147483647; return (ls - 1) / 2147483646; }
       var at = {};
@@ -895,7 +904,7 @@ class Component extends DCLogic {
     // A word is confusing when one letter more or one letter less also makes a word,
     // e.g. GEHÖR next to a T (GEHÖRT). For children, pick other words until nothing like that is left.
     function avoidLookalikes(f) {
-      var dict = GEN4 ? WDS.dict : WDS.dictOld;
+      var dict = WDS.dict;
       function letters() {
         var at = {};
         f.regions.forEach(function (reg) { reg.cells.forEach(function (x, i) { at[K(x[0], x[1])] = reg.word[i]; }); });
@@ -973,7 +982,7 @@ class Component extends DCLogic {
 
     var regions = [], cellReg = {};
     fields.forEach(function (f) {
-      var isStart = GEN2 && LV === 'easy' ? startIds.indexOf(f.id) >= 0 : f.id === current;
+      var isStart = LV === 'easy' ? startIds.indexOf(f.id) >= 0 : f.id === current;
       var gift = isStart && (f.mods.indexOf('GIFT') >= 0 || LV === 'easy') ? pick(f.regions) : null;
       if (f.mods.indexOf('STAR') >= 0) { var sc0 = pick(pick(f.regions).cells); f.star = K(sc0[0], sc0[1]); }
       f.regions.forEach(function (reg) {
@@ -986,7 +995,7 @@ class Component extends DCLogic {
     });
     var cells = [];
     for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
-      var o3 = owner[r][c]; if (o3 < 0 || (coreSub && o3 === 0)) continue;
+      var o3 = owner[r][c]; if (o3 <= 0) continue;
       var fl = 0;
       var dirs = [[-1, 0], [0, 1], [1, 0], [0, -1]];
       for (var bit = 0; bit < 4; bit++) { if (own(r + dirs[bit][0], c + dirs[bit][1]) !== o3) fl |= 1 << bit; }
@@ -994,17 +1003,16 @@ class Component extends DCLogic {
       var cr = cellReg[K(r, c)];
       cells.push([r, c, cr[2], o3, cr[0], cr[1], fl]);
     }
-    if (coreSub) {
-      var inCore = {};
-      fields[0].cells.forEach(function (x) { inCore[K(x[0], x[1])] = 1; });
-      fields[0].regions.forEach(function (reg) {
-        reg.cells.forEach(function (x, i) {
-          var fl2 = 0, dd = [[-1, 0], [0, 1], [1, 0], [0, -1]];
-          for (var b2 = 0; b2 < 4; b2++) if (!inCore[K(x[0] + dd[b2][0], x[1] + dd[b2][1])]) fl2 |= 1 << b2;
-          cells.push([x[0], x[1], reg.word[i], 0, reg.gi, i, fl2, 1]);
-        });
+    // the letters of the round core, on its own grid
+    var inCore = {};
+    fields[0].cells.forEach(function (x) { inCore[K(x[0], x[1])] = 1; });
+    fields[0].regions.forEach(function (reg) {
+      reg.cells.forEach(function (x, i) {
+        var fl2 = 0, dd = [[-1, 0], [0, 1], [1, 0], [0, -1]];
+        for (var b2 = 0; b2 < 4; b2++) if (!inCore[K(x[0] + dd[b2][0], x[1] + dd[b2][1])]) fl2 |= 1 << b2;
+        cells.push([x[0], x[1], reg.word[i], 0, reg.gi, i, fl2, 1]);
       });
-    }
+    });
     return {
       N: N, current: current, cells: cells, regions: regions, core: coreSub,
       fields: fields.map(function (f) {
@@ -1019,9 +1027,9 @@ class Component extends DCLogic {
     this.say(this.T('building', n), 'info');
     this.bump();
     setTimeout(function () {
-      var old = { w: self._w, seed: self.seed, level: self.level, gen: self.gen, game: self.game, focus: self.focus };
+      var old = { w: self._w, seed: self.seed, level: self.level, game: self.game, focus: self.focus };
       try {
-        self.seed = n; self._w = null; self._grp = null; self.fx = null; self.gen = Component.GEN;
+        self.seed = n; self._w = null; self._grp = null; self.fx = null;
         if (level) self.level = self.cleanLevel(level);
         self.world();
         self.newGame();
@@ -1034,7 +1042,7 @@ class Component extends DCLogic {
         self.paint(); self.bump();
         self.flyTo(self.camFor('field', self.focus));
       } catch (err) {
-        self._w = old.w; self.seed = old.seed; self.level = old.level; self.gen = old.gen; self.game = old.game; self.focus = old.focus;
+        self._w = old.w; self.seed = old.seed; self.level = old.level; self.game = old.game; self.focus = old.focus;
         self.say(self.T('seedFail', n, err.message), 'warn');
         self.bump();
       }
@@ -1050,7 +1058,8 @@ class Component extends DCLogic {
     try {
       var raw = typeof localStorage !== 'undefined' && localStorage.getItem(this.saveKey(lang));
       var sv = raw && JSON.parse(raw);
-      return sv && sv.v === 1 && typeof sv.seed === 'number' ? sv : null;
+      // a galaxy from another generator version is different now: its save is not used
+      return sv && sv.v === 1 && typeof sv.seed === 'number' && sv.gen === Component.GEN ? sv : null;
     } catch (e) { return null; }
   }
   saveHasProgress(sv) {
@@ -1068,7 +1077,7 @@ class Component extends DCLogic {
     var g = this.game, alive = [], index = {};
     g.words.forEach(function (wd) { if (wd.alive) { index[wd.id] = alive.length; alive.push([wd.cells, wd.colour, wd.correct ? 1 : 0, wd.gift ? 1 : 0]); } });
     var wrong = Object.keys(g.wrongMarked).map(function (id) { return index[id]; }).filter(function (x) { return x != null; });
-    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, gen: this.gen || 1, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
+    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, gen: Component.GEN, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
   }
 
   // ---------- moving progress to another device: the whole save in a link ----------
@@ -1089,14 +1098,15 @@ class Component extends DCLogic {
       .then(function (buf) { return 'z' + b64(buf); });
   }
   importCode(code) {
-    var kind = code.charAt(0), s = code.slice(1).replace(/-/g, '+').replace(/_/g, '/');
+    var self = this, kind = code.charAt(0), s = code.slice(1).replace(/-/g, '+').replace(/_/g, '/');
     while (s.length % 4) s += '=';
     var bin = atob(s), u = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
     var done = function (text) {
       var c = JSON.parse(text);
       if (!c || c.v !== 1 || typeof c.seed !== 'number') throw new Error('not a Word Galaxy progress link');
-      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', gen: c.gen || 1, focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
+      if (c.gen !== Component.GEN) throw new Error(self.T('linkOld'));
+      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', gen: c.gen, focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
         words: c.words.map(function (x) { var cells = [], a = 0; x[0].forEach(function (d, i) { a = i ? a + d : d; cells.push(a); }); return [cells, x[1], x[2], x[3]]; }) };
     };
     if (kind === 'j') return Promise.resolve(done(new TextDecoder().decode(u)));
@@ -1186,7 +1196,7 @@ class Component extends DCLogic {
     var sv = this.loadSave(to);
     this.lang = to;
     try { localStorage.setItem('wordgalaxy:lang', to); } catch (e) {}
-    this.seed = sv ? sv.seed : 23; this.level = sv ? this.cleanLevel(sv.level) : 'medium'; this.gen = sv ? (sv.gen || 1) : Component.GEN;
+    this.seed = sv ? sv.seed : 23; this.level = sv ? this.cleanLevel(sv.level) : 'medium';
     this._w = null; this._grp = null; this.fx = null;
     this.world();
     this.newGame();
@@ -1926,15 +1936,25 @@ class Component extends DCLogic {
     }
     Object.keys(g.wrongMarked).forEach(function (id) { var wd = g.words[+id]; if (wd && wd.alive) wordOutline(wd, '#d6452f', true); });
     if (g.picked >= 0 && g.words[g.picked].alive) wordOutline(g.words[g.picked], '#ffffff', false);
-    // starlight marks
-    ctx.fillStyle = '#c4700c';
+    // starlight marks: the shape of a word that a star showed, until the word is found
     g.hints.forEach(function (list) {
       list.forEach(function (h) {
-        var a = w.cells[h.a], x = a.x * s + ox, y = a.y * s + oy, tile = a.p * s;
-        if (h.kind === 'start') { ctx.beginPath(); ctx.arc(x + tile / 4, y + tile / 4, Math.max(1.5 * px, 3.2 * s * a.p / P), 0, Math.PI * 2); ctx.fill(); return; }
-        var b = w.cells[h.b];
-        if (a.r === b.r) ctx.fillRect(x + tile - 2.5 * s, y + 3 * s, 5 * s, tile - 6 * s);
-        else ctx.fillRect(x + 3 * s, y + tile - 2.5 * s, tile - 6 * s, 5 * s);
+        var reg = w.regions[h.g], x = g.cellWord[reg.cells[0]];
+        if (x >= 0 && g.words[x].correct) return;
+        ctx.beginPath();
+        reg.cells.forEach(function (j) {
+          var o = w.cells[j], x0 = o.x * s + ox, y0 = o.y * s + oy, tile = o.p * s;
+          ctx.fillStyle = 'rgba(242,160,40,0.3)'; ctx.fillRect(x0, y0, tile, tile);
+          for (var k = 0; k < 4; k++) {
+            var n = o.nb[k];
+            if (n >= 0 && w.cells[n].g === h.g) continue;
+            if (k === 0) { ctx.moveTo(x0, y0); ctx.lineTo(x0 + tile, y0); }
+            if (k === 2) { ctx.moveTo(x0, y0 + tile); ctx.lineTo(x0 + tile, y0 + tile); }
+            if (k === 3) { ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + tile); }
+            if (k === 1) { ctx.moveTo(x0 + tile, y0); ctx.lineTo(x0 + tile, y0 + tile); }
+          }
+        });
+        ctx.strokeStyle = '#c4700c'; ctx.lineWidth = Math.max(1.5 * px, 3.5 * s * w.cells[reg.cells[0]].p / P); ctx.lineCap = 'round'; ctx.stroke();
       });
     });
   }
@@ -2264,8 +2284,8 @@ class Component extends DCLogic {
     var cc = Math.floor((q.x - w.M) / w.P), rr = Math.floor((q.y - w.M) / w.P);
     var j = w.at(rr, cc), cr = w.core;
     if (cr) {
-      var side = cr.sq || Math.round(cr.n * cr.k), sq0 = cr.sq0 != null ? cr.sq0 : cr.r0;
-      // version 7: the corners of that square belong to the fields around the core
+      var side = cr.sq, sq0 = cr.sq0;
+      // the corners of that square belong to the fields around the core
       if (j < 0 && rr >= sq0 && rr < sq0 + side && cc >= sq0 && cc < sq0 + side) {
         var kp = w.P * cr.k;
         var qr = (q.y - w.M - cr.r0 * w.P) / kp, qc = (q.x - w.M - cr.c0 * w.P) / kp;
@@ -2614,40 +2634,31 @@ class Component extends DCLogic {
     if (this.starsLeft() <= 0) { this.say(this.T('noStars'), 'warn'); this.bump(); return; }
     var have = {};
     g.hints[fi].forEach(function (h) { have[h.key] = 1; });
-    // 1. a wrong word in this field
+    // 1. all wrong words in this field
     var wrong = g.words.filter(function (wd) {
       return wd.alive && wd.f === fi && !wd.correct && !g.wrongMarked[wd.id];
     });
-    var hint = null;
     if (wrong.length) {
-      g.wrongMarked[wrong[0].id] = 1;
-      this.dirtyCells(wrong[0].cells, 1);
+      var self = this;
+      wrong.forEach(function (wd) { g.wrongMarked[wd.id] = 1; self.dirtyCells(wd.cells, 1); });
       g.used[fi]++;
-      this.say(this.T('starWrong', wrong[0].word), 'info');
+      this.say(this.T('starWrong', wrong.map(function (wd) { return wd.word; }).join(', ')), 'info');
       this.save();
       this.paint(); this.bump(); return;
     }
-    // 2. walls and word starts anywhere in the field
-    var open = function (j) { var x = g.cellWord[j]; return x < 0 || !g.words[x].correct; };
-    var walls = [], starts = [];
-    f.cells.forEach(function (j) {
-      if (!open(j)) return;
-      var o = w.cells[j];
-      [1, 2].forEach(function (k) {
-        var q = o.nb[k];
-        if (q >= 0 && open(q) && w.cells[q].f === fi && w.cells[q].g !== o.g && !have['w' + j + '-' + q]) walls.push({ key: 'w' + j + '-' + q, kind: 'wall', a: j, b: q });
-      });
-      if (o.k === 0 && !have['s' + j]) starts.push({ key: 's' + j, kind: 'start', a: j });
+    // 2. the shape of a word that is not found yet: the first one in reading order
+    var reg = null;
+    f.regions.forEach(function (gi) {
+      var r = w.regions[gi], x = g.cellWord[r.cells[0]];
+      if (reg || have['r' + gi] || (x >= 0 && g.words[x].correct)) return;
+      reg = r;
     });
-    var n = g.used[fi];
-    var pool = (n % 3 === 2 && starts.length) ? starts : (walls.length ? walls : starts);
-    if (!pool.length) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
-    hint = pool[(n * 7 + 3) % pool.length];
-    g.hints[fi].push(hint);
-    this.dirtyCells(hint.b != null ? [hint.a, hint.b] : [hint.a], 1);
+    if (!reg) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
+    g.hints[fi].push({ key: 'r' + reg.i, kind: 'word', g: reg.i });
+    this.dirtyCells(reg.cells, 1);
     g.used[fi]++;
     this.save();
-    this.say(hint.kind === 'wall' ? this.T('starWall') : this.T('starStart'), 'info');
+    this.say(this.T('starWord', reg.cells.length), 'info');
     this.paint(); this.bump();
   }
 
