@@ -116,11 +116,12 @@ class Component extends DCLogic {
         bigSolved: '{0} solved', perfect: 'Perfect',
         removeAsk: 'Remove {0}? Tap anywhere else to keep it.', holdToRemove: 'Hold the word to remove it.',
         locked: '{0} is locked. Solve a field next to it first.', isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
-        solvedOther: '{0} is solved. Tap a field with a dashed outline.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
+        solvedOther: '{0} is solved. Tap a field with a blue outline.', tapAgain: 'Tap {0} again to go there.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
         nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
         coreOpen: 'All fields around the core are solved: the core is open!', coreGate: 'The core opens when all {0} fields around it are solved.',
         finaleTitle: 'Core reached!', finaleSub: 'GALAXY {0}', stFields: 'fields', stWords: 'words', stStars: 'stars used', stPerfect: 'perfect',
         coreDone: 'You solved the Galactic Core! {0} of {1} fields of this galaxy are solved.',
+        allTitle: 'Galaxy complete!', allDone: 'You solved all {0} fields of this galaxy. Start a new galaxy in the menu.',
         cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!', notHere: '{0} is a word, but not the one we look for here. Try again!',
         removed: '{0} removed.', staySelected: 'The letters stay selected. Swipe to change them, then tap the ✓ button.',
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
@@ -130,7 +131,7 @@ class Component extends DCLogic {
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
         lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Long words and big fields.',
         menu: 'Menu', starsAria: 'Use one star for a hint ({0} left)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word', remove: 'Remove {0}',
-        zGalaxy: 'Show the whole galaxy', zArea: 'Show the area around this field', zField: 'Show this field',
+        zGalaxy: 'Show the whole galaxy ({0}% done)', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
         menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', cheat: '🪄 Solve this field (test)', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
         ngTitle: 'New galaxy', ngLevel: 'Difficulty', ngNumber: 'Galaxy number', ngRandom: 'Random', ngStart: 'Start', ngCancel: 'Cancel',
@@ -151,11 +152,12 @@ class Component extends DCLogic {
         bigSolved: '{0} gelöst', perfect: 'Perfekt',
         removeAsk: '{0} entfernen? Tippe woanders hin, um es zu behalten.', holdToRemove: 'Halte das Wort gedrückt, um es zu entfernen.',
         locked: '{0} ist gesperrt. Löse zuerst ein Feld daneben.', isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
-        solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit gestricheltem Rand.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
+        solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit blauem Rand.', tapAgain: 'Tippe noch einmal auf {0}, um dorthin zu gehen.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
         nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
         coreOpen: 'Alle Felder rund um den Kern sind gelöst: Der Kern ist offen!', coreGate: 'Der Kern öffnet sich, wenn alle {0} Felder rundherum gelöst sind.',
         finaleTitle: 'Kern erreicht!', finaleSub: 'GALAXIE {0}', stFields: 'Felder', stWords: 'Wörter', stStars: 'Sterne genutzt', stPerfect: 'perfekt',
         coreDone: 'Du hast den Galaktischen Kern gelöst! {0} von {1} Feldern dieser Galaxie sind gelöst.',
+        allTitle: 'Galaxie geschafft!', allDone: 'Du hast alle {0} Felder dieser Galaxie gelöst. Eine neue Galaxie startest du im Menü.',
         cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!', notHere: '{0} ist ein Wort, aber nicht das gesuchte. Versuch es noch einmal!',
         removed: '{0} entfernt.', staySelected: 'Die Buchstaben bleiben gewählt. Wische, um sie zu ändern, dann tippe auf ✓.',
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
@@ -165,7 +167,7 @@ class Component extends DCLogic {
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
         lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Lange Wörter und große Felder.',
         menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen', remove: '{0} entfernen',
-        zGalaxy: 'Die ganze Galaxie zeigen', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
+        zGalaxy: 'Die ganze Galaxie zeigen ({0}% geschafft)', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
         menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', cheat: '🪄 Feld lösen (Test)', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
         ngTitle: 'Neue Galaxie', ngLevel: 'Schwierigkeit', ngNumber: 'Galaxie-Nummer', ngRandom: 'Zufällig', ngStart: 'Starten', ngCancel: 'Abbrechen',
@@ -301,7 +303,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 9; }
+  static get GEN() { return 10; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -734,17 +736,15 @@ class Component extends DCLogic {
         if (hit && hit.w && hit.w.length === f.regions.length) {
           f.regions.forEach(function (reg, i) { if (hit.w[i].length === reg.cells.length) reg.word = hit.w[i]; });
           hit.u.forEach(function (w) { used.add(w); });
-          added = hit.u;
-        } else added = reduceTraps(f).concat(polish(f));
-        newCache[f.id] = { w: f.regions.map(function (reg) { return reg.word; }), u: added };
-      } else polish(f);
+          added = hit.u; f.traps = hit.t;
+        } else { added = reduceTraps(f, true).concat(polish(f)); reduceTraps(f, false); }
+        newCache[f.id] = { w: f.regions.map(function (reg) { return reg.word; }), u: added, t: f.traps };
+      } else { polish(f); reduceTraps(f, false); }
     });
     if (!HARD) self.saveTrapCache(cacheKey, newCache);
 
-    // A trap is a word the player can select that is not a word of the solution: a dead end.
-    // Easy and medium galaxies swap words until a field has few traps left.
-    function reduceTraps(f) {
-      var acc = self.acceptCodes();
+    // every connected group of 4 to 6 cells that is not a solution word, listed once (the shapes do not depend on the letters)
+    function trapShapes(f) {
       var cells = f.cells.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }), n = cells.length;
       var idx = {}; cells.forEach(function (x, i) { idx[K(x[0], x[1])] = i; });
       var nb = cells.map(function (x) {
@@ -754,8 +754,7 @@ class Component extends DCLogic {
       });
       var R = f.regions.length, regOf = new Int32Array(n), regPos = new Int32Array(n);
       f.regions.forEach(function (reg, ri) { reg.cells.forEach(function (x, i) { var q = idx[K(x[0], x[1])]; regOf[q] = ri; regPos[q] = i; }); });
-      // every connected group of 4 to S cells, listed once (the shapes do not depend on the letters)
-      var S = Math.min(f.len[1] + 1, 6), shapes = [], touch = []; for (var r0 = 0; r0 < R; r0++) touch.push([]);
+      var S = 6, shapes = [], touch = []; for (var r0 = 0; r0 < R; r0++) touch.push([]);
       var mark = new Uint8Array(n);
       function record(sub) {
         if (sub.length < 4) return;
@@ -785,11 +784,23 @@ class Component extends DCLogic {
         nb[v].forEach(function (w) { if (w > v) { mark[w] = 1; untried.push(w); } });
         grow(v, [v], untried);
       }
+      return { n: n, regOf: regOf, regPos: regPos, list: shapes, touch: touch };
+    }
+
+    // A trap is a word the player can select that is not a word of the solution: a dead end.
+    // Easy and medium galaxies swap words until a field has few traps left (swap true).
+    // The number of traps that are left is in f.traps: it tells how difficult the field is.
+    function reduceTraps(f, swap) {
+      var acc = self.acceptCodes();
+      if (!f.shapes) f.shapes = trapShapes(f);
+      var n = f.shapes.n, regOf = f.shapes.regOf, regPos = f.shapes.regPos, shapes = f.shapes.list, touch = f.shapes.touch, R = f.regions.length;
       var L = new Int32Array(n), trap = new Uint8Array(shapes.length), total = 0;
       function letters() { for (var q = 0; q < n; q++) L[q] = Component.letterCode(f.regions[regOf[q]].word[regPos[q]]); }
       function isTrap(id) { var sh = shapes[id], code = 0; for (var a = 0; a < sh.length; a++) code = code * 32 + L[sh[a]]; return acc.has(code) ? 1 : 0; }
       letters();
       for (var id0 = 0; id0 < shapes.length; id0++) { trap[id0] = isTrap(id0); total += trap[id0]; }
+      f.traps = total;
+      if (!swap) return [];
       function perRegion(rg) { var c = 0, t = touch[rg]; for (var a = 0; a < t.length; a++) c += trap[t[a]]; return c; }
       // traps after giving region rg another word (only the shapes touching it can change)
       function tryWord(rg, w) {
@@ -830,6 +841,7 @@ class Component extends DCLogic {
         }
         if (bestWord) { setWord(worst, bestWord); used.add(bestWord); added.push(bestWord); } else stuck[worst] = 1;
       }
+      f.traps = total;
       return added;
     }
 
@@ -960,14 +972,14 @@ class Component extends DCLogic {
       f.cells.forEach(function (x) { r0 = Math.min(r0, x[0]); r1 = Math.max(r1, x[0]); c0 = Math.min(c0, x[1]); c1 = Math.max(c1, x[1]); });
       return f.cells.length === (r1 - r0 + 1) * (c1 - c0 + 1) ? 1 : 0;
     }
-    var startCands = fields.filter(function (f) { return f.tier === 1 && f.r > MID; });
-    if (!startCands.length) startCands = fields.filter(function (f) { return f.tier === 1; });
-    startCands = fields.filter(function (f) { return f.tier === 1; });
+    // only the easiest fields of the outer parts can be start fields
+    var NS = LV === 'easy' ? 4 : 2, outer = fields.filter(function (f) { return f.tier === 1; }), startCands = [];
+    for (var most = 2; most <= 6 && startCands.length < 2 * NS; most++) startCands = outer.filter(function (f) { return difficulty(f) <= most; });
     function low(f) { return f.r > MID ? 1 : 0; }
-    startCands.sort(function (a, b) { return (isTall(b) - isTall(a)) || (low(b) - low(a)) || (isRect(b) - isRect(a)) || (b.dist - a.dist) || (a.id - b.id); });
+    startCands.sort(function (a, b) { return (difficulty(a) - difficulty(b)) || (isTall(b) - isTall(a)) || (low(b) - low(a)) || (isRect(b) - isRect(a)) || (b.dist - a.dist) || (a.id - b.id); });
     var current = startCands[0].id;
     // more starting points, as far from each other as possible (no random numbers, so the galaxy itself stays the same)
-    var starts = [startCands[0]], NS = LV === 'easy' ? 4 : 2;
+    var starts = [startCands[0]];
     while (starts.length < NS && starts.length < startCands.length) {
       var best = null, bestD = -1;
       startCands.forEach(function (f) {
@@ -1013,10 +1025,17 @@ class Component extends DCLogic {
         cells.push([x[0], x[1], reg.word[i], 0, reg.gi, i, fl2, 1]);
       });
     });
+    // The difficulty that the player sees comes from the finished field, not from its place in the galaxy:
+    // each word is work, and each trap (a word that is not part of the solution) is a dead end to try.
+    // Many short words make many traps, a few long words make few.
+    function difficulty(f) {
+      var score = f.regions.length + 2 * f.traps;
+      return score <= 10 ? 1 : score <= 20 ? 2 : score <= 40 ? 3 : score <= 80 ? 4 : score <= 160 ? 5 : 6;
+    }
     return {
       N: N, current: current, cells: cells, regions: regions, core: coreSub,
       fields: fields.map(function (f) {
-        return { name: f.name, mods: f.mods, tier: f.tier, state: startIds.indexOf(f.id) >= 0 ? 'O' : 'L', goal: f.id === 0 ? 1 : 0, words: f.regions.length, len: f.len, shape: '' };
+        return { name: f.name, mods: f.mods, tier: difficulty(f), state: startIds.indexOf(f.id) >= 0 ? 'O' : 'L', goal: f.id === 0 ? 1 : 0, words: f.regions.length, len: f.len, shape: '' };
       })
     };
   }
@@ -1583,6 +1602,15 @@ class Component extends DCLogic {
       ctx.moveTo(x1, y1); ctx.lineTo(nb.x, nb.y + nb.h);
       ctx.stroke();
     });
+    // the whole galaxy: how much of it is done, as a bar and a number at the bottom of the first picture
+    var gp = this.galaxyProgress(), b0 = L[0], bh = 4;
+    ctx.fillStyle = 'rgba(6,9,19,0.75)'; ctx.fillRect(b0.x + 1, b0.y + b0.h - bh - 1, b0.w - 2, bh);
+    ctx.fillStyle = '#f2c063'; ctx.fillRect(b0.x + 1, b0.y + b0.h - bh - 1, (b0.w - 2) * gp, bh);
+    var gt = this.percent(gp) + '%';
+    ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    var gw = ctx.measureText(gt).width + 8;
+    ctx.fillStyle = 'rgba(6,9,19,0.8)'; ctx.fillRect(b0.x + 3, b0.y + b0.h - bh - 17, gw, 14);
+    ctx.fillStyle = '#f2c063'; ctx.fillText(gt, b0.x + 7, b0.y + b0.h - bh - 4);
     // frames: the current zoom in gold
     L.forEach(function (b, i) {
       ctx.strokeStyle = i === level ? '#f2c063' : '#2e3a62';
@@ -1595,7 +1623,7 @@ class Component extends DCLogic {
   }
   updateZoomStrip() {
     if (!this.zCtx) return;
-    var g = this.game, key = [this.seed, this.focus, this.zoomLevel(), g.words.length, g.state.join(''), this.VW].join('|');
+    var g = this.game, key = [this.seed, this.focus, this.zoomLevel(), g.words.length, g.state.join(''), this.galaxyProgress(), this.VW].join('|');
     if (key === this._zoomKey && !this._zoomMissing) return;
     this._zoomKey = key;
     this.renderZoomStrip();
@@ -1812,7 +1840,7 @@ class Component extends DCLogic {
         ctx.fillRect(rx0, ry0, rw0, rh0);
       }
     }
-    var lit = this.lit, fontTile = tile;
+    var lit = this.lit, fontTile = tile, allDone = g.state.indexOf('O') < 0 && g.state.indexOf('L') < 0;
     var core0 = w.fields[0].round ? w.fields[0] : null;
     if (core0 && fine) this.drawCoreBack(ctx, core0, s, ox, oy, px);
     for (i = 0; i < w.cells.length; i++) {
@@ -1825,12 +1853,13 @@ class Component extends DCLogic {
       var f = w.fields[o.f], fst = g.state[o.f], wid = g.cellWord[i], sel = !!g.sel[i];
       var bg, fg = '#1d2433';
       if (wid >= 0) bg = COLORS[g.words[wid].colour % COLORS.length];
-      else if (sel) { bg = '#25327f'; fg = '#ffffff'; }
+      else if (sel) { bg = '#2563ff'; fg = '#ffffff'; }
       else if (fst === 'O') bg = f.openBg || '#f4efe4';
       else if (f.goal) { bg = '#f2c063'; fg = '#3a2806'; }
       else { bg = f.lockBg; fg = f.lockFg; }
       ctx.fillStyle = bg;
-      var dimIt = o.f !== this.focus && fst !== 'L';
+      // solved fields are darker, so the field being played and the open fields stand out
+      var dimIt = o.f !== this.focus && fst === 'S' && !allDone;
       if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = f.dim; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
       var me = grp[i], fl = o.flags;
       var sT = me !== 0 && o.nb[0] >= 0 && grp[o.nb[0]] === me;
@@ -1895,9 +1924,9 @@ class Component extends DCLogic {
       ctx.stroke();
       ctx.restore();
     }
-    // outlines: focused field gold, other open fields dashed blue
+    // outlines: focused field gold, other open fields bright blue with a glow, solved fields green
     var self = this;
-    function outline(fi, colour, dashed, width) {
+    function outline(fi, colour, dashed, width, glow) {
       var f = w.fields[fi];
       var fx0 = f.x0 * s + ox, fy0 = f.y0 * s + oy;
       if (f.x1 * s + ox < 0 || f.y1 * s + oy < 0 || fx0 > VW || fy0 > VH) return;
@@ -1912,10 +1941,12 @@ class Component extends DCLogic {
       });
       ctx.strokeStyle = colour; ctx.lineWidth = width * px;
       ctx.setLineDash(dashed ? [6 * px, 5 * px] : []);
+      if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 10 * px; }
       ctx.stroke();
+      ctx.shadowBlur = 0;
       ctx.setLineDash([]);
     }
-    w.fields.forEach(function (f) { if (g.state[f.i] === 'O' && f.i !== self.focus) outline(f.i, '#a9c4ff', true, 2); });
+    w.fields.forEach(function (f) { if (g.state[f.i] === 'O' && f.i !== self.focus) outline(f.i, '#8fbcff', false, 3.5, 'rgba(110,170,255,0.95)'); });
     w.fields.forEach(function (f) { if (g.state[f.i] === 'S' && f.i !== self.focus) outline(f.i, '#7fd17a', false, 2.5); });
     outline(this.focus, '#f2c063', false, 3);
     // word outlines: marked wrong (red dashed), picked for removal (white)
@@ -1936,6 +1967,25 @@ class Component extends DCLogic {
     }
     Object.keys(g.wrongMarked).forEach(function (id) { var wd = g.words[+id]; if (wd && wd.alive) wordOutline(wd, '#d6452f', true); });
     if (g.picked >= 0 && g.words[g.picked].alive) wordOutline(g.words[g.picked], '#ffffff', false);
+    // the selected letters: a white line around them, so they are easy to see on every background
+    var selList = Object.keys(g.sel).map(Number);
+    if (selList.length) {
+      ctx.beginPath();
+      selList.forEach(function (j) {
+        var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, tile = o.p * s;
+        for (var k = 0; k < 4; k++) {
+          var n = o.nb[k];
+          if (n >= 0 && g.sel[n]) continue;
+          if (k === 0) { ctx.moveTo(x, y); ctx.lineTo(x + tile, y); }
+          if (k === 2) { ctx.moveTo(x, y + tile); ctx.lineTo(x + tile, y + tile); }
+          if (k === 3) { ctx.moveTo(x, y); ctx.lineTo(x, y + tile); }
+          if (k === 1) { ctx.moveTo(x + tile, y); ctx.lineTo(x + tile, y + tile); }
+        }
+      });
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5 * px, 2.5 * s); ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(37,99,255,0.9)'; ctx.shadowBlur = 6 * px;
+      ctx.stroke(); ctx.shadowBlur = 0; ctx.lineCap = 'butt';
+    }
     // starlight marks: the shape of a word that a star showed, until the word is found
     g.hints.forEach(function (list) {
       list.forEach(function (h) {
@@ -2026,9 +2076,21 @@ class Component extends DCLogic {
     return f.cells.length ? n / f.cells.length : 0;
   }
   // the finale: the core flares, a wave of light runs out over every solved field, then the galaxy's numbers
-  finale() {
-    var g = this.game;
-    this.fx = { kind: 'finale', fi: 0, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+  // the core is solved (all false), or every field of the galaxy is solved (all true): then fireworks too
+  finale(all) {
+    var g = this.game, w = this.world(), bursts = [];
+    if (all) {
+      // fireworks over the solved fields, one after the other from the core outwards
+      var COL = ['#fff4c2', '#f2c063', '#9cc9ea', '#f29b9b', '#bfe08f', '#dcb0e6', '#7fd1c1', '#ffffff'];
+      var order = w.fields.slice(1).sort(function (a, b) { return Math.hypot((a.x0 + a.x1) / 2 - w.W / 2, (a.y0 + a.y1) / 2 - w.W / 2) - Math.hypot((b.x0 + b.x1) / 2 - w.W / 2, (b.y0 + b.y1) / 2 - w.W / 2); });
+      for (var i = 0; i < 46; i++) {
+        var f = order[Math.floor((i + Math.random()) / 46 * order.length)], parts = [];
+        var col = COL[i % COL.length], col2 = COL[(i * 3 + 1) % COL.length];
+        for (var k = 0; k < 44; k++) { var a = k / 44 * Math.PI * 2 + Math.random() * 0.2, sp = 0.6 + Math.random() * 0.5; parts.push({ vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, col: k % 3 ? col : col2 }); }
+        bursts.push({ x: (f.x0 + f.x1) / 2, y: (f.y0 + f.y1) / 2, t: 0.8 + i * 0.22 + Math.random() * 0.2, parts: parts });
+      }
+    }
+    this.fx = { kind: 'finale', all: !!all, bursts: bursts, fi: 0, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       stats: [[g.state.filter(function (x) { return x === 'S'; }).length + ' / ' + g.state.length, this.T('stFields')],
         [g.words.filter(function (x) { return x.alive && !x.gift; }).length, this.T('stWords')],
         [g.used.reduce(function (a, b) { return a + b; }, 0), this.T('stStars')],
@@ -2037,10 +2099,37 @@ class Component extends DCLogic {
   }
   renderFinale(ox, oy, s) {
     var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, fx = this.fx, VW = this.VW, VH = this.VH, f0 = w.fields[0];
-    var T = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - fx.t0) / 1000;
-    if (T > 10) { this.fx = null; return; }
-    var cx = f0.round.cx * s + ox, cy = f0.round.cy * s + oy, fade = T > 9 ? 1 - (T - 9) : 1;
+    var T = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - fx.t0) / 1000, END = fx.all ? 16 : 10;
+    if (T > END) { this.fx = null; return; }
+    var cx = f0.round.cx * s + ox, cy = f0.round.cy * s + oy, fade = T > END - 1 ? END - T : 1;
     ctx.save(); ctx.globalAlpha = fade;
+    if (fx.all) {
+      // a slow wheel of light turns around the core
+      var arm = Math.max(VW, VH);
+      for (var ai = 0; ai < 3; ai++) {
+        var ang = T * 0.9 + ai * Math.PI * 2 / 3;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+        var lg = ctx.createLinearGradient(0, 0, arm, 0);
+        lg.addColorStop(0, 'rgba(255,236,180,' + (0.35 * Math.min(1, T / 1.5)) + ')'); lg.addColorStop(1, 'rgba(255,236,180,0)');
+        ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(arm, -arm * 0.18); ctx.lineTo(arm, arm * 0.18); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      // fireworks: each burst flies out, falls a little and fades
+      fx.bursts.forEach(function (b) {
+        var age = T - b.t;
+        if (age < 0 || age > 1.8) return;
+        var bx = b.x * s + ox, by = b.y * s + oy, k = 1 - Math.pow(1 - Math.min(1, age / 1.1), 3), a = age < 1.1 ? 1 : 1 - (age - 1.1) / 0.7;
+        if (age < 0.25) { var fl = ctx.createRadialGradient(bx, by, 0, bx, by, 30); fl.addColorStop(0, 'rgba(255,255,255,' + (1 - age / 0.25) + ')'); fl.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = fl; ctx.beginPath(); ctx.arc(bx, by, 30, 0, Math.PI * 2); ctx.fill(); }
+        b.parts.forEach(function (q) {
+          ctx.globalAlpha = fade * a;
+          var R2 = 115 * k, px2 = bx + q.vx * R2, py2 = by + q.vy * R2 + 22 * age * age;
+          // a short trail behind each spark
+          ctx.strokeStyle = q.col; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(bx + q.vx * R2 * 0.86, by + q.vy * R2 * 0.86 + 22 * age * age); ctx.lineTo(px2, py2); ctx.stroke();
+          ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(px2, py2, 3.4 * (1 - age / 2.4), 0, Math.PI * 2); ctx.fill();
+        });
+      });
+      ctx.globalAlpha = fade;
+    }
     // 1. the core flares
     var flare = Math.min(1, T / 1.2), rad = (40 + 140 * flare) * Math.max(0.6, Math.min(1.6, VW / 390));
     var gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
@@ -2071,7 +2160,7 @@ class Component extends DCLogic {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#f2c063'; ctx.font = '800 12px Archivo, system-ui, sans-serif'; ctx.fillText(this.T('finaleSub', this.seed).split('').join(' '), VW / 2, by - 24);
       ctx.fillStyle = '#ffffff'; ctx.font = '800 30px Archivo, system-ui, sans-serif'; ctx.shadowColor = 'rgba(242,192,99,0.8)'; ctx.shadowBlur = 16;
-      ctx.fillText(this.T('finaleTitle'), VW / 2, by + 10); ctx.shadowBlur = 0;
+      ctx.fillText(this.T(fx.all ? 'allTitle' : 'finaleTitle'), VW / 2, by + 10); ctx.shadowBlur = 0;
       var n = fx.stats.length, cw = Math.min(100, VW / n);
       fx.stats.forEach(function (st, i) {
         var x = VW / 2 + (i - (n - 1) / 2) * cw;
@@ -2193,34 +2282,30 @@ class Component extends DCLogic {
     this._progKey = key;
     return this._prog;
   }
-  // zoomed out: a green check on solved fields, the percent on started ones
+  // a share as percent: one decimal below 10%, so the first fields show progress too; never 100 before the end
+  percent(x) { return x >= 1 ? '100' : x < 0.1 ? String(Math.floor(x * 1000) / 10) : String(Math.floor(x * 100)); }
+  // the part of the whole galaxy that is done: letters in correct words
+  galaxyProgress() {
+    var w = this.world(), g = this.game, done = 0;
+    for (var j = 0; j < w.cells.length; j++) { var x = g.cellWord[j]; if (x >= 0 && g.words[x].correct) done++; }
+    return done / w.cells.length;
+  }
+  // zoomed out: the percent on open fields that are started
   renderBadges(ox, oy, s) {
     var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, VW = this.VW, VH = this.VH, prog = this.fieldProgress();
     ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     w.fields.forEach(function (f) {
-      var st = g.state[f.i];
-      if (st === 'L') return;
-      var done = st === 'S', p = prog[f.i];
-      if (!done && (p <= 0 || p >= 1)) return;
+      if (g.state[f.i] !== 'O' || !(prog[f.i] > 0)) return;
       var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
       if (fw < 14 || fh < 14) return;
       var cx = (f.x0 + f.x1) / 2 * s + ox, cy = (f.y0 + f.y1) / 2 * s + oy;
       if (cx < -30 || cy < -30 || cx > VW + 30 || cy > VH + 30) return;
-      var r = Math.max(7, Math.min(13, Math.min(fw, fh) * 0.22));
-      if (done) {
-        ctx.fillStyle = '#2f8a3a'; ctx.strokeStyle = '#d8f5cf'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.8, r * 0.22); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.beginPath(); ctx.moveTo(cx - r * 0.45, cy + r * 0.02); ctx.lineTo(cx - r * 0.1, cy + r * 0.38); ctx.lineTo(cx + r * 0.48, cy - r * 0.35); ctx.stroke();
-        ctx.lineCap = 'butt';
-      } else {
-        var txt = Math.round(p * 100) + '%', tw = Math.max(30, ctx.measureText(txt).width + 12), th = 19;
-        ctx.fillStyle = 'rgba(17,26,51,0.92)'; ctx.strokeStyle = '#a9c4ff'; ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, th / 2); else ctx.rect(cx - tw / 2, cy - th / 2, tw, th);
-        ctx.fill(); ctx.stroke();
-        ctx.fillStyle = '#eef0f7'; ctx.fillText(txt, cx, cy + 0.5);
-      }
+      var txt = Math.round(prog[f.i] * 100) + '%', tw = Math.max(30, ctx.measureText(txt).width + 12), th = 19;
+      ctx.fillStyle = 'rgba(17,26,51,0.92)'; ctx.strokeStyle = '#7fb2ff'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, th / 2); else ctx.rect(cx - tw / 2, cy - th / 2, tw, th);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#eef0f7'; ctx.fillText(txt, cx, cy + 0.5);
     });
   }
 
@@ -2261,7 +2346,7 @@ class Component extends DCLogic {
     var COLORS = ['#9cc9ea', '#f4b26b', '#bfe08f', '#dcb0e6', '#f29b9b', '#7fd1c1'];
     f.cells.forEach(function (j) {
       var o = w.cells[j], wid = g.cellWord[j];
-      ctx.fillStyle = wid >= 0 ? COLORS[g.words[wid].colour % 6] : g.sel[j] ? '#5b6fe0' : '#8f8a80';
+      ctx.fillStyle = wid >= 0 ? COLORS[g.words[wid].colour % 6] : g.sel[j] ? '#2563ff' : '#8f8a80';
       var uu = u * o.p / w.P;
       ctx.fillRect(mx + (o.x - f.x0) / w.P * u, my + (o.y - f.y0) / w.P * u, uu - (uu > 3 ? 1 : 0), uu - (uu > 3 ? 1 : 0));
     });
@@ -2321,6 +2406,16 @@ class Component extends DCLogic {
     if (ids.length > 2) return;
     var g = this.game, o = this.cellAtPt(p, false);
     var mouseRight = e.button === 2 || e.button === 1;
+    // a touch just outside the field, close to one of its letters, is a touch on that letter
+    if (o && o.f !== this.focus && !o.sub && this.canPaint()) {
+      var w = this.world(), q = this.toWorld(p.x, p.y), near = null, nd = 0.45 * o.p;
+      o.nb.concat(o.nd).forEach(function (j) {
+        if (j < 0 || w.cells[j].f !== this.focus) return;
+        var c = w.cells[j], dx = Math.max(c.x - q.x, 0, q.x - c.x - c.p), dy = Math.max(c.y - q.y, 0, q.y - c.y - c.p), d = Math.hypot(dx, dy);
+        if (d < nd) { nd = d; near = c; }
+      }, this);
+      if (near) o = near;
+    }
     // a held word waits for its remove button; a touch anywhere else keeps the word
     if (g.picked >= 0) { this.cancelPick(); }
     if (!mouseRight && o && o.f === this.focus && this.canPaint()) {
@@ -2458,6 +2553,13 @@ class Component extends DCLogic {
     if (!o) { if (g.selN) this.clearSel(); return; }
     var f = w.fields[o.f];
     if (o.f !== this.focus || this.cam.s < this.fieldScale(o.f) * 0.6) {
+      // while a field is played, a single tap on another field does not leave it: a tap next to the field happens easily
+      if (o.f !== this.focus && g.state[this.focus] === 'O' && this.cam.s >= this.fieldScale(this.focus) * 0.6) {
+        var now = Date.now(), ask = this.goAsk;
+        this.goAsk = { f: o.f, t: now };
+        if (!ask || ask.f !== o.f || now - ask.t > 3000) { this.say(this.T('tapAgain', f.name), 'info'); this.bump(); return; }
+      }
+      this.goAsk = null;
       this.dirtyField(this.focus); this.dirtyField(o.f);
       this.focus = o.f;
       this.save();
@@ -2554,14 +2656,18 @@ class Component extends DCLogic {
       if (core0 && (fi === 0 || core0.nb[fi])) this.dirtyField(0);
       this.recalcLit();
       var selfA = this, perfectA = !g.used[fi];
-      if (core0 && fi === 0) this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(); });
+      var allSolved = g.state.every(function (x) { return x === 'S'; });
+      // all solved: no field is darker any more
+      if (allSolved) { this.dirtyAll(); this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(true); }); }
+      else if (core0 && fi === 0) this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(); });
       else this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
       var gave = this.starsFor(fi);
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
       this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + (g.used[fi] ? '' : this.T('perfectNo')));
       if (coreOpened) this.say(this.T('coreOpen'), 'good', cheer + this.T('fieldSolved', f.name));
-      if (core0 && fi === 0) { var nS = g.state.filter(function (x) { return x === 'S'; }).length; this.say(this.T('coreDone', nS, g.state.length), 'good', this.T('finaleTitle')); }
+      if (allSolved) this.say(this.T('allDone', g.state.length), 'good', this.T('allTitle'));
+      else if (core0 && fi === 0) { var nS = g.state.filter(function (x) { return x === 'S'; }).length; this.say(this.T('coreDone', nS, g.state.length), 'good', this.T('finaleTitle')); }
     } else { var mn = this.meaning(word); this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title); if (fi === 0 && w.fields[0].round) this.dirtyField(0); }
     this.save();
     this.quick = this.quickPos();
@@ -2674,7 +2780,7 @@ class Component extends DCLogic {
     var covered = f.cells.filter(function (j) { return g.cellWord[j] >= 0; }).length;
     var left = this.starsLeft();
     var ZL = this.zoomLayout();
-    var zoomBtns = [['galaxy', this.T('zGalaxy')], ['area', this.T('zArea')], ['field', this.T('zField')]].map(function (p, i) {
+    var zoomBtns = [['galaxy', this.T('zGalaxy', this.percent(this.galaxyProgress()))], ['area', this.T('zArea')], ['field', this.T('zField')]].map(function (p, i) {
       return { label: p[1], x: ZL[i].x, y: ZL[i].y, w: ZL[i].w, h: ZL[i].h, pick: function () { self.flyTo(self.camFor(p[0], self.focus)); } };
     });
     var picking = g.picked >= 0 && g.words[g.picked].alive;
