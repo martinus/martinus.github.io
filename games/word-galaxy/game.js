@@ -290,6 +290,8 @@ class Component extends DCLogic {
       f.openBg = mix('#f4efe4', '#f3d27e', 0.75 * f.warm);
       // other fields are darkened; near the core with a warm shade
       f.dim = f.warm > 0.25 ? 'rgba(30,20,4,0.42)' : 'rgba(6,9,19,0.45)';
+      // open fields are darker only a little: the border of the field being played is clear, and they still stand out
+      f.dimOpen = f.warm > 0.25 ? 'rgba(30,20,4,0.24)' : 'rgba(6,9,19,0.26)';
     });
     var seed = 11;
     function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
@@ -303,7 +305,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 10; }
+  static get GEN() { return 11; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -554,6 +556,25 @@ class Component extends DCLogic {
     // A field loses or gains at most 15% of its cells, and stays thick enough for words.
     var ROUGH = 0.2, fixed = new Set(), size0 = fields.map(function (f) { return f.cells.length; }), steps = 0;
     fields.forEach(function (f) { if (f.id) steps += Math.round(f.cells.length * ROUGH); });
+    // A word must go through a cell that is the only way into a part with fewer than 4 cells.
+    // Two such parts at the same cell can never both become words: the field could not be split.
+    function splittable(cells) {
+      var set = new Set(cells.map(function (x) { return K(x[0], x[1]); }));
+      for (var i = 0; i < cells.length; i++) {
+        var cut = K(cells[i][0], cells[i][1]), seen = new Set([cut]), small = 0;
+        for (var j = 0; j < cells.length; j++) {
+          var k0 = K(cells[j][0], cells[j][1]);
+          if (seen.has(k0)) continue;
+          var n = 0, st = [k0]; seen.add(k0);
+          while (st.length) {
+            var k = st.pop(); n++;
+            for (var d = 0; d < 4; d++) { var kk = k + D4[d][0] * 1000 + D4[d][1]; if (set.has(kk) && !seen.has(kk)) { seen.add(kk); st.push(kk); } }
+          }
+          if (n < 4 && ++small > 1) return false;
+        }
+      }
+      return true;
+    }
     function ownNb(rr, cc, id) { var n = 0; for (var d = 0; d < 4; d++) if (own(rr + D4[d][0], cc + D4[d][1]) === id) n++; return n; }
     for (var st = 0; st < steps; st++) {
       var fr = fields[1 + Math.floor(rnd() * (fields.length - 1))];
@@ -573,9 +594,11 @@ class Component extends DCLogic {
       var thin = false;
       for (q = 0; q < 4; q++) { var y0 = x[0] + D4[q][0], y1 = x[1] + D4[q][1]; if (own(y0, y1) === fr.id && ownNb(y0, y1, fr.id) < 2) thin = true; }
       var rest = fr.cells.filter(function (y) { return y !== x; });
-      if (thin || !connected(rest)) { owner[x[0]][x[1]] = fr.id; continue; }
+      if (thin || !connected(rest) || !splittable(rest)) { owner[x[0]][x[1]] = fr.id; continue; }
+      var gt = to.length && (!edge || rnd() < 0.6) ? fields[pick(to)] : null;
+      if (gt && !splittable(gt.cells.concat([x]))) { owner[x[0]][x[1]] = fr.id; continue; }
       fr.cells = rest; fixed.add(K(x[0], x[1]));
-      if (to.length && (!edge || rnd() < 0.6)) { var gt = fields[pick(to)]; owner[x[0]][x[1]] = gt.id; gt.cells.push(x); }
+      if (gt) { owner[x[0]][x[1]] = gt.id; gt.cells.push(x); }
       else { owner[x[0]][x[1]] = -1; mask[x[0]][x[1]] = false; }
     }
 
@@ -630,10 +653,10 @@ class Component extends DCLogic {
     f0.len = LV === 'easy' ? [4, 6] : LV === 'medium' ? [5, 10] : [6, 12];
 
     // cut each field into word shapes
-    function partition(f, lo, hi) {
+    function partition(f, lo, hi, steps) {
       var order = f.cells.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
       var free = new Set(order.map(function (x) { return K(x[0], x[1]); }));
-      var out = [], budget = 60000;
+      var out = [], budget = steps || 4000;
       function nb(p) {
         var res = [];
         for (var k = 0; k < 4; k++) { var y = p[0] + D4[k][0], x = p[1] + D4[k][1]; if (free.has(K(y, x))) res.push([y, x]); }
@@ -717,10 +740,12 @@ class Component extends DCLogic {
     var cacheKey = [WDS.lang, LV, seedIn, Component.GEN, WDS.accept.size].join(':'), trapCache = HARD ? null : self.loadTrapCache(cacheKey), newCache = {};
     fields.forEach(function (f) {
       var regs = null, a;
-      for (a = 0; a < 12 && !regs; a++) regs = partition(f, f.len[0], f.len[1]);
-      if (!regs && f.len[0] > 4) { f.len[0] = 4; for (a = 0; a < 12 && !regs; a++) regs = partition(f, 4, f.len[1]); }
+      for (a = 0; a < 6 && !regs; a++) regs = partition(f, f.len[0], f.len[1]);
+      if (!regs && f.len[0] > 4) { f.len[0] = 4; for (a = 0; a < 6 && !regs; a++) regs = partition(f, 4, f.len[1]); }
       // one letter longer words at most first: children know few long words
-      for (var more = 1; more <= 2 && !regs; more++) { f.len[1]++; for (a = 0; a < 12 && !regs; a++) regs = partition(f, 4, f.len[1]); }
+      for (var more = 1; more <= 2 && !regs; more++) { f.len[1]++; for (a = 0; a < 6 && !regs; a++) regs = partition(f, 4, f.len[1]); }
+      // the last chance: many more steps (slow, but rare)
+      for (a = 0; a < 12 && !regs; a++) regs = partition(f, 4, f.len[1], 60000);
       if (!regs) throw new Error('could not split field ' + f.id);
       var mn = 99, mx = 0;
       f.regions = regs.map(function (reg) {
@@ -737,7 +762,15 @@ class Component extends DCLogic {
           f.regions.forEach(function (reg, i) { if (hit.w[i].length === reg.cells.length) reg.word = hit.w[i]; });
           hit.u.forEach(function (w) { used.add(w); });
           added = hit.u; f.traps = hit.t;
-        } else { added = reduceTraps(f, true).concat(polish(f)); reduceTraps(f, false); }
+        } else {
+          added = reduceTraps(f, true).concat(polish(f));
+          reduceTraps(f, false);
+          // the core of an easy galaxy has no traps: polish can bring some back, so remove them again
+          for (var again = 0; again < 10 && KIDS && f.id === 0 && f.traps > 0; again++) {
+            added = added.concat(reduceTraps(f, true), polish(f));
+            reduceTraps(f, false);
+          }
+        }
         newCache[f.id] = { w: f.regions.map(function (reg) { return reg.word; }), u: added, t: f.traps };
       } else { polish(f); reduceTraps(f, false); }
     });
@@ -827,13 +860,22 @@ class Component extends DCLogic {
         }
         return null;
       }
+      // the core of an easy galaxy is the last field for a child: it gets much more work, and words of all its pools
+      var kidCore = KIDS && f.id === 0, rounds = kidCore ? 12 * R : 2 * R, tries = kidCore ? 60 : 3;
+      // (a word of another field may come again here, but never a word that is in the core already)
+      if (kidCore) fresh = function (len) {
+        var all = [], mine = {};
+        f.regions.forEach(function (reg) { mine[reg.word] = 1; });
+        f.pools.forEach(function (pl) { (pl[len] || []).forEach(function (w) { if (!mine[w]) all.push(w); }); });
+        return all.length ? all[Math.floor(lrnd() * all.length)] : null;
+      };
       var target = LV === 'easy' ? 0 : Math.floor(R * 0.8), stuck = {}, added = [];
-      for (var round = 0; round < 2 * R && total > target; round++) {
+      for (var round = 0; round < rounds && total > target; round++) {
         var worst = -1, wc = 0;
         for (var r = 0; r < R; r++) { if (stuck[r]) continue; var c = perRegion(r); if (c > wc) { wc = c; worst = r; } }
         if (worst < 0) break;
         var len = f.regions[worst].cells.length, best = total, bestWord = null;
-        for (var t2 = 0; t2 < 3; t2++) {
+        for (var t2 = 0; t2 < tries; t2++) {
           var cand = fresh(len, f.pools);
           if (!cand) break;
           var tt = tryWord(worst, cand);
@@ -849,6 +891,7 @@ class Component extends DCLogic {
     // make into a longer word the player can select (the player tries the longer word first).
     function polish(f) {
       var acc = WDS.accept, added = [];
+      function trapsNow() { reduceTraps(f, false); return f.traps; }
       var ls = ((seed0 * 17 + f.id * 104729) % 2147483646) + 1;
       function prnd() { ls = (ls * 16807) % 2147483647; return (ls - 1) / 2147483646; }
       var at = {};
@@ -896,12 +939,14 @@ class Component extends DCLogic {
         if (!bad.length) break;
         bad.forEach(function (reg) {
           var len = reg.cells.length, cs = candidates(len, counts()), keep = reg.word, best = null;
-          for (var t = 0; t < 6; t++) {
+          // the core of an easy galaxy: a new word must not bring more traps
+          var kidCore = KIDS && f.id === 0, base = kidCore ? trapsNow() : 0;
+          for (var t = 0; t < (kidCore ? 24 : 6); t++) {
             var list = cs[0].length && (t < 4 || !cs[1].length) ? cs[0] : cs[1];
             if (!list.length) break;
             var w = list[Math.floor(prnd() * list.length)];
             place(reg, w); reg.word = w;
-            if (!longer(reg)) { best = w; break; }
+            if (!longer(reg) && !(kidCore && trapsNow() > base)) { best = w; break; }
             if (!best) best = w;
           }
           if (!best) { reg.word = keep; place(reg, keep); return; }
@@ -1858,9 +1903,9 @@ class Component extends DCLogic {
       else if (f.goal) { bg = '#f2c063'; fg = '#3a2806'; }
       else { bg = f.lockBg; fg = f.lockFg; }
       ctx.fillStyle = bg;
-      // solved fields are darker, so the field being played and the open fields stand out
-      var dimIt = o.f !== this.focus && fst === 'S' && !allDone;
-      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = f.dim; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
+      // the other fields are darker, so the border of the field being played is clear; solved fields more than open ones
+      var dimIt = o.f !== this.focus && fst !== 'L' && !allDone, dimCol = fst === 'S' ? f.dim : f.dimOpen;
+      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = dimCol; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
       var me = grp[i], fl = o.flags;
       var sT = me !== 0 && o.nb[0] >= 0 && grp[o.nb[0]] === me;
       var sR = me !== 0 && o.nb[1] >= 0 && grp[o.nb[1]] === me;
@@ -1902,7 +1947,7 @@ class Component extends DCLogic {
         ctx.fillText(fog ? '·' : o.l, x + tile / 2, y + tile / 2 + tile * 0.03);
       }
       // other fields are darker, so the field being played stands out
-      if (dimIt) { ctx.fillStyle = f.dim; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
+      if (dimIt) { ctx.fillStyle = dimCol; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
     }
     tile = P * s; tileCss = tile / px; fine = tileCss >= 6; text = tileCss >= 10;
     if (core0 && fine) this.drawCoreFront(ctx, core0, s, ox, oy, px);
