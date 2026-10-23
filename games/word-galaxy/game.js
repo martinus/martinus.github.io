@@ -83,8 +83,6 @@ class Component extends DCLogic {
     this.clearSel = function () { self.dirtyCells(Object.keys(self.game.sel).map(Number), 1); self.game.sel = {}; self.game.selN = 0; self.draw(); self.refreshQuick(); };
     this.accept = function () { self.doAccept(); };
     this.useLight = function () { self.doLight(); };
-    this.cancelPick = function () { var pw = self.game.words[self.game.picked]; if (pw) self.dirtyCells(pw.cells, 1); self.game.picked = -1; self.say('', 'info'); self.quick = self.quickPos(); self.draw(); self.bump(); };
-    this.removePick = function () { self.doRemove(); };
   }
 
   componentDidUpdate(prev) {
@@ -114,7 +112,7 @@ class Component extends DCLogic {
         welcome: 'Welcome back. Your galaxy is as you left it.',
         newTitle: 'Start a new galaxy?', newText: 'This removes all progress in galaxy {0}. You can not undo this.', newYes: 'Start new galaxy', keepPlaying: 'Keep playing',
         bigSolved: '{0} solved', perfect: 'Perfect',
-        removeAsk: 'Remove {0}? Tap anywhere else to keep it.', holdToRemove: 'Hold the word to remove it.',
+        holdToRemove: 'Hold the word to remove it.', backAgain: 'You are still in the game. Go back again to leave it.',
         locked: '{0} is locked. Solve a field next to it first.', isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
         solvedOther: '{0} is solved. Tap a field with a blue outline.', tapAgain: 'Tap {0} again to go there.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
         nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
@@ -130,7 +128,7 @@ class Component extends DCLogic {
         tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
         lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Long words and big fields.',
-        menu: 'Menu', starsAria: 'Use one star for a hint ({0} left)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word', remove: 'Remove {0}',
+        menu: 'Menu', starsAria: 'Use one star for a hint ({0} left)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
         zGalaxy: 'Show the whole galaxy ({0}% done)', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
         menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', cheat: '🪄 Solve this field (test)', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
@@ -150,7 +148,7 @@ class Component extends DCLogic {
         welcome: 'Willkommen zurück. Deine Galaxie ist so, wie du sie verlassen hast.',
         newTitle: 'Neue Galaxie starten?', newText: 'Damit ist der ganze Fortschritt in Galaxie {0} weg. Das kann man nicht rückgängig machen.', newYes: 'Neue Galaxie starten', keepPlaying: 'Weiterspielen',
         bigSolved: '{0} gelöst', perfect: 'Perfekt',
-        removeAsk: '{0} entfernen? Tippe woanders hin, um es zu behalten.', holdToRemove: 'Halte das Wort gedrückt, um es zu entfernen.',
+        holdToRemove: 'Halte das Wort gedrückt, um es zu entfernen.', backAgain: 'Du bist noch im Spiel. Gehe noch einmal zurück, um es zu verlassen.',
         locked: '{0} ist gesperrt. Löse zuerst ein Feld daneben.', isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
         solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit blauem Rand.', tapAgain: 'Tippe noch einmal auf {0}, um dorthin zu gehen.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
         nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
@@ -166,7 +164,7 @@ class Component extends DCLogic {
         tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
         lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Lange Wörter und große Felder.',
-        menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen', remove: '{0} entfernen',
+        menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
         zGalaxy: 'Die ganze Galaxie zeigen ({0}% geschafft)', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
         menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', cheat: '🪄 Feld lösen (Test)', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
@@ -1277,7 +1275,7 @@ class Component extends DCLogic {
     var g = {
       words: [], cellWord: new Int32Array(w.cells.length).fill(-1),
       state: w.fields.map(function (f) { return f.state0; }),
-      sel: {}, selN: 0, picked: -1,
+      sel: {}, selN: 0,
       used: w.fields.map(function () { return 0; }),
       hints: w.fields.map(function () { return []; }),
       wrongMarked: {},
@@ -1420,7 +1418,7 @@ class Component extends DCLogic {
   // the selected letters, when they form a word from the word list (no hint: any listed word counts)
   validSelection() {
     var w = this.world(), g = this.game;
-    if (g.state[this.focus] !== 'O' || g.picked >= 0) return null;
+    if (g.state[this.focus] !== 'O') return null;
     var sel = Object.keys(g.sel).map(Number).filter(function (j) { return g.cellWord[j] < 0; });
     if (sel.length < 4) return null;
     sel.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
@@ -1436,18 +1434,11 @@ class Component extends DCLogic {
     var d = this.drag;
     if (this.moving || this._anim) return null;
     if (d && (d.mode === 'paint' || d.mode === 'pinch' || d.moved)) return null;
-    var g = this.game, w = this.world(), kind = 'accept', j;
-    if (g.picked >= 0 && g.words[g.picked] && g.words[g.picked].alive) {
-      // a held word: the remove button goes on the letter that was held
-      var pc = g.words[g.picked].cells;
-      kind = 'remove';
-      j = pc.indexOf(this.pickCell) >= 0 ? this.pickCell : pc[pc.length - 1];
-    } else {
-      var sel = this.validSelection();
-      if (!sel) return null;
-      // next to the last letter: the one the finger stopped on, else the last one in reading order
-      j = g.sel[this.lastCell] && sel.indexOf(this.lastCell) >= 0 ? this.lastCell : sel[sel.length - 1];
-    }
+    var g = this.game, w = this.world(), kind = 'accept';
+    var sel = this.validSelection();
+    if (!sel) return null;
+    // next to the last letter: the one the finger stopped on, else the last one in reading order
+    var j = g.sel[this.lastCell] && sel.indexOf(this.lastCell) >= 0 ? this.lastCell : sel[sel.length - 1];
     var c = this.cam, s = c.s, B = 44;
     var o = w.cells[j], P = o.p;
     var cx = (o.x + P - c.x) * s + this.VW / 2, cy = (o.y - c.y) * s + this.VH / 2;
@@ -1994,7 +1985,7 @@ class Component extends DCLogic {
     w.fields.forEach(function (f) { if (g.state[f.i] === 'O' && f.i !== self.focus) outline(f.i, '#8fbcff', false, 3.5, 'rgba(110,170,255,0.95)'); });
     w.fields.forEach(function (f) { if (g.state[f.i] === 'S' && f.i !== self.focus) outline(f.i, '#7fd17a', false, 2.5); });
     outline(this.focus, '#f2c063', false, 3);
-    // word outlines: marked wrong (red dashed), picked for removal (white)
+    // word outlines: marked wrong (red dashed)
     function wordOutline(wd, colour, dashed) {
       ctx.beginPath();
       wd.cells.forEach(function (j) {
@@ -2011,7 +2002,6 @@ class Component extends DCLogic {
       ctx.strokeStyle = colour; ctx.lineWidth = 3 * px; ctx.setLineDash(dashed ? [5 * px, 4 * px] : []); ctx.stroke(); ctx.setLineDash([]);
     }
     Object.keys(g.wrongMarked).forEach(function (id) { var wd = g.words[+id]; if (wd && wd.alive) wordOutline(wd, '#d6452f', true); });
-    if (g.picked >= 0 && g.words[g.picked].alive) wordOutline(g.words[g.picked], '#ffffff', false);
     // the selected letters: a white line around them, so they are easy to see on every background
     var selList = Object.keys(g.sel).map(Number);
     if (selList.length) {
@@ -2461,25 +2451,19 @@ class Component extends DCLogic {
       }, this);
       if (near) o = near;
     }
-    // a held word waits for its remove button; a touch anywhere else keeps the word
-    if (g.picked >= 0) { this.cancelPick(); }
     if (!mouseRight && o && o.f === this.focus && this.canPaint()) {
       if (g.cellWord[o.i] >= 0) {
         var self = this, wid = g.cellWord[o.i];
         this.drag = { mode: 'press', start: p, last: p, moved: false, cellI: o.i };
+        // a long press removes the word at once; its letters stay selected
         this.drag.timer = setTimeout(function () {
           if (!self.drag || self.drag.moved) return;
-          self.dirtyCells(Object.keys(g.sel).map(Number), 1); self.dirtyCells(g.words[wid].cells, 1);
-          g.picked = wid; g.sel = {}; g.selN = 0;
-          self.pickCell = self.drag.cellI;
-          self.say(self.T('removeAsk', g.words[wid].word), 'warn');
           self.drag.mode = 'held';
-          self.quick = self.quickPos();
-          self.paint(); self.bump();
+          self.lastCell = self.drag.cellI;
+          self.doRemove(wid);
         }, 550);
         return;
       }
-      if (g.picked >= 0) { this.dirtyCells(g.words[g.picked].cells, 1); g.picked = -1; this.say('', 'info'); this.bump(); }
       var add = !g.sel[o.i];
       this.drag = { mode: 'paint', add: add, last: p, changed: [] };
       this.paintCell(o);
@@ -2608,7 +2592,7 @@ class Component extends DCLogic {
       this.dirtyField(this.focus); this.dirtyField(o.f);
       this.focus = o.f;
       this.save();
-      g.sel = {}; g.selN = 0; g.picked = -1;
+      g.sel = {}; g.selN = 0;
       var st = g.state[o.f];
       this.say(st === 'L' ? (f.round ? this.T('coreGate', f.nbList.length) : this.T('locked', f.name)) : st === 'S' ? this.T('isSolved', f.name) : this.T('howTo'), st === 'L' ? 'warn' : 'info');
       this.flyTo(this.camFor('field', o.f));
@@ -2674,7 +2658,6 @@ class Component extends DCLogic {
       setTimeout(function () {
         var wd = g.words[newId];
         if (!wd || !wd.alive || selfW.game !== g) return;
-        if (g.picked === newId) g.picked = -1;
         selfW.dirtyCells(wd.cells, 1);
         wd.alive = false;
         wd.cells.forEach(function (j) { g.cellWord[j] = -1; });
@@ -2733,7 +2716,6 @@ class Component extends DCLogic {
   doCheat() {
     var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi], self = this;
     if (g.state[fi] !== 'O') { this.say(g.state[fi] === 'S' ? this.T('isSolved', f.name) : f.round ? this.T('coreGate', f.nbList.length) : this.T('locked', f.name), 'warn'); this.bump(); return; }
-    g.picked = -1;
     f.regions.slice().forEach(function (gi) {
       if (g.state[fi] !== 'O') return;
       var reg = w.regions[gi], cw = g.cellWord[reg.cells[0]];
@@ -2755,15 +2737,16 @@ class Component extends DCLogic {
     this.save(); this.paint(); this.bump();
   }
 
-  doRemove() {
-    var g = this.game, wd = g.words[g.picked];
+  // removes a word; its letters stay selected, so the player can change the selection
+  doRemove(wid) {
+    var g = this.game, wd = g.words[wid];
     if (!wd || !wd.alive) return;
+    this.dirtyCells(Object.keys(g.sel).map(Number), 1);
     this.dirtyCells(wd.cells, 1);
     wd.alive = false;
     g.sel = {}; g.selN = 0;
     wd.cells.forEach(function (j) { g.cellWord[j] = -1; g.sel[j] = 1; g.selN++; });
     delete g.wrongMarked[wd.id];
-    g.picked = -1;
     this.say(this.T('staySelected'), 'info', this.T('removed', wd.word));
     this.save();
     this.quick = this.quickPos();
@@ -2797,13 +2780,12 @@ class Component extends DCLogic {
       this.save();
       this.paint(); this.bump(); return;
     }
-    // 2. the shape of a word that is not found yet: the first one in reading order
-    var reg = null;
-    f.regions.forEach(function (gi) {
-      var r = w.regions[gi], x = g.cellWord[r.cells[0]];
-      if (reg || have['r' + gi] || (x >= 0 && g.words[x].correct)) return;
-      reg = r;
+    // 2. the shape of a random word that is not found yet
+    var open = f.regions.filter(function (gi) {
+      var x = g.cellWord[w.regions[gi].cells[0]];
+      return !have['r' + gi] && !(x >= 0 && g.words[x].correct);
     });
+    var reg = open.length ? w.regions[open[Math.floor(Math.random() * open.length)]] : null;
     if (!reg) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
     g.hints[fi].push({ key: 'r' + reg.i, kind: 'word', g: reg.i });
     this.dirtyCells(reg.cells, 1);
@@ -2828,10 +2810,9 @@ class Component extends DCLogic {
     var zoomBtns = [['galaxy', this.T('zGalaxy', this.percent(this.galaxyProgress()))], ['area', this.T('zArea')], ['field', this.T('zField')]].map(function (p, i) {
       return { label: p[1], x: ZL[i].x, y: ZL[i].y, w: ZL[i].w, h: ZL[i].h, pick: function () { self.flyTo(self.camFor(p[0], self.focus)); } };
     });
-    var picking = g.picked >= 0 && g.words[g.picked].alive;
     return {
       canvasRef: this.canvasRef, loRef: this.loRef, ovRef: this.ovRef, zoomRef: this.zoomRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
-      clearSel: this.clearSel, accept: this.accept, useLight: this.useLight, cancelPick: this.cancelPick, removePick: this.removePick,
+      clearSel: this.clearSel, accept: this.accept, useLight: this.useLight,
       focusName: f.name, focusPips: pips,
       focusLevel: this.T('tiers').split('|')[f.tier],
       focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? this.T('solved') : '\u2605 ' + this.T('solved')) : g.state[fi] === 'L' ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
@@ -2843,19 +2824,18 @@ class Component extends DCLogic {
         return { id: lv, name: self.levelName(lv), desc: self.T(['lvEasyDesc', 'lvMediumDesc', 'lvHardDesc'][i]), pips: ['●○○', '●●○', '●●●'][i], pick: self.levelPick[lv],
           on: on, bg: on ? '#2a3a6e' : 'transparent', bd: on ? '#f2c063' : '#34405c', pressed: on ? 'true' : 'false' };
       }),
-      tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'), tRemove: this.T('remove', picking ? g.words[g.picked].word : ''),
+      tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
       tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tCheat: this.T('cheat'), cheat: this.cheat, cheatSolve: this.cheatSolve, tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
       tOtherLang: this.T('otherLang'), tOtherLangAria: this.T('otherLangAria'),
       tNgTitle: this.T('ngTitle'), tNgLevel: this.T('ngLevel'), tNgNumber: this.T('ngNumber'), tNgRandom: this.T('ngRandom'), tNgStart: this.T('ngStart'), tNgCancel: this.T('ngCancel'),
-      quickAccept: !!this.quick && this.quick.kind === 'accept', quickRemove: !!this.quick && this.quick.kind === 'remove', quickWord: picking ? g.words[g.picked].word : '',
+      quickAccept: !!this.quick,
       quickShow: !!this.quick, quickX: this.quick ? this.quick.x : 0, quickY: this.quick ? this.quick.y : 0,
       toggleMenu: this.toggleMenu, shareProgress: this.shareProgress, openNewGalaxy: this.openNewGalaxy, closeSeed: this.closeSeed, confirmYes: this.confirmYes, confirmNo: this.confirmNo,
       menuOpen: this.menuOpen, menuExpanded: this.menuOpen ? 'true' : 'false', seed: this.seed,
       confirmOpen: !!this.confirm, confirmTitle: this.confirm ? this.confirm.title : '', confirmText: this.confirm ? this.confirm.text : '',
       confirmYesLabel: this.confirm ? this.confirm.yes : '', confirmNoLabel: this.confirm ? this.confirm.no : '',
-      showPick: false, showActions: !this.seedMode, seedMode: this.seedMode,
+      showActions: !this.seedMode, seedMode: this.seedMode,
       seedText: this.seedText, onSeedInput: this.onSeedInput, buildSeed: this.buildSeed, randomSeed: this.randomSeed,
-      picking: picking, notPicking: !picking, pickWord: picking ? g.words[g.picked].word : '',
       msg: g.msg, msgTitle: g.msgTitle || '', msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
     };
   }
