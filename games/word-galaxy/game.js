@@ -289,7 +289,7 @@ class Component extends DCLogic {
       // other fields are darkened; near the core with a warm shade
       f.dim = f.warm > 0.25 ? 'rgba(30,20,4,0.42)' : 'rgba(6,9,19,0.45)';
       // open fields are darker only a little: the border of the field being played is clear, and they still stand out
-      f.dimOpen = f.warm > 0.25 ? 'rgba(30,20,4,0.24)' : 'rgba(6,9,19,0.26)';
+      f.dimOpen = f.warm > 0.25 ? 'rgba(30,20,4,0.34)' : 'rgba(6,9,19,0.36)';
     });
     var seed = 11;
     function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
@@ -1525,8 +1525,53 @@ class Component extends DCLogic {
     ctx.setTransform(d, 0, 0, d, 0, 0);
     this.dctx = ctx;
     this.renderOverlay(ox, oy, s);
+    this.renderReading(ox, oy, s);
     if (this.fx) this.renderFx(ox, oy, s);
     this.dctx = null;
+  }
+  // How the selected letters are read: a line with arrows from letter to letter in reading order (in the lower left part of each box, beside the letter)
+  // (left to right, then top to bottom), a small number on each letter, and the word so far above them.
+  renderReading(ox, oy, s) {
+    var ctx = this.dctx || this.ctx, w = this.world(), g = this.game;
+    var sel = Object.keys(g.sel).map(Number).filter(function (j) { return g.cellWord[j] < 0; });
+    if (!sel.length || s < this.fieldScale(this.focus) * 0.5) return;
+    sel.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
+    var pts = sel.map(function (j) { var o = w.cells[j]; return { x: (o.x + o.p * 0.2) * s + ox, y: (o.y + o.p * 0.84) * s + oy, t: o.p * s, l: o.l, x0: o.x * s + ox, y0: o.y * s + oy }; });
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (pts.length > 1) {
+      ctx.beginPath();
+      pts.forEach(function (q, i) { if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
+      ctx.strokeStyle = 'rgba(6,9,19,0.55)'; ctx.lineWidth = 6; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,216,77,0.95)'; ctx.lineWidth = 3; ctx.stroke();
+      // an arrow head in the middle of each step
+      ctx.fillStyle = 'rgba(255,216,77,0.95)';
+      for (var i = 1; i < pts.length; i++) {
+        var a = pts[i - 1], b = pts[i], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+        var mx = (a.x + b.x) / 2 + ux * 5, my = (a.y + b.y) / 2 + uy * 5, h = Math.max(6, Math.min(10, a.t * 0.22));
+        ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx - ux * h - uy * h * 0.7, my - uy * h + ux * h * 0.7); ctx.lineTo(mx - ux * h + uy * h * 0.7, my - uy * h - ux * h * 0.7); ctx.closePath();
+        ctx.fill();
+      }
+    }
+    // the order of each letter, in its top left corner
+    ctx.font = '800 ' + Math.max(9, Math.min(13, pts[0].t * 0.26)).toFixed(0) + 'px Archivo, system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    pts.forEach(function (q, i) {
+      var r = Math.max(7, Math.min(10, q.t * 0.2)), cx = q.x0 + r + 1, cy = q.y0 + r + 1;
+      ctx.fillStyle = '#ffd84d'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1d2433'; ctx.fillText(String(i + 1), cx, cy + 0.5);
+    });
+    // the word so far, above the selected letters
+    var word = pts.map(function (q) { return q.l; }).join(''), top = 1e9, left = 1e9, right = -1e9;
+    pts.forEach(function (q) { top = Math.min(top, q.y0); left = Math.min(left, q.x0); right = Math.max(right, q.x0 + q.t); });
+    ctx.font = '800 16px Archivo, system-ui, sans-serif';
+    var tw = ctx.measureText(word).width + 20, th = 26;
+    var bx = Math.max(4, Math.min(this.VW - tw - 4, (left + right) / 2 - tw / 2)), by = top - th - 8;
+    if (by < 4) by = Math.max(4, top + 4);
+    ctx.fillStyle = 'rgba(6,9,19,0.85)'; ctx.strokeStyle = '#ffd84d'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, tw, th, th / 2); else ctx.rect(bx, by, tw, th); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.fillText(word, bx + tw / 2, by + th / 2 + 1);
+    ctx.restore();
   }
   setupLo(el) {
     if (!el || el === this._lo) return;
@@ -2111,7 +2156,9 @@ class Component extends DCLogic {
     }
     w.fields.forEach(function (f) { if (g.state[f.i] === 'O' && f.i !== self.focus) outline(f.i, '#8fbcff', false, 3.5, 'rgba(110,170,255,0.95)'); });
     w.fields.forEach(function (f) { if (g.state[f.i] === 'S' && f.i !== self.focus) outline(f.i, '#7fd17a', false, 2.5); });
-    outline(this.focus, '#f2c063', false, 3);
+    // the field being played: a dark band and a thick gold line with a glow, so its border is easy to see
+    if (!w.fields[this.focus].round) outline(this.focus, 'rgba(6,9,19,0.9)', false, 9);
+    outline(this.focus, '#ffcc5c', false, 4.5, 'rgba(255,200,95,0.95)');
     // word outlines: marked wrong (red dashed)
     function wordOutline(wd, colour, dashed) {
       ctx.beginPath();
@@ -2129,20 +2176,24 @@ class Component extends DCLogic {
       ctx.strokeStyle = colour; ctx.lineWidth = 3 * px; ctx.setLineDash(dashed ? [5 * px, 4 * px] : []); ctx.stroke(); ctx.setLineDash([]);
     }
     Object.keys(g.wrongMarked).forEach(function (id) { var wd = g.words[+id]; if (wd && wd.alive) wordOutline(wd, '#d6452f', true); });
-    // the selected letters: a white line around them, so they are easy to see on every background
+    // the selected letters: a white line around them with round outer corners, so they are easy to see on every background
     var selList = Object.keys(g.sel).map(Number);
     if (selList.length) {
       ctx.beginPath();
       selList.forEach(function (j) {
-        var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, tile = o.p * s;
-        for (var k = 0; k < 4; k++) {
-          var n = o.nb[k];
-          if (n >= 0 && g.sel[n]) continue;
-          if (k === 0) { ctx.moveTo(x, y); ctx.lineTo(x + tile, y); }
-          if (k === 2) { ctx.moveTo(x, y + tile); ctx.lineTo(x + tile, y + tile); }
-          if (k === 3) { ctx.moveTo(x, y); ctx.lineTo(x, y + tile); }
-          if (k === 1) { ctx.moveTo(x + tile, y); ctx.lineTo(x + tile, y + tile); }
-        }
+        var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, t = o.p * s, r = t * 0.3;
+        var open = [0, 1, 2, 3].map(function (k) { var n = o.nb[k]; return !(n >= 0 && g.sel[n]); });
+        var T = open[0], R = open[1], B = open[2], L = open[3];
+        // the straight parts of the open sides, shorter where a corner is round
+        if (T) { ctx.moveTo(L ? x + r : x, y); ctx.lineTo(R ? x + t - r : x + t, y); }
+        if (B) { ctx.moveTo(L ? x + r : x, y + t); ctx.lineTo(R ? x + t - r : x + t, y + t); }
+        if (L) { ctx.moveTo(x, T ? y + r : y); ctx.lineTo(x, B ? y + t - r : y + t); }
+        if (R) { ctx.moveTo(x + t, T ? y + r : y); ctx.lineTo(x + t, B ? y + t - r : y + t); }
+        // the round outer corners
+        if (T && L) { ctx.moveTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); }
+        if (T && R) { ctx.moveTo(x + t - r, y); ctx.arcTo(x + t, y, x + t, y + r, r); }
+        if (B && R) { ctx.moveTo(x + t, y + t - r); ctx.arcTo(x + t, y + t, x + t - r, y + t, r); }
+        if (B && L) { ctx.moveTo(x + r, y + t); ctx.arcTo(x, y + t, x, y + t - r, r); }
       });
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5 * px, 2.5 * s); ctx.lineCap = 'round';
       ctx.shadowColor = 'rgba(37,99,255,0.9)'; ctx.shadowBlur = 6 * px;
@@ -2393,12 +2444,11 @@ class Component extends DCLogic {
     });
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    // 4. newly opened neighbours pulse
+    // 4. newly opened neighbours pulse in the blue of open fields (by number: names can come twice in a galaxy)
     var pulse = Math.max(0, Math.sin(Math.min(1, Math.max(0, (t - 0.6) / 1.8)) * Math.PI * 3));
     if (t > 0.6 && fx.opened.length) {
-      var self = this;
-      w.fields.forEach(function (nf) {
-        if (fx.opened.indexOf(nf.name) < 0) return;
+      fx.opened.forEach(function (ni) {
+        var nf = w.fields[ni];
         ctx.beginPath();
         nf.cells.forEach(function (j) {
           var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, fl = o.flags;
@@ -2407,8 +2457,8 @@ class Component extends DCLogic {
           if (fl & 8) { ctx.moveTo(x, y); ctx.lineTo(x, y + tile); }
           if (fl & 2) { ctx.moveTo(x + tile, y); ctx.lineTo(x + tile, y + tile); }
         });
-        ctx.strokeStyle = 'rgba(242,192,99,' + (0.9 * pulse).toFixed(3) + ')';
-        ctx.lineWidth = 3 + 5 * pulse; ctx.shadowColor = '#f2c063'; ctx.shadowBlur = 16 * pulse;
+        ctx.strokeStyle = 'rgba(143,188,255,' + (0.9 * pulse).toFixed(3) + ')';
+        ctx.lineWidth = 3 + 5 * pulse; ctx.shadowColor = 'rgba(110,170,255,0.95)'; ctx.shadowBlur = 16 * pulse;
         ctx.stroke(); ctx.shadowBlur = 0;
       });
     }
@@ -2816,7 +2866,7 @@ class Component extends DCLogic {
       if (allSolved) { this.dirtyAll(); this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(true); }); }
       else if (core0 && fi === 0) this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(); });
       // zoom out: the solved field and all fields that it opened are on the screen
-      else this.flyTo(this.camFit(fi, openedIds), function () { selfA.celebrate(fi, opened, perfectA); });
+      else this.flyTo(this.camFit(fi, openedIds), function () { selfA.celebrate(fi, openedIds, perfectA); });
       var gave = this.starsFor(fi);
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
