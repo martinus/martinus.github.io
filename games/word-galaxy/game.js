@@ -303,7 +303,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 11; }
+  static get GEN() { return 12; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -377,7 +377,7 @@ class Component extends DCLogic {
     }
     WD.space.split(' ').forEach(function (w) { if (w) accept.add(w); });
     this._wordsBy[lang] = {
-      dict: dict, defs: defs, N: WD.N, mask: WD.mask, lang: lang, accept: accept,
+      dict: dict, defs: defs, N: WD.N, lang: lang, accept: accept,
       pools: {
         easy: pool(function (l) { return l === 1; }),
         mid: pool(function (l) { return l <= 2; }),
@@ -425,11 +425,134 @@ class Component extends DCLogic {
       }
       throw new Error('no word of length ' + len);
     }
-    function distOf(r, c) { var dx = (c + 0.5) / N * 13 - 6.5, dy = (r + 0.5) / N * 13 - 6.5; return Math.sqrt(dx * dx + dy * dy); }
+    // distance from the middle; DS makes the outermost cell of every galaxy shape 6.4 away, so all shapes get the same levels
+    var DS = 1;
+    function distOf(r, c) { var dx = (c + 0.5) / N * 13 - 6.5, dy = (r + 0.5) / N * 13 - 6.5; return Math.sqrt(dx * dx + dy * dy) * DS; }
 
-    // galaxy shape
-    var mask = [], owner = [], r, c;
-    for (r = 0; r < N; r++) { mask.push([]); owner.push([]); for (c = 0; c < N; c++) { mask[r].push(WDS.mask.charCodeAt(r * N + c) === 49); owner[r].push(-1); } }
+    // The shape of the galaxy comes from the seed: a spiral with 2 to 4 arms, a barred spiral, a ring or a cloud.
+    // It has its own random numbers, so the rest of the galaxy does not depend on it.
+    function galaxyShape(seed, N) {
+      var s = ((Math.floor(Math.abs(seed)) * 48271 + 12345) % 2147483646) + 1;
+      function rnd() { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }
+      // exact maths: only + - * / and sqrt, so every browser gets the same shape
+      function ln(x) {
+        var k = 0;
+        while (x > 1.5) { x /= 2; k++; }
+        while (x < 0.75) { x *= 2; k--; }
+        var t = (x - 1) / (x + 1), t2 = t * t, sum = 0, p = t;
+        for (var i = 1; i < 16; i += 2) { sum += p / i; p *= t2; }
+        return 2 * sum + k * 0.6931471805599453;
+      }
+      function atan2(y, x) {
+        var ax = Math.abs(x), ay = Math.abs(y);
+        if (ax === 0 && ay === 0) return 0;
+        var a = Math.min(ax, ay) / Math.max(ax, ay), q = a * a;
+        var r = ((((-0.0134804 * q + 0.0574773) * q - 0.1212391) * q + 0.1956359) * q - 0.3329946) * q * a + a;
+        if (ay > ax) r = 1.5707963267948966 - r;
+        if (x < 0) r = 3.141592653589793 - r;
+        return y < 0 ? -r : r;
+      }
+      var TAU = 6.283185307179586;
+      function wrap(d) { d = d % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; }
+      // smooth noise around the circle and along the radius: ragged edges
+      var NA = 12, NR = 8, grid = [];
+      for (var i = 0; i < NA * NR; i++) grid.push(rnd() * 2 - 1);
+      function noise(rad, ang) {
+        var u = (ang / TAU + 0.5) * NA, v = rad / 6.5 * (NR - 1);
+        var i0 = Math.floor(u), j0 = Math.min(NR - 2, Math.floor(v)), fu = u - i0, fv = Math.min(1, v - j0);
+        fu = fu * fu * (3 - 2 * fu); fv = fv * fv * (3 - 2 * fv);
+        var g = function (i, j) { return grid[((i % NA) + NA) % NA + j * NA]; };
+        var a0 = g(i0, j0) + (g(i0 + 1, j0) - g(i0, j0)) * fu, a1 = g(i0, j0 + 1) + (g(i0 + 1, j0 + 1) - g(i0, j0 + 1)) * fu;
+        return a0 + (a1 - a0) * fv;
+      }
+      var KINDS = ['spiral', 'spiral', 'barred', 'ring', 'cloud'], kind = KINDS[Math.floor(rnd() * KINDS.length)];
+      var arms = kind === 'barred' ? 2 : 2 + Math.floor(rnd() * 3), pitch = 1.7 + rnd() * 1.4, turn = rnd() < 0.5 ? 1 : -1;
+      var rot = rnd() * TAU, rough = 0.15 + rnd() * 0.25, fill = 0.42 + rnd() * 0.18;
+      // the bar: a random direction (as a unit vector, without sin and cos), half length 2.2 to 3.2
+      var vx = rnd() * 2 - 1, vy = rnd() * 2 - 1, vl = Math.sqrt(vx * vx + vy * vy) || 1; vx /= vl; vy /= vl;
+      var barL = 2.2 + rnd() * 1.0, barA = atan2(vy, vx);
+      var squash = 0.7 + rnd() * 0.3, spokes = 2 + Math.floor(rnd() * 3);
+      function inside(dx, dy, w) {
+        var rad = Math.sqrt(dx * dx + dy * dy);
+        if (rad < 1.75) return true;
+        if (rad > 6.4) return false;
+        var ang = atan2(dy, dx), n = noise(rad, ang) * rough;
+        if (kind === 'cloud') {
+          // an irregular, a little flat cloud
+          var ex = dx * vx + dy * vy, ey = (dy * vx - dx * vy) / squash, er = Math.sqrt(ex * ex + ey * ey);
+          return er < w * 2.2 * (1 + 1.4 * n) && rad < 6.4;
+        }
+        if (kind === 'ring') {
+          // a core disc, a ring, and spokes between them
+          if (rad < 2.4 + n * 2) return true;
+          var mid = 4.9, half = w * 0.55 * (1 + n);
+          if (Math.abs(rad - mid) < half) return true;
+          for (var k = 0; k < spokes; k++) if (rad < mid && Math.abs(wrap(ang - rot - k * TAU / spokes)) * rad < w * 0.45) return true;
+          return false;
+        }
+        var reach = w;
+        if (rad > reach * (1 + 0.3 * n)) return false;
+        var start = 0.9, off = rot;
+        if (kind === 'barred') {
+          // the bar, then two arms from its ends
+          var along = dx * vx + dy * vy, across = dy * vx - dx * vy;
+          if (Math.abs(along) < barL && Math.abs(across) < 0.75 * (1 + n)) return true;
+          start = barL; off = barA;
+        }
+        if (rad < start) return false;
+        var t = turn * pitch * ln(rad / start);
+        // the arms get thinner towards their ends
+        var q = rad / reach, q2 = q * q, taper = 1 - 0.6 * q2 * q2 * q2;
+        for (var a = 0; a < arms; a++) {
+          var d = wrap(ang - t - off - a * TAU / arms);
+          if (Math.abs(d) < Math.PI / arms * fill * (1 + n) * taper + 0.3 / rad) return true;
+        }
+        return false;
+      }
+      function build(w) {
+        var m = [], cnt = 0;
+        for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) m.push(inside((c + 0.5) / N * 13 - 6.5, (r + 0.5) / N * 13 - 6.5, w));
+        // no thin parts: only what a square of 5 x 5 cells can cover stays
+        var core = new Uint8Array(N * N), r2, c2;
+        for (r = 2; r < N - 2; r++) for (c = 2; c < N - 2; c++) {
+          var all = true;
+          for (r2 = -2; r2 <= 2 && all; r2++) for (c2 = -2; c2 <= 2; c2++) if (!m[(r + r2) * N + c + c2]) { all = false; break; }
+          if (all) core[r * N + c] = 1;
+        }
+        var m2 = [];
+        for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
+          var on = false;
+          for (r2 = -2; r2 <= 2 && !on; r2++) for (c2 = -2; c2 <= 2; c2++) { var rr = r + r2, cc = c + c2; if (rr >= 0 && cc >= 0 && rr < N && cc < N && core[rr * N + cc]) { on = true; break; } }
+          m2.push(on); if (on) cnt++;
+        }
+        return { m: m2, n: cnt };
+      }
+      // the same number of letters as before (about 6000): find the width
+      // spirals: the size changes (the arms keep their width); rings and clouds: the width changes
+      var spiral = kind === 'spiral' || kind === 'barred', lo = spiral ? 3.5 : 0.3, hi = spiral ? 6.3 : 4, best = null;
+      for (var it = 0; it < 14; it++) {
+        var mid = (lo + hi) / 2, b = build(mid);
+        best = b;
+        if (b.n < 6000) lo = mid; else hi = mid;
+      }
+      // only the part that is joined to the middle
+      var m = best.m, keep = new Uint8Array(N * N), st = [(N / 2) * N + N / 2]; keep[st[0]] = 1;
+      while (st.length) {
+        var p = st.pop(), pr = Math.floor(p / N), pc = p % N;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+          var r2 = pr + d[0], c2 = pc + d[1], q = r2 * N + c2;
+          if (r2 >= 0 && c2 >= 0 && r2 < N && c2 < N && m[q] && !keep[q]) { keep[q] = 1; st.push(q); }
+        });
+      }
+      var out = [], n = 0;
+      for (var r = 0; r < N; r++) { out.push([]); for (var c = 0; c < N; c++) { out[r].push(!!keep[r * N + c]); if (keep[r * N + c]) n++; } }
+      return { mask: out, kind: kind, arms: arms, n: n };
+    }
+    var mask = galaxyShape(seedIn, N).mask, owner = [], r, c;
+    for (r = 0; r < N; r++) { owner.push([]); for (c = 0; c < N; c++) owner[r].push(-1); }
+    var far = 0;
+    for (r = 0; r < N; r++) for (c = 0; c < N; c++) if (mask[r][c]) far = Math.max(far, distOf(r, c));
+    DS = 6.4 / far;
     function own(rr, cc) { return rr < 0 || cc < 0 || rr >= N || cc >= N ? undefined : owner[rr][cc]; }
     var fields = [];
     function place(r0, c0, h, w) {
@@ -1015,9 +1138,12 @@ class Component extends DCLogic {
       f.cells.forEach(function (x) { r0 = Math.min(r0, x[0]); r1 = Math.max(r1, x[0]); c0 = Math.min(c0, x[1]); c1 = Math.max(c1, x[1]); });
       return f.cells.length === (r1 - r0 + 1) * (c1 - c0 + 1) ? 1 : 0;
     }
-    // only the easiest fields of the outer parts can be start fields
-    var NS = LV === 'easy' ? 4 : 2, outer = fields.filter(function (f) { return f.tier === 1; }), startCands = [];
-    for (var most = 2; most <= 6 && startCands.length < 2 * NS; most++) startCands = outer.filter(function (f) { return difficulty(f) <= most; });
+    // start fields: easy fields in the outer parts (first the outermost ones, then a little further in)
+    var NS = LV === 'easy' ? 4 : 2, minT = 9, startCands = [];
+    fields.forEach(function (f) { if (f.id) minT = Math.min(minT, f.tier); });
+    for (var most = 2; most <= 6 && startCands.length < 2 * NS; most++) for (var tl = minT; tl <= minT + 2 && startCands.length < 2 * NS; tl++) {
+      startCands = fields.filter(function (f) { return f.id && f.tier <= tl && difficulty(f) <= most; });
+    }
     function low(f) { return f.r > MID ? 1 : 0; }
     startCands.sort(function (a, b) { return (difficulty(a) - difficulty(b)) || (isTall(b) - isTall(a)) || (low(b) - low(a)) || (isRect(b) - isRect(a)) || (b.dist - a.dist) || (a.id - b.id); });
     var current = startCands[0].id;
