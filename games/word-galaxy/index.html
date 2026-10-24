@@ -34,6 +34,7 @@ header { flex: none; min-height: 56px; padding: env(safe-area-inset-top) 10px 0 
 .bar { flex: none; padding: 8px 14px max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 7px; background: var(--panel); border-top: 1px solid var(--line); }
 .msg { height: 50px; overflow: hidden; font-size: 13px; font-weight: 500; line-height: 1.3; color: var(--soft); }
 .msg b { font-weight: 800; color: var(--text); }
+.msg .word { display: block; font-size: 26px; font-weight: 800; line-height: 50px; letter-spacing: .12em; color: #ffd84d; }
 .row { display: flex; gap: 8px; height: 44px; align-items: center; }
 button { font-family: inherit; cursor: pointer; }
 .btn { flex: 1; height: 44px; border-radius: 10px; border: 1px solid var(--btn); background: transparent; color: var(--text); font-size: 15px; font-weight: 700; }
@@ -138,7 +139,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = 'e4015bb9d9';
+var BUILD = '1b677b72b8';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -162,7 +163,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=f8b1631261"></script>
+<script src="game.js?v=3b20d8b8a7"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -264,8 +265,12 @@ window.loadWords = function (lang, cb) {
     $('name').classList.toggle('long', (v.focusName || '').length > 10);
     $('progress').textContent = v.focusProgress;
     $('msg').innerHTML = '';
-    if (v.msgTitle) { var b = document.createElement('b'); b.textContent = v.msgTitle + ' '; $('msg').appendChild(b); }
-    $('msg').appendChild(document.createTextNode(v.msg || ''));
+    // while letters are selected: the word they make, big (it never covers letters on the board)
+    if (v.selWord) { var sw = document.createElement('span'); sw.className = 'word'; sw.textContent = v.selWord; $('msg').appendChild(sw); }
+    else {
+      if (v.msgTitle) { var b = document.createElement('b'); b.textContent = v.msgTitle + ' '; $('msg').appendChild(b); }
+      $('msg').appendChild(document.createTextNode(v.msg || ''));
+    }
     $('msg').style.color = v.msgColor;
     document.documentElement.lang = v.lang;
     // texts in the chosen language

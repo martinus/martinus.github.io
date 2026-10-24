@@ -1525,30 +1525,15 @@ class Component extends DCLogic {
     ctx.setTransform(d, 0, 0, d, 0, 0);
     this.dctx = ctx;
     this.renderOverlay(ox, oy, s);
-    this.renderReading(ox, oy, s);
     if (this.fx) this.renderFx(ox, oy, s);
     this.dctx = null;
   }
-  // How the selected letters are read: the word so far, above them (reading order: left to right, then top to bottom)
-  renderReading(ox, oy, s) {
-    var ctx = this.dctx || this.ctx, w = this.world(), g = this.game;
+  // the selected letters as a word, read left to right, then top to bottom: it shows in the message bar
+  selWord() {
+    var w = this.world(), g = this.game;
     var sel = Object.keys(g.sel).map(Number).filter(function (j) { return g.cellWord[j] < 0; });
-    if (!sel.length || s < this.fieldScale(this.focus) * 0.5) return;
     sel.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
-    var pts = sel.map(function (j) { var o = w.cells[j]; return { t: o.p * s, l: o.l, x0: o.x * s + ox, y0: o.y * s + oy }; });
-    ctx.save();
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    // the word so far, above the selected letters
-    var word = pts.map(function (q) { return q.l; }).join(''), top = 1e9, left = 1e9, right = -1e9;
-    pts.forEach(function (q) { top = Math.min(top, q.y0); left = Math.min(left, q.x0); right = Math.max(right, q.x0 + q.t); });
-    ctx.font = '800 16px Archivo, system-ui, sans-serif';
-    var tw = ctx.measureText(word).width + 20, th = 26;
-    var bx = Math.max(4, Math.min(this.VW - tw - 4, (left + right) / 2 - tw / 2)), by = top - th - 8;
-    if (by < 4) by = Math.max(4, top + 4);
-    ctx.fillStyle = 'rgba(6,9,19,0.85)'; ctx.strokeStyle = '#ffd84d'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, tw, th, th / 2); else ctx.rect(bx, by, tw, th); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ffffff'; ctx.fillText(word, bx + tw / 2, by + th / 2 + 1);
-    ctx.restore();
+    return sel.map(function (j) { return w.cells[j].l; }).join('');
   }
   setupLo(el) {
     if (!el || el === this._lo) return;
@@ -2634,8 +2619,8 @@ class Component extends DCLogic {
     var g = this.game;
     if (!o || o.f !== this.focus || g.cellWord[o.i] >= 0) return;
     var d = this.drag;
-    if (d.add && !g.sel[o.i]) { g.sel[o.i] = 1; g.selN++; d.changed.push(o.i); this.dirtyCells([o.i], 1); this.lastCell = o.i; }
-    else if (!d.add && g.sel[o.i]) { delete g.sel[o.i]; g.selN--; d.changed.push(o.i); this.dirtyCells([o.i], 1); }
+    if (d.add && !g.sel[o.i]) { g.sel[o.i] = 1; g.selN++; d.changed.push(o.i); this.dirtyCells([o.i], 1); this.lastCell = o.i; this.bump(); }
+    else if (!d.add && g.sel[o.i]) { delete g.sel[o.i]; g.selN--; d.changed.push(o.i); this.dirtyCells([o.i], 1); this.bump(); }
   }
   undoStroke() {
     var g = this.game, d = this.drag;
@@ -2993,7 +2978,7 @@ class Component extends DCLogic {
       confirmYesLabel: this.confirm ? this.confirm.yes : '', confirmNoLabel: this.confirm ? this.confirm.no : '',
       showActions: !this.seedMode, seedMode: this.seedMode,
       seedText: this.seedText, onSeedInput: this.onSeedInput, buildSeed: this.buildSeed, randomSeed: this.randomSeed,
-      msg: g.msg, msgTitle: g.msgTitle || '', msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
+      msg: g.msg, msgTitle: g.msgTitle || '', selWord: g.state[fi] === 'O' ? this.selWord() : '', msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
     };
   }
 }
