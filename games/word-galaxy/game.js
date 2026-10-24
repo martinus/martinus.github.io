@@ -1529,38 +1529,15 @@ class Component extends DCLogic {
     if (this.fx) this.renderFx(ox, oy, s);
     this.dctx = null;
   }
-  // How the selected letters are read: a line with arrows from letter to letter in reading order (in the lower left part of each box, beside the letter)
-  // (left to right, then top to bottom), a small number on each letter, and the word so far above them.
+  // How the selected letters are read: the word so far, above them (reading order: left to right, then top to bottom)
   renderReading(ox, oy, s) {
     var ctx = this.dctx || this.ctx, w = this.world(), g = this.game;
     var sel = Object.keys(g.sel).map(Number).filter(function (j) { return g.cellWord[j] < 0; });
     if (!sel.length || s < this.fieldScale(this.focus) * 0.5) return;
     sel.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
-    var pts = sel.map(function (j) { var o = w.cells[j]; return { x: (o.x + o.p * 0.2) * s + ox, y: (o.y + o.p * 0.84) * s + oy, t: o.p * s, l: o.l, x0: o.x * s + ox, y0: o.y * s + oy }; });
+    var pts = sel.map(function (j) { var o = w.cells[j]; return { t: o.p * s, l: o.l, x0: o.x * s + ox, y0: o.y * s + oy }; });
     ctx.save();
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    if (pts.length > 1) {
-      ctx.beginPath();
-      pts.forEach(function (q, i) { if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
-      ctx.strokeStyle = 'rgba(6,9,19,0.55)'; ctx.lineWidth = 6; ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,216,77,0.95)'; ctx.lineWidth = 3; ctx.stroke();
-      // an arrow head in the middle of each step
-      ctx.fillStyle = 'rgba(255,216,77,0.95)';
-      for (var i = 1; i < pts.length; i++) {
-        var a = pts[i - 1], b = pts[i], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
-        var mx = (a.x + b.x) / 2 + ux * 5, my = (a.y + b.y) / 2 + uy * 5, h = Math.max(6, Math.min(10, a.t * 0.22));
-        ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx - ux * h - uy * h * 0.7, my - uy * h + ux * h * 0.7); ctx.lineTo(mx - ux * h + uy * h * 0.7, my - uy * h - ux * h * 0.7); ctx.closePath();
-        ctx.fill();
-      }
-    }
-    // the order of each letter, in its top left corner
-    ctx.font = '800 ' + Math.max(9, Math.min(13, pts[0].t * 0.26)).toFixed(0) + 'px Archivo, system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    pts.forEach(function (q, i) {
-      var r = Math.max(7, Math.min(10, q.t * 0.2)), cx = q.x0 + r + 1, cy = q.y0 + r + 1;
-      ctx.fillStyle = '#ffd84d'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#1d2433'; ctx.fillText(String(i + 1), cx, cy + 0.5);
-    });
     // the word so far, above the selected letters
     var word = pts.map(function (q) { return q.l; }).join(''), top = 1e9, left = 1e9, right = -1e9;
     pts.forEach(function (q) { top = Math.min(top, q.y0); left = Math.min(left, q.x0); right = Math.max(right, q.x0 + q.t); });
@@ -2134,6 +2111,8 @@ class Component extends DCLogic {
     }
     // outlines: focused field gold, other open fields bright blue with a glow, solved fields green
     var self = this;
+    // lines are thinner when the letters are small (zoomed out), so they do not cover the fields
+    var lineK = Math.max(0.4, Math.min(1, P * s / px / 40));
     function outline(fi, colour, dashed, width, glow) {
       var f = w.fields[fi];
       var fx0 = f.x0 * s + ox, fy0 = f.y0 * s + oy;
@@ -2147,9 +2126,9 @@ class Component extends DCLogic {
         if (fl & 8) { ctx.moveTo(x, y); ctx.lineTo(x, y + tile); }
         if (fl & 2) { ctx.moveTo(x + tile, y); ctx.lineTo(x + tile, y + tile); }
       });
-      ctx.strokeStyle = colour; ctx.lineWidth = width * px;
+      ctx.strokeStyle = colour; ctx.lineWidth = width * px * lineK;
       ctx.setLineDash(dashed ? [6 * px, 5 * px] : []);
-      if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 10 * px; }
+      if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 10 * px * lineK; }
       ctx.stroke();
       ctx.shadowBlur = 0;
       ctx.setLineDash([]);
