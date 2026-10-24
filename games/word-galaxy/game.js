@@ -125,6 +125,8 @@ class Component extends DCLogic {
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
+        deadEnd: 'The free letters can not be split into words any more. Remove a word, or use a star: it shows the words that cause this.', deadEndTitle: '{0}: dead end',
+        starBlock: 'A star shows the words that cause the dead end: {0}. Remove them.', starStillRed: 'The red words still cause the dead end. Remove them first.',
         tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
         lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Long words and big fields.',
@@ -161,6 +163,8 @@ class Component extends DCLogic {
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
+        deadEnd: 'Die freien Buchstaben lassen sich nicht mehr in Wörter teilen. Entferne ein Wort oder nutze einen Stern: Er zeigt die Wörter, die das verursachen.', deadEndTitle: '{0}: Sackgasse',
+        starBlock: 'Ein Stern zeigt die Wörter, die die Sackgasse verursachen: {0}. Entferne sie.', starStillRed: 'Die roten Wörter verursachen die Sackgasse noch. Entferne sie zuerst.',
         tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
         lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Lange Wörter und große Felder.',
@@ -2166,22 +2170,24 @@ class Component extends DCLogic {
     // starlight marks: the shape of a word that a star showed, until the word is found
     g.hints.forEach(function (list) {
       list.forEach(function (h) {
-        var reg = w.regions[h.g], x = g.cellWord[reg.cells[0]];
-        if (x >= 0 && g.words[x].correct) return;
+        var hc = self.hintCells(h), x = g.cellWord[hc[0]], inH = {};
+        // found: one word has exactly these letters
+        if (x >= 0 && g.words[x].cells.length === hc.length && hc.every(function (j) { return g.cellWord[j] === x; })) return;
+        hc.forEach(function (j) { inH[j] = 1; });
         ctx.beginPath();
-        reg.cells.forEach(function (j) {
+        hc.forEach(function (j) {
           var o = w.cells[j], x0 = o.x * s + ox, y0 = o.y * s + oy, tile = o.p * s;
           ctx.fillStyle = 'rgba(242,160,40,0.3)'; ctx.fillRect(x0, y0, tile, tile);
           for (var k = 0; k < 4; k++) {
             var n = o.nb[k];
-            if (n >= 0 && w.cells[n].g === h.g) continue;
+            if (n >= 0 && inH[n]) continue;
             if (k === 0) { ctx.moveTo(x0, y0); ctx.lineTo(x0 + tile, y0); }
             if (k === 2) { ctx.moveTo(x0, y0 + tile); ctx.lineTo(x0 + tile, y0 + tile); }
             if (k === 3) { ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + tile); }
             if (k === 1) { ctx.moveTo(x0 + tile, y0); ctx.lineTo(x0 + tile, y0 + tile); }
           }
         });
-        ctx.strokeStyle = '#c4700c'; ctx.lineWidth = Math.max(1.5 * px, 3.5 * s * w.cells[reg.cells[0]].p / P); ctx.lineCap = 'round'; ctx.stroke();
+        ctx.strokeStyle = '#c4700c'; ctx.lineWidth = Math.max(1.5 * px, 3.5 * s * w.cells[hc[0]].p / P); ctx.lineCap = 'round'; ctx.stroke();
       });
     });
   }
@@ -2838,7 +2844,13 @@ class Component extends DCLogic {
       if (coreOpened) this.say(this.T('coreOpen'), 'good', cheer + this.T('fieldSolved', f.name));
       if (allSolved) this.say(this.T('allDone', g.state.length), 'good', this.T('allTitle'));
       else if (core0 && fi === 0) { var nS = g.state.filter(function (x) { return x === 'S'; }).length; this.say(this.T('coreDone', nS, g.state.length), 'good', this.T('finaleTitle')); }
-    } else { var mn = this.meaning(word); this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title); if (fi === 0 && w.fields[0].round) this.dirtyField(0); }
+    } else {
+      var mn = this.meaning(word);
+      // medium and hard galaxies say at once when the free letters can not be split into words any more
+      if (this.level !== 'easy' && this.isDeadEnd(fi)) this.say(this.T('deadEnd'), 'warn', this.T('deadEndTitle', word));
+      else this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title);
+      if (fi === 0 && w.fields[0].round) this.dirtyField(0);
+    }
     this.save();
     this.quick = this.quickPos();
     this.paint(); this.bump();
@@ -2904,12 +2916,190 @@ class Component extends DCLogic {
     return Math.max(0, sum - used);
   }
 
+  // ---------- dead ends ----------
+  // A field is solved when every letter is in a word. So the words of the player can differ from the words of the generator.
+  // A dead end is a field whose free letters can not be split into words any more.
+
+  // all accepted words of 4 or more letters as a tree of letters; max is the longest word below a node
+  wordTree() {
+    var w = this.world();
+    if (w.tree) return w.tree;
+    var root = { k: {}, end: false, max: 0 };
+    w.dict.forEach(function (word) {
+      if (word.length < 4) return;
+      var n = root;
+      if (word.length > n.max) n.max = word.length;
+      for (var i = 0; i < word.length; i++) {
+        n = n.k[word[i]] || (n.k[word[i]] = { k: {}, end: false, max: 0 });
+        if (word.length > n.max) n.max = word.length;
+      }
+      n.end = true;
+    });
+    return (w.tree = root);
+  }
+
+  // the free letters of a field (cells that are in no word)
+  freeCells(fi) {
+    var g = this.game;
+    return this.world().fields[fi].cells.filter(function (j) { return g.cellWord[j] < 0; });
+  }
+
+  // Looks for words that use each of the given cells exactly once.
+  // prefer: word shapes (lists of cells) to try first. steps: the most work the search may do.
+  // Returns the words (lists of cells in reading order), false when there is no split,
+  // or null when the search used all its steps (then the answer is not known).
+  splitFree(cells, prefer, steps) {
+    var w = this.world(), tree = this.wordTree();
+    var ord = cells.slice().sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
+    var n = ord.length, loc = {};
+    ord.forEach(function (j, i) { loc[j] = i; });
+    // local numbers: neighbours (up, right, down, left; -1 when not a given cell), row and letter of each cell
+    var nb = ord.map(function (j) { return w.cells[j].nb.map(function (q) { return q in loc ? loc[q] : -1; }); });
+    var row = ord.map(function (j) { var o = w.cells[j]; return o.sub ? o.sr : o.r; });
+    var lt = ord.map(function (j) { return w.cells[j].l; });
+    var free = new Uint8Array(n).fill(1), inW = new Uint8Array(n), budget = steps || 150000, failed = new Set(), OUT = {};
+    // preferred shapes, by their first cell
+    var pref = {};
+    (prefer || []).forEach(function (sh) {
+      if (!sh.every(function (j) { return j in loc; })) return;
+      var p = sh.map(function (j) { return loc[j]; }).sort(function (a, b) { return a - b; });
+      (pref[p[0]] || (pref[p[0]] = [])).push(p);
+    });
+    // the groups of touching cells in list (a group: list of cells); ok(x) tells which cells count
+    function groups(list, ok) {
+      var seen = {}, out = [];
+      list.forEach(function (s) {
+        if (seen[s]) return;
+        var grp = [s], st = [s]; seen[s] = 1;
+        while (st.length) {
+          var x = st.pop();
+          for (var d = 0; d < 4; d++) { var y = nb[x][d]; if (y >= 0 && !seen[y] && ok(y)) { seen[y] = 1; grp.push(y); st.push(y); } }
+        }
+        out.push(grp);
+      });
+      return out;
+    }
+    // all words that start at cell s, the longest first. In reading order, s is the first letter of its word.
+    function wordsAt(s) {
+      var out = [], S = [s];
+      inW[s] = 1;
+      function grow(node, last) {
+        if (--budget < 0) throw OUT;
+        if (S.length >= 4 && node.end) {
+          var gs = groups(S, function (y) { return inW[y]; });
+          if (gs.length === 1) out.push(S.slice());
+        }
+        if (node.max <= S.length) return;
+        for (var k = last + 1; k < n; k++) {
+          // a word has a letter in each row between its first and last row
+          if (row[k] > row[last] + 1) break;
+          if (!free[k]) continue;
+          var next = node.k[lt[k]];
+          if (!next) continue;
+          S.push(k); inW[k] = 1;
+          // a group of the word that can get no more letters must be the whole word
+          var gs = groups(S, function (y) { return inW[y]; }), dead = false;
+          if (gs.length > 1) {
+            if (S.length + gs.length - 1 > next.max) dead = true;
+            for (var a = 0; a < gs.length && !dead; a++) {
+              dead = gs[a].every(function (x) {
+                var r = nb[x][1], d = nb[x][2];
+                return !(r > k && free[r]) && !(d > k && free[d]);
+              });
+            }
+          }
+          if (!dead) grow(next, k);
+          S.pop(); inW[k] = 0;
+        }
+      }
+      try { grow(tree.k[lt[s]] || { k: {}, end: false, max: 0 }, s); } finally { inW[s] = 0; }
+      var first = (pref[s] || []).filter(function (p) { return p.every(function (x) { return free[x]; }); });
+      var key = function (p) { return p.join('.'); }, firstKeys = {};
+      first.forEach(function (p) { firstKeys[key(p)] = 1; });
+      out = out.filter(function (p) { return !firstKeys[key(p)]; });
+      out.sort(function (a, b) { return b.length - a.length; });
+      return first.concat(out);
+    }
+    // splits one group of touching free cells; returns a list of words or false
+    function solve(grp) {
+      if (grp.length < 4) return false;
+      grp.sort(function (a, b) { return a - b; });
+      var id = grp.join('.');
+      if (failed.has(id)) return false;
+      var ws = wordsAt(grp[0]);
+      for (var i = 0; i < ws.length; i++) {
+        var wd = ws[i], res = [wd], ok = true;
+        budget -= grp.length;
+        if (budget < 0) throw OUT;
+        wd.forEach(function (x) { free[x] = 0; });
+        var rest = grp.filter(function (x) { return free[x]; });
+        var parts = groups(rest, function (y) { return free[y]; });
+        for (var p = 0; p < parts.length && ok; p++) {
+          var sub = solve(parts[p]);
+          if (sub) res = res.concat(sub); else ok = false;
+        }
+        wd.forEach(function (x) { free[x] = 1; });
+        if (ok) return res;
+      }
+      failed.add(id);
+      return false;
+    }
+    try {
+      var all = [], parts = groups(ord.map(function (j, i) { return i; }), function (y) { return free[y]; });
+      for (var p = 0; p < parts.length; p++) {
+        var sub = solve(parts[p]);
+        if (!sub) return false;
+        all = all.concat(sub);
+      }
+      return all.map(function (wd) { return wd.map(function (x) { return ord[x]; }); });
+    } catch (e) {
+      if (e === OUT) return null;
+      throw e;
+    }
+  }
+
+  // word shapes the search tries first: the shapes that stars showed, then the words of the generator
+  preferIn(fi) {
+    var w = this.world(), self = this;
+    return this.game.hints[fi].map(function (h) { return self.hintCells(h); })
+      .concat(w.fields[fi].regions.map(function (gi) { return w.regions[gi].cells; }));
+  }
+  hintCells(h) { return h.cells || this.world().regions[h.g].cells; }
+
+  // true when the free letters of the field can not be split into words (false also when the search ran out of steps)
+  isDeadEnd(fi) {
+    var free = this.freeCells(fi);
+    return free.length > 0 && this.splitFree(free, this.preferIn(fi), 60000) === false;
+  }
+
+  // The words of the player that make the dead end: without them, the free letters can be split into words.
+  // Without all words that differ from the generator's words there is no dead end, so the search starts there.
+  // Then it gives back one word after the other, as long as there is still no dead end.
+  // Words that are not marked red yet are given back first, longer words before shorter ones.
+  blockingWords(fi) {
+    var g = this.game, self = this;
+    var cand = g.words.filter(function (wd) { return wd.alive && wd.f === fi && !wd.correct && !wd.gift; });
+    cand.sort(function (a, b) { return (g.wrongMarked[a.id] ? 1 : 0) - (g.wrongMarked[b.id] ? 1 : 0) || b.cells.length - a.cells.length; });
+    var out = cand.slice(), free = this.freeCells(fi), prefer = this.preferIn(fi), until = Date.now() + 400;
+    cand.forEach(function (wd) {
+      // no time left: the other words stay in the list
+      if (Date.now() > until) return;
+      var rest = out.filter(function (x) { return x !== wd; });
+      var cells = free.slice();
+      rest.forEach(function (x) { cells = cells.concat(x.cells); });
+      if (self.splitFree(cells, prefer, 40000)) out = rest;
+    });
+    return out;
+  }
+
   doLight() {
     var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi];
     if (g.state[fi] !== 'O') { this.say(this.T('starsOpen'), 'warn'); this.bump(); return; }
     if (this.starsLeft() <= 0) { this.say(this.T('noStars'), 'warn'); this.bump(); return; }
     var have = {};
     g.hints[fi].forEach(function (h) { have[h.key] = 1; });
+    if (this.level !== 'easy') { this.starHelp(fi, have); return; }
+    // easy galaxies: wrong words go away by themselves, so the words of the player are the words of the generator
     // 1. all wrong words in this field
     var wrong = g.words.filter(function (wd) {
       return wd.alive && wd.f === fi && !wd.correct && !g.wrongMarked[wd.id];
@@ -2934,6 +3124,39 @@ class Component extends DCLogic {
     g.used[fi]++;
     this.save();
     this.say(this.T('starWord', reg.cells.length), 'info');
+    this.paint(); this.bump();
+  }
+
+  // a star in a medium or hard galaxy. The words of the player can differ from the words of the generator.
+  // 1. At a dead end: the star marks the words that make it.
+  // 2. Else: the star shows the shape of a word that fits the words of the player.
+  starHelp(fi, have) {
+    var g = this.game, self = this;
+    var free = this.freeCells(fi), split = this.splitFree(free, this.preferIn(fi));
+    if (!split) {
+      var block = this.blockingWords(fi).filter(function (wd) { return !g.wrongMarked[wd.id]; });
+      if (!block.length) {
+        if (split === false) { this.say(this.T('starStillRed'), 'warn'); this.bump(); return; }
+        // the search ran out of steps: show a word of the generator, as in easy galaxies
+        var w = this.world(), f = w.fields[fi];
+        split = f.regions.map(function (gi) { return w.regions[gi].cells; }).filter(function (cs) { return cs.every(function (j) { return g.cellWord[j] < 0; }); });
+      } else {
+        block.forEach(function (wd) { g.wrongMarked[wd.id] = 1; self.dirtyCells(wd.cells, 1); });
+        g.used[fi]++;
+        var list = block.map(function (wd) { return wd.word; }).join(', ');
+        this.say(split === false ? this.T('starBlock', list) : this.T('starWrong', list), 'info');
+        this.save();
+        this.paint(); this.bump(); return;
+      }
+    }
+    var open = split.filter(function (cs) { return !have['c' + cs.join('.')]; });
+    var cs = open.length ? open[Math.floor(Math.random() * open.length)] : null;
+    if (!cs) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
+    g.hints[fi].push({ key: 'c' + cs.join('.'), kind: 'word', cells: cs });
+    this.dirtyCells(cs, 1);
+    g.used[fi]++;
+    this.save();
+    this.say(this.T('starWord', cs.length), 'info');
     this.paint(); this.bump();
   }
 
