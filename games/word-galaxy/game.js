@@ -125,7 +125,7 @@ class Component extends DCLogic {
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
-        deadEnd: 'The free letters can not be split into words any more. Remove a word, or use a star: it shows the words that cause this.', deadEndTitle: '{0}: dead end',
+        deadEnd: 'The free letters can not be split into words any more. Remove a word, or use a star: it shows the words that cause this.', deadEndTitle: '{0}: dead end', deadChip: 'dead end',
         starBlock: 'A star shows the words that cause the dead end: {0}. Remove them.', starStillRed: 'The red words still cause the dead end. Remove them first.',
         tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
@@ -163,7 +163,7 @@ class Component extends DCLogic {
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
-        deadEnd: 'Die freien Buchstaben lassen sich nicht mehr in Wörter teilen. Entferne ein Wort oder nutze einen Stern: Er zeigt die Wörter, die das verursachen.', deadEndTitle: '{0}: Sackgasse',
+        deadEnd: 'Die freien Buchstaben lassen sich nicht mehr in Wörter teilen. Entferne ein Wort oder nutze einen Stern: Er zeigt die Wörter, die das verursachen.', deadEndTitle: '{0}: Sackgasse', deadChip: 'Sackgasse',
         starBlock: 'Ein Stern zeigt die Wörter, die die Sackgasse verursachen: {0}. Entferne sie.', starStillRed: 'Die roten Wörter verursachen die Sackgasse noch. Entferne sie zuerst.',
         tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
@@ -1529,8 +1529,66 @@ class Component extends DCLogic {
     ctx.setTransform(d, 0, 0, d, 0, 0);
     this.dctx = ctx;
     this.renderOverlay(ox, oy, s);
+    if (this.selDeadEnd()) this.drawDeadSel(ctx, ox, oy, s);
     if (this.fx) this.renderFx(ox, oy, s);
     this.dctx = null;
+  }
+
+  // The border of a selection that makes a dead end: amber, and it wobbles slowly.
+  // Players who want less motion get still zigzags.
+  drawDeadSel(ctx, ox, oy, s) {
+    var w = this.world(), g = this.game, self = this, inS = {}, from = {};
+    var sel = Object.keys(g.sel).map(Number);
+    sel.forEach(function (j) { inS[j] = 1; });
+    var still = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var t = still ? 0.6 : (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
+    // the open sides of the selected cells, clockwise, by their start point
+    var P = function (x, y) { return Math.round(x * 8) + ',' + Math.round(y * 8); };
+    var tile = 0;
+    sel.forEach(function (j) {
+      var o = w.cells[j], x0 = o.x * s + ox, y0 = o.y * s + oy, x1 = x0 + o.p * s, y1 = y0 + o.p * s;
+      tile = o.p * s;
+      var open = function (k) { var n = o.nb[k]; return !(n >= 0 && inS[n]); };
+      var add = function (ax, ay, bx, by) { (from[P(ax, ay)] || (from[P(ax, ay)] = [])).push([ax, ay, bx, by]); };
+      if (open(0)) add(x0, y0, x1, y0);
+      if (open(1)) add(x1, y0, x1, y1);
+      if (open(2)) add(x1, y1, x0, y1);
+      if (open(3)) add(x0, y1, x0, y0);
+    });
+    // join the sides to closed lines, push each point out by the wobble, and draw a smooth line through them
+    ctx.save();
+    ctx.strokeStyle = '#ffad33'; ctx.lineWidth = Math.max(2, Math.min(4, tile * 0.07)); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(255,173,51,0.75)'; ctx.shadowBlur = 8;
+    var amp = Math.max(1.2, Math.min(2.4, tile * 0.04)), cut = tile * 0.22, step = Math.max(3, tile / 9);
+    Object.keys(from).forEach(function (k0) {
+      while (from[k0] && from[k0].length) {
+        var pts = [], dist = 0, k = k0;
+        while (from[k] && from[k].length) {
+          var e = from[k].pop(), len = Math.hypot(e[2] - e[0], e[3] - e[1]), dx = (e[2] - e[0]) / len, dy = (e[3] - e[1]) / len;
+          for (var d = cut; d <= len - cut + 0.01; d += step) {
+            var a = dist + d, off = still ? (Math.floor(a / (tile * 0.14)) % 2 ? amp : -amp)
+              : amp * Math.sin(a / (tile * 0.25) + t * 3.1) * Math.sin(a / (tile * 0.85) - t * 1.3 + 1);
+            pts.push([e[0] + dx * d + dy * (2 + off), e[1] + dy * d - dx * (2 + off)]);
+          }
+          dist += len; k = P(e[2], e[3]);
+        }
+        var n = pts.length;
+        if (n < 3) continue;
+        ctx.beginPath();
+        if (still) pts.forEach(function (q, i) { if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+        else {
+          var mid = function (a, b) { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }, m0 = mid(pts[n - 1], pts[0]);
+          ctx.moveTo(m0[0], m0[1]);
+          for (var i = 0; i < n; i++) { var m = mid(pts[i], pts[(i + 1) % n]); ctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]); }
+        }
+        ctx.closePath(); ctx.stroke();
+      }
+    });
+    ctx.restore();
+    // the next picture of the wobble (only the overlay is drawn again)
+    if (!still && this.ovCtx && !this._wob && typeof requestAnimationFrame !== 'undefined') {
+      this._wob = requestAnimationFrame(function () { self._wob = 0; self.drawOverlay(); });
+    }
   }
   // the selected letters as a word, read left to right, then top to bottom: it shows in the message bar
   selWord() {
@@ -1807,6 +1865,9 @@ class Component extends DCLogic {
   render() {
     if (!this.ctx) return;
     var c = this.cam, s = c.s, ox = this.VW / 2 - c.x * s, oy = this.VH / 2 - c.y * s;
+    // a selection that makes a dead end has its border on the overlay: redraw the letters when this changes
+    var dead = this.selDeadEnd();
+    if (dead !== !!this.selDead) { this.selDead = dead; this.dirtyCells(Object.keys(this.game.sel).map(Number), 1); }
     this.renderBase(this.ctx, this.VW, this.VH, this.dpr, c);
     // the sharp canvas now shows exactly this view
     this.mainCam = { x: c.x, y: c.y, s: c.s }; this.mainVer = this._ver;
@@ -2146,7 +2207,7 @@ class Component extends DCLogic {
     Object.keys(g.wrongMarked).forEach(function (id) { var wd = g.words[+id]; if (wd && wd.alive) wordOutline(wd, '#d6452f', true); });
     // the selected letters: a white line around them with round outer corners, so they are easy to see on every background
     var selList = Object.keys(g.sel).map(Number);
-    if (selList.length) {
+    if (selList.length && !this.selDead) {
       ctx.beginPath();
       selList.forEach(function (j) {
         var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, t = o.p * s, r = t * 0.3;
@@ -3066,6 +3127,24 @@ class Component extends DCLogic {
   }
   hintCells(h) { return h.cells || this.world().regions[h.g].cells; }
 
+  // true when accepting the selected letters would make a dead end (medium and hard galaxies).
+  // The answer is kept while the selection and the words stay the same.
+  selDeadEnd() {
+    var g = this.game;
+    if (!g || this.level === 'easy') return false;
+    var sel = this.validSelection();
+    if (!sel) return false;
+    var fi = this.focus, free = this.freeCells(fi);
+    var key = fi + ':' + sel.join('.') + ':' + free.length + ':' + g.words.length;
+    if (this._dead && this._dead.key === key) return this._dead.v;
+    var inSel = {};
+    sel.forEach(function (j) { inSel[j] = 1; });
+    var rest = free.filter(function (j) { return !inSel[j]; });
+    var v = rest.length > 0 && this.splitFree(rest, this.preferIn(fi), 30000) === false;
+    this._dead = { key: key, v: v };
+    return v;
+  }
+
   // true when the free letters of the field can not be split into words (false also when the search ran out of steps)
   isDeadEnd(fi) {
     var free = this.freeCells(fi);
@@ -3201,7 +3280,7 @@ class Component extends DCLogic {
       confirmYesLabel: this.confirm ? this.confirm.yes : '', confirmNoLabel: this.confirm ? this.confirm.no : '',
       showActions: !this.seedMode, seedMode: this.seedMode,
       seedText: this.seedText, onSeedInput: this.onSeedInput, buildSeed: this.buildSeed, randomSeed: this.randomSeed,
-      msg: g.msg, msgTitle: g.msgTitle || '', selWord: g.state[fi] === 'O' ? this.selWord() : '', msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
+      msg: g.msg, msgTitle: g.msgTitle || '', selWord: g.state[fi] === 'O' ? this.selWord() : '', selDead: g.state[fi] === 'O' && this.selDeadEnd(), tDeadChip: this.T('deadChip'), msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
     };
   }
 }
