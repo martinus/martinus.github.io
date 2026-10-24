@@ -1449,11 +1449,12 @@ class Component extends DCLogic {
     if (fh * s > VH - 28) y = f.y0 - 14 / s + VH / 2 / s;
     return { x: x, y: y, s: s };
   }
-  // the whole field, centred, even if letters get smaller than usual
-  camFit(fi) {
-    var f = this.world().fields[fi], fw = f.x1 - f.x0, fh = f.y1 - f.y0;
-    var s = Math.min((this.VW - 36) / fw, (this.VH - 36) / fh, 2.4);
-    return { x: (f.x0 + f.x1) / 2, y: (f.y0 + f.y1) / 2, s: s };
+  // the whole field and the fields in 'more', centred, even if letters get smaller than usual
+  camFit(fi, more) {
+    var w = this.world(), x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    [fi].concat(more || []).forEach(function (i) { var f = w.fields[i]; x0 = Math.min(x0, f.x0); y0 = Math.min(y0, f.y0); x1 = Math.max(x1, f.x1); y1 = Math.max(y1, f.y1); });
+    var s = Math.min((this.VW - 36) / (x1 - x0), (this.VH - 36) / (y1 - y0), 2.4);
+    return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, s: s };
   }
   fieldScale(fi) { return this.camFor('field', fi).s; }
   clampCam() {
@@ -2796,7 +2797,7 @@ class Component extends DCLogic {
     var full = f.cells.every(function (j) { return g.cellWord[j] >= 0; });
     if (full) {
       g.state[fi] = 'S';
-      var opened = [];
+      var opened = [], openedIds = [];
       var core0 = w.fields[0].round ? w.fields[0] : null, coreOpened = false;
       f.nbList.forEach(function (nb) {
         if (g.state[nb] !== 'L') return;
@@ -2805,7 +2806,7 @@ class Component extends DCLogic {
           if (!core0.nbList.every(function (j) { return g.state[j] === 'S'; })) return;
           coreOpened = true;
         }
-        g.state[nb] = 'O'; opened.push(w.fields[nb].name);
+        g.state[nb] = 'O'; opened.push(w.fields[nb].name); openedIds.push(nb);
       });
       if (core0 && (fi === 0 || core0.nb[fi])) this.dirtyField(0);
       this.recalcLit();
@@ -2814,7 +2815,8 @@ class Component extends DCLogic {
       // all solved: no field is darker any more
       if (allSolved) { this.dirtyAll(); this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(true); }); }
       else if (core0 && fi === 0) this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(); });
-      else this.flyTo(this.camFit(fi), function () { selfA.celebrate(fi, opened, perfectA); });
+      // zoom out: the solved field and all fields that it opened are on the screen
+      else this.flyTo(this.camFit(fi, openedIds), function () { selfA.celebrate(fi, opened, perfectA); });
       var gave = this.starsFor(fi);
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
