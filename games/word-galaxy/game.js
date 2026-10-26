@@ -125,11 +125,11 @@ class Component extends DCLogic {
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
-        deadEnd: 'The free letters can not be split into words any more. Remove a word, or use a star: it shows the words that cause this.', deadEndTitle: '{0}: dead end', deadChip: 'dead end',
+        deadEnd: 'No word can use these free letters any more: {0}. A word needs at least 4 touching letters. Remove a word, or use a star.', deadEndTitle: '{0}: dead end',
         starBlock: 'A star shows the words that cause the dead end: {0}. Remove them.', starStillRed: 'The red words still cause the dead end. Remove them first.',
         tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
-        lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Long words and big fields.',
+        lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Many words up to 10 letters. Big fields.',
         menu: 'Menu', starsAria: 'Use one star for a hint ({0} left)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
         zGalaxy: 'Show the whole galaxy ({0}% done)', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
@@ -163,11 +163,11 @@ class Component extends DCLogic {
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
-        deadEnd: 'Die freien Buchstaben lassen sich nicht mehr in Wörter teilen. Entferne ein Wort oder nutze einen Stern: Er zeigt die Wörter, die das verursachen.', deadEndTitle: '{0}: Sackgasse', deadChip: 'Sackgasse',
+        deadEnd: 'Kein Wort kann diese freien Buchstaben mehr nutzen: {0}. Ein Wort braucht mindestens 4 Buchstaben, die sich berühren. Entferne ein Wort oder nutze einen Stern.', deadEndTitle: '{0}: Sackgasse',
         starBlock: 'Ein Stern zeigt die Wörter, die die Sackgasse verursachen: {0}. Entferne sie.', starStillRed: 'Die roten Wörter verursachen die Sackgasse noch. Entferne sie zuerst.',
         tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
-        lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Lange Wörter und große Felder.',
+        lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Viele Wörter bis 10 Buchstaben. Große Felder.',
         menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
         zGalaxy: 'Die ganze Galaxie zeigen ({0}% geschafft)', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
@@ -307,7 +307,7 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
-  static get GEN() { return 12; }
+  static get GEN() { return 13; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
   static letterCode(ch) { var c = ch.charCodeAt(0); return c >= 65 && c <= 90 ? c - 64 : ch === 'Ä' ? 27 : ch === 'Ö' ? 28 : ch === 'Ü' ? 29 : 31; }
@@ -428,6 +428,11 @@ class Component extends DCLogic {
         var any = POOL.all[len]; if (any && any.length) return pick(any);
       }
       throw new Error('no word of length ' + len);
+    }
+    // the word lists for a word of a field; long words in hard galaxies come only from common words
+    function poolsFor(f, len) {
+      if (!HARD || len < 8) return f.pools;
+      return f.pools.filter(function (p) { return p !== POOL.hard; }).concat(f.pools.indexOf(POOL.mid) < 0 ? [POOL.mid] : []);
     }
     // distance from the middle; DS makes the outermost cell of every galaxy shape 6.4 away, so all shapes get the same levels
     var DS = 1;
@@ -738,15 +743,15 @@ class Component extends DCLogic {
       f.name = i === 0 ? 'Galactic Core' : NAMES[(i * 37 + nameOff) % NAMES.length];
       f.mods = [];
       if (!HARD) { levelField(f, i); return; }
-      if (i === 0) { f.tier = 6; f.len = [6, 14]; f.pools = [POOL.space, POOL.hard]; f.mods.push('THEME'); return; }
+      if (i === 0) { f.tier = 6; f.len = [6, 10]; f.pools = [POOL.space, POOL.hard]; f.mods.push('THEME'); return; }
       var n = f.cells.length;
       f.tier = Math.max(tierAt(f.dist), n >= 46 ? 2 : 1, n >= 56 ? 3 : 1, n >= 80 ? 4 : 1, n >= 110 ? 5 : 1);
       rnd();
       if (f.tier === 1) { f.len = [4, 5]; f.pools = [POOL.easy]; if (rnd() < 0.6) f.mods.push('GIFT'); }
       if (f.tier === 2) { f.len = [4, 6]; f.pools = [POOL.easy, POOL.mid]; if (rnd() < 0.4) f.mods.push('GIFT'); }
       if (f.tier === 3) { f.len = [4, 7]; f.pools = [POOL.easy, POOL.mid]; if (rnd() < 0.2) f.mods.push('GIFT'); }
-      if (f.tier === 4) { f.len = [4, 10]; f.pools = [POOL.mid, POOL.hard]; if (rnd() < 0.3) f.mods.push('STAR'); }
-      if (f.tier === 5) { f.len = [5, 12]; f.pools = [POOL.hard, POOL.mid]; if (rnd() < 0.3) f.mods.push('STAR'); }
+      if (f.tier === 4) { f.len = [4, 9]; f.pools = [POOL.mid, POOL.hard]; if (rnd() < 0.3) f.mods.push('STAR'); }
+      if (f.tier === 5) { f.len = [5, 10]; f.pools = [POOL.hard, POOL.mid]; if (rnd() < 0.3) f.mods.push('STAR'); }
       if (f.tier >= 4 && rnd() < 0.12) { f.mods.push('THEME'); f.pools = [POOL.space].concat(f.pools); }
     });
 
@@ -775,7 +780,7 @@ class Component extends DCLogic {
     for (var sr = 0; sr < nSub; sr++) for (var sc = 0; sc < nSub; sc++) { var ddr = sr - ccx, ddc = sc - ccx; if (ddr * ddr + ddc * ddc <= rad2) disc.push([sr, sc]); }
     var coreSub = { r0: MID - DISC / 2, c0: MID - DISC / 2, k: kSub, n: nSub, sq0: MID - CORE / 2, sq: CORE, hole: HOLE, mid: MID };
     f0.sub = coreSub; f0.cells = disc;
-    f0.len = LV === 'easy' ? [4, 6] : LV === 'medium' ? [5, 10] : [6, 12];
+    f0.len = LV === 'easy' ? [4, 6] : LV === 'medium' ? [5, 10] : [6, 10];
 
     // cut each field into word shapes
     function partition(f, lo, hi, steps) {
@@ -805,7 +810,8 @@ class Component extends DCLogic {
       function shape(start, L) {
         var inS = new Set([K(start[0], start[1])]), S = [start];
         // children find straight words (a row or a column, sometimes with one bend) much more easily
-        var style = KIDS ? pick(['line', 'line', 'line', 'snake']) : pick(['spread', 'spread', 'snake', 'compact']);
+        // long words in hard galaxies: a shape without branches, so there are fewer other ways to read the letters
+        var style = KIDS ? pick(['line', 'line', 'line', 'snake']) : HARD && L >= 8 ? pick(['snake', 'line']) : pick(['spread', 'spread', 'snake', 'compact']);
         while (S.length < L) {
           var fr = [], tot = 0;
           for (var a = 0; a < S.length; a++) {
@@ -839,8 +845,9 @@ class Component extends DCLogic {
         var lens = [];
         for (var L0 = lo; L0 <= hi; L0++) lens.push(L0);
         shuffle(lens);
-        // favour longer words most of the time (keys drawn first, so the sort itself never calls rnd)
-        var keyed = lens.map(function (L) { return [L, rnd() < 0.6 ? -L : L]; });
+        // favour longer words most of the time (keys drawn first, so the sort itself never calls rnd);
+        // hard galaxies favour words of about 6 letters: a very long word is hard to guess
+        var keyed = lens.map(function (L) { return [L, HARD ? Math.abs(L - 6) + rnd() * 4 : rnd() < 0.6 ? -L : L]; });
         keyed.sort(function (a, b) { return a[1] - b[1] || a[0] - b[0]; });
         for (var j = 0; j < keyed.length; j++) {
           var L = keyed[j][0];
@@ -876,7 +883,7 @@ class Component extends DCLogic {
       f.regions = regs.map(function (reg) {
         var ord = reg.slice().sort(function (a2, b2) { return a2[0] - b2[0] || a2[1] - b2[1]; });
         if (ord.length < mn) mn = ord.length; if (ord.length > mx) mx = ord.length;
-        return { cells: ord, word: word(ord.length, f.pools) };
+        return { cells: ord, word: word(ord.length, poolsFor(f, ord.length)) };
       });
       f.len = [mn, mx];
       if (LV === 'easy') avoidLookalikes(f);
@@ -1051,7 +1058,7 @@ class Component extends DCLogic {
       function counts() { var n = {}; f.regions.forEach(function (reg) { n[reg.word] = (n[reg.word] || 0) + 1; }); return n; }
       function candidates(len, n) {
         var fresh = [], old = [];
-        f.pools.forEach(function (pl) { (pl[len] || []).forEach(function (w) { if (n[w]) return; (used.has(w) ? old : fresh).push(w); }); });
+        poolsFor(f, len).forEach(function (pl) { (pl[len] || []).forEach(function (w) { if (n[w]) return; (used.has(w) ? old : fresh).push(w); }); });
         if (!fresh.length && !old.length && !HARD) (POOL.all[len] || []).forEach(function (w) { if (!n[w]) old.push(w); });
         return [fresh, old];
       }
@@ -1529,66 +1536,8 @@ class Component extends DCLogic {
     ctx.setTransform(d, 0, 0, d, 0, 0);
     this.dctx = ctx;
     this.renderOverlay(ox, oy, s);
-    if (this.selDeadEnd()) this.drawDeadSel(ctx, ox, oy, s);
     if (this.fx) this.renderFx(ox, oy, s);
     this.dctx = null;
-  }
-
-  // The border of a selection that makes a dead end: amber, and it wobbles slowly.
-  // Players who want less motion get still zigzags.
-  drawDeadSel(ctx, ox, oy, s) {
-    var w = this.world(), g = this.game, self = this, inS = {}, from = {};
-    var sel = Object.keys(g.sel).map(Number);
-    sel.forEach(function (j) { inS[j] = 1; });
-    var still = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var t = still ? 0.6 : (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
-    // the open sides of the selected cells, clockwise, by their start point
-    var P = function (x, y) { return Math.round(x * 8) + ',' + Math.round(y * 8); };
-    var tile = 0;
-    sel.forEach(function (j) {
-      var o = w.cells[j], x0 = o.x * s + ox, y0 = o.y * s + oy, x1 = x0 + o.p * s, y1 = y0 + o.p * s;
-      tile = o.p * s;
-      var open = function (k) { var n = o.nb[k]; return !(n >= 0 && inS[n]); };
-      var add = function (ax, ay, bx, by) { (from[P(ax, ay)] || (from[P(ax, ay)] = [])).push([ax, ay, bx, by]); };
-      if (open(0)) add(x0, y0, x1, y0);
-      if (open(1)) add(x1, y0, x1, y1);
-      if (open(2)) add(x1, y1, x0, y1);
-      if (open(3)) add(x0, y1, x0, y0);
-    });
-    // join the sides to closed lines, push each point out by the wobble, and draw a smooth line through them
-    ctx.save();
-    ctx.strokeStyle = '#ffad33'; ctx.lineWidth = Math.max(2, Math.min(4, tile * 0.07)); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.shadowColor = 'rgba(255,173,51,0.75)'; ctx.shadowBlur = 8;
-    var amp = Math.max(1.2, Math.min(2.4, tile * 0.04)), cut = tile * 0.22, step = Math.max(3, tile / 9);
-    Object.keys(from).forEach(function (k0) {
-      while (from[k0] && from[k0].length) {
-        var pts = [], dist = 0, k = k0;
-        while (from[k] && from[k].length) {
-          var e = from[k].pop(), len = Math.hypot(e[2] - e[0], e[3] - e[1]), dx = (e[2] - e[0]) / len, dy = (e[3] - e[1]) / len;
-          for (var d = cut; d <= len - cut + 0.01; d += step) {
-            var a = dist + d, off = still ? (Math.floor(a / (tile * 0.14)) % 2 ? amp : -amp)
-              : amp * Math.sin(a / (tile * 0.25) + t * 3.1) * Math.sin(a / (tile * 0.85) - t * 1.3 + 1);
-            pts.push([e[0] + dx * d + dy * (2 + off), e[1] + dy * d - dx * (2 + off)]);
-          }
-          dist += len; k = P(e[2], e[3]);
-        }
-        var n = pts.length;
-        if (n < 3) continue;
-        ctx.beginPath();
-        if (still) pts.forEach(function (q, i) { if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
-        else {
-          var mid = function (a, b) { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }, m0 = mid(pts[n - 1], pts[0]);
-          ctx.moveTo(m0[0], m0[1]);
-          for (var i = 0; i < n; i++) { var m = mid(pts[i], pts[(i + 1) % n]); ctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]); }
-        }
-        ctx.closePath(); ctx.stroke();
-      }
-    });
-    ctx.restore();
-    // the next picture of the wobble (only the overlay is drawn again)
-    if (!still && this.ovCtx && !this._wob && typeof requestAnimationFrame !== 'undefined') {
-      this._wob = requestAnimationFrame(function () { self._wob = 0; self.drawOverlay(); });
-    }
   }
   // the selected letters as a word, read left to right, then top to bottom: it shows in the message bar
   selWord() {
@@ -1865,9 +1814,6 @@ class Component extends DCLogic {
   render() {
     if (!this.ctx) return;
     var c = this.cam, s = c.s, ox = this.VW / 2 - c.x * s, oy = this.VH / 2 - c.y * s;
-    // a selection that makes a dead end has its border on the overlay: redraw the letters when this changes
-    var dead = this.selDeadEnd();
-    if (dead !== !!this.selDead) { this.selDead = dead; this.dirtyCells(Object.keys(this.game.sel).map(Number), 1); }
     this.renderBase(this.ctx, this.VW, this.VH, this.dpr, c);
     // the sharp canvas now shows exactly this view
     this.mainCam = { x: c.x, y: c.y, s: c.s }; this.mainVer = this._ver;
@@ -2207,7 +2153,7 @@ class Component extends DCLogic {
     Object.keys(g.wrongMarked).forEach(function (id) { var wd = g.words[+id]; if (wd && wd.alive) wordOutline(wd, '#d6452f', true); });
     // the selected letters: a white line around them with round outer corners, so they are easy to see on every background
     var selList = Object.keys(g.sel).map(Number);
-    if (selList.length && !this.selDead) {
+    if (selList.length) {
       ctx.beginPath();
       selList.forEach(function (j) {
         var o = w.cells[j], x = o.x * s + ox, y = o.y * s + oy, t = o.p * s, r = t * 0.3;
@@ -2908,7 +2854,10 @@ class Component extends DCLogic {
     } else {
       var mn = this.meaning(word);
       // medium and hard galaxies say at once when the free letters can not be split into words any more
-      if (this.level !== 'easy' && this.isDeadEnd(fi)) this.say(this.T('deadEnd'), 'warn', this.T('deadEndTitle', word));
+      // medium and hard galaxies: say when free letters are cut off (a careful player sees this too).
+      // Other dead ends are for the player to find, or for a star.
+      var cut = this.level !== 'easy' ? this.cutOff(fi) : [];
+      if (cut.length) this.say(this.T('deadEnd', cut.map(function (grp) { return grp.map(function (j) { return w.cells[j].l; }).join(''); }).join(', ')), 'warn', this.T('deadEndTitle', word));
       else this.say(mn.text, 'good', (this.level === 'easy' ? '✓ ' : '') + mn.title);
       if (fi === 0 && w.fields[0].round) this.dirtyField(0);
     }
@@ -3127,22 +3076,19 @@ class Component extends DCLogic {
   }
   hintCells(h) { return h.cells || this.world().regions[h.g].cells; }
 
-  // true when accepting the selected letters would make a dead end (medium and hard galaxies).
-  // The answer is kept while the selection and the words stay the same.
-  selDeadEnd() {
-    var g = this.game;
-    if (!g || this.level === 'easy') return false;
-    var sel = this.validSelection();
-    if (!sel) return false;
-    var fi = this.focus, free = this.freeCells(fi);
-    var key = fi + ':' + sel.join('.') + ':' + free.length + ':' + g.words.length;
-    if (this._dead && this._dead.key === key) return this._dead.v;
-    var inSel = {};
-    sel.forEach(function (j) { inSel[j] = 1; });
-    var rest = free.filter(function (j) { return !inSel[j]; });
-    var v = rest.length > 0 && this.splitFree(rest, this.preferIn(fi), 30000) === false;
-    this._dead = { key: key, v: v };
-    return v;
+  // groups of touching free letters with fewer than 4 letters: no word can use them (each group in reading order)
+  cutOff(fi) {
+    var w = this.world(), free = this.freeCells(fi), inF = {}, seen = {}, out = [];
+    free.forEach(function (j) { inF[j] = 1; });
+    free.forEach(function (j0) {
+      if (seen[j0]) return;
+      var grp = [j0], st = [j0]; seen[j0] = 1;
+      while (st.length) {
+        w.cells[st.pop()].nb.forEach(function (q) { if (q >= 0 && inF[q] && !seen[q]) { seen[q] = 1; grp.push(q); st.push(q); } });
+      }
+      if (grp.length < 4) out.push(grp.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; }));
+    });
+    return out;
   }
 
   // true when the free letters of the field can not be split into words (false also when the search ran out of steps)
@@ -3280,7 +3226,7 @@ class Component extends DCLogic {
       confirmYesLabel: this.confirm ? this.confirm.yes : '', confirmNoLabel: this.confirm ? this.confirm.no : '',
       showActions: !this.seedMode, seedMode: this.seedMode,
       seedText: this.seedText, onSeedInput: this.onSeedInput, buildSeed: this.buildSeed, randomSeed: this.randomSeed,
-      msg: g.msg, msgTitle: g.msgTitle || '', selWord: g.state[fi] === 'O' ? this.selWord() : '', selDead: g.state[fi] === 'O' && this.selDeadEnd(), tDeadChip: this.T('deadChip'), msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
+      msg: g.msg, msgTitle: g.msgTitle || '', selWord: g.state[fi] === 'O' ? this.selWord() : '', msgColor: g.msgKind === 'good' ? '#a9dc8f' : g.msgKind === 'warn' ? '#f2a27c' : '#c9d1ea'
     };
   }
 }
