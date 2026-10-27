@@ -126,12 +126,14 @@ class Component extends DCLogic {
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
+        noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.', nextCost: 'The next star in this field costs {0}.',
+        ratings: 'Perfect|Great|Good|Solved', rated1: ' {0}: 1 star used.', ratedN: ' {0}: {1} stars used.', scoreFields: '{0} of {1} fields · {2}%',
         deadEnd: 'No word can use these free letters any more: {0}. A word needs at least 4 touching letters. Remove a word, or use a star.', deadEndTitle: '{0}: dead end',
         starBlock: 'A star shows the words that cause the dead end: {0}. Remove them.', starStillRed: 'The red words still cause the dead end. Remove them first.',
         tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
         lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Many words up to 10 letters. Big fields.',
-        menu: 'Menu', starsAria: 'Use one star for a hint ({0} left)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
+        menu: 'Menu', starsAria: 'Use one star for a hint ({0} left, a star costs {1} in this field)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
         zGalaxy: 'Show the whole galaxy ({0}% done)', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
         menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', cheat: '🪄 Solve this field (test)', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
@@ -165,12 +167,14 @@ class Component extends DCLogic {
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
+        noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
+        ratings: 'Perfekt|Sehr gut|Gut|Gelöst', rated1: ' {0}: 1 Stern genutzt.', ratedN: ' {0}: {1} Sterne genutzt.', scoreFields: '{0} von {1} Feldern · {2} %',
         deadEnd: 'Kein Wort kann diese freien Buchstaben mehr nutzen: {0}. Ein Wort braucht mindestens 4 Buchstaben, die sich berühren. Entferne ein Wort oder nutze einen Stern.', deadEndTitle: '{0}: Sackgasse',
         starBlock: 'Ein Stern zeigt die Wörter, die die Sackgasse verursachen: {0}. Entferne sie.', starStillRed: 'Die roten Wörter verursachen die Sackgasse noch. Entferne sie zuerst.',
         tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
         lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Viele Wörter bis 10 Buchstaben. Große Felder.',
-        menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
+        menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig, ein Stern kostet {1} in diesem Feld)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
         zGalaxy: 'Die ganze Galaxie zeigen ({0}% geschafft)', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
         menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', cheat: '🪄 Feld lösen (Test)', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
@@ -1375,6 +1379,8 @@ class Component extends DCLogic {
     (sv.wrong || []).forEach(function (i) { if (ids[i] >= 0) g.wrongMarked[ids[i]] = 1; });
     if (sv.focus >= 0 && sv.focus < w.fields.length) this.focus = sv.focus;
     this.recalcLit();
+    // older saves can show a field that is not discovered yet: show an open field instead
+    if (this.vis[this.focus] === 0) { var open = g.state.indexOf('O'); this.focus = open >= 0 ? open : w.current; }
     if (this.hasProgress()) this.say(this.T('welcome'), 'info');
     return true;
   }
@@ -1540,6 +1546,7 @@ class Component extends DCLogic {
     ctx.setTransform(d, 0, 0, d, 0, 0);
     this.dctx = ctx;
     this.renderOverlay(ox, oy, s);
+    if (this.zoomLevel() === 0) this.renderScore();
     if (this.fx) this.renderFx(ox, oy, s);
     this.dctx = null;
   }
@@ -2312,8 +2319,8 @@ class Component extends DCLogic {
     this.fx = { kind: 'finale', all: !!all, bursts: bursts, fi: 0, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       stats: [[g.state.filter(function (x) { return x === 'S'; }).length + ' / ' + g.state.length, this.T('stFields')],
         [g.words.filter(function (x) { return x.alive && !x.gift; }).length, this.T('stWords')],
-        [g.used.reduce(function (a, b) { return a + b; }, 0), this.T('stStars')],
-        [g.state.filter(function (x, i) { return x === 'S' && !g.used[i]; }).length, this.T('stPerfect')]] };
+        [this.starsSpent(), this.T('stStars')],
+        [this.pct(this.ratingCounts().by[0], g.state.length) + '%', this.T('stPerfect')]] };
     this.paint();
   }
   renderFinale(ox, oy, s) {
@@ -2391,7 +2398,7 @@ class Component extends DCLogic {
     this.paint();
   }
 
-  celebrate(fi, opened, perfect) {
+  celebrate(fi, opened, rating) {
     var w = this.world(), f = w.fields[fi], parts = [];
     var COL = ['#fff4c2', '#f2c063', '#ffffff', '#9cc9ea', '#f29b9b', '#bfe08f'];
     var cx = (f.x0 + f.x1) / 2, cy = (f.y0 + f.y1) / 2;
@@ -2401,7 +2408,7 @@ class Component extends DCLogic {
       var sp = 60 + Math.random() * 240;
       parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, life: 0.9 + Math.random() * 0.9, size: 2 + Math.random() * 5, col: COL[i % COL.length], spin: Math.random() * 6 });
     }
-    this.fx = { fi: fi, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()), parts: parts, opened: opened, perfect: perfect, name: f.name };
+    this.fx = { fi: fi, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()), parts: parts, opened: opened, rating: rating, name: f.name };
     this.paint();
   }
 
@@ -2483,8 +2490,12 @@ class Component extends DCLogic {
     ctx.fillText(this.T('bigSolved', fx.name), 0, -4);
     ctx.fillStyle = '#f2c063';
     ctx.font = '800 18px Archivo, system-ui, sans-serif';
-    var gotStars = this.starsFor(fx.fi);
-    ctx.fillText((fx.perfect ? this.T('perfect') + '  ·  ' : '') + '+' + gotStars + ' ★', 0, 34);
+    // the rating in its colour, then the stars that the field gave
+    var gotStars = this.starsFor(fx.fi), rName = this.ratingName(fx.rating || 0), rest = '  ·  +' + gotStars + ' ★';
+    var wN = ctx.measureText(rName).width, wR = ctx.measureText(rest).width;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = Component.RATING_COLORS[fx.rating || 0]; ctx.fillText(rName, -(wN + wR) / 2, 34);
+    ctx.fillStyle = '#f2c063'; ctx.fillText(rest, -(wN + wR) / 2 + wN, 34);
     ctx.restore();
     this.paint();
   }
@@ -2512,6 +2523,21 @@ class Component extends DCLogic {
   renderBadges(ox, oy, s) {
     var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, VW = this.VW, VH = this.VH, prog = this.fieldProgress();
     ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    var self = this;
+    // solved fields: a small medal in the colour of their rating (only when the letters are too small to read)
+    var medals = w.P * s < 9;
+    w.fields.forEach(function (f) {
+      if (!medals || g.state[f.i] !== 'S' || f.round) return;
+      var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
+      if (fw < 10 || fh < 10) return;
+      var sx = 0, sy = 0;
+      f.cells.forEach(function (j) { var o = w.cells[j]; sx += o.x + o.p / 2; sy += o.y + o.p / 2; });
+      var cx = sx / f.cells.length * s + ox, cy = sy / f.cells.length * s + oy, r = Math.max(3, Math.min(6, fw / 5));
+      if (cx < -10 || cy < -10 || cx > VW + 10 || cy > VH + 10) return;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = Component.RATING_COLORS[self.rating(f.i)]; ctx.fill();
+      ctx.strokeStyle = 'rgba(6,9,19,0.85)'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
     w.fields.forEach(function (f) {
       if (g.state[f.i] !== 'O' || !(prog[f.i] > 0)) return;
       var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
@@ -2529,6 +2555,40 @@ class Component extends DCLogic {
 
   // one colour for each difficulty, from green (very easy) to violet (master)
   static get TIER_COLORS() { return ['', '#7fd17a', '#b9dc63', '#f2c063', '#f39a4b', '#ee6262', '#c584ff']; }
+
+  // The score card, at the bottom of the view of the whole galaxy, so a screenshot shows it:
+  // the galaxy, the share of solved fields, and the share of all fields with each rating (best: 100% perfect).
+  renderScore() {
+    var ctx = this.dctx || this.ctx, VW = this.VW, VH = this.VH, rc = this.ratingCounts(), self = this;
+    var W = Math.min(VW - 24, 380), H = 92, x0 = (VW - W) / 2, y0 = VH - H - 12, pad = 14;
+    ctx.save();
+    ctx.fillStyle = 'rgba(12,18,40,0.9)'; ctx.strokeStyle = 'rgba(242,192,99,0.55)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0, y0, W, H, 14); else ctx.rect(x0, y0, W, H); ctx.fill(); ctx.stroke();
+    ctx.textBaseline = 'middle';
+    // line 1: the galaxy, and the solved fields
+    ctx.font = '800 13px Archivo, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#eef0f7';
+    ctx.fillText(this.T('menuGalaxy', this.seed, this.levelName(this.level)), x0 + pad, y0 + 18);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#f2c063';
+    ctx.fillText(this.T('scoreFields', rc.done, rc.all, this.pct(rc.done, rc.all)), x0 + W - pad, y0 + 18);
+    // line 2: one bar for all fields, a part for each rating
+    var bx = x0 + pad, bw = W - 2 * pad, by = y0 + 34, bh = 10, at = bx;
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 5); else ctx.rect(bx, by, bw, bh); ctx.fill();
+    ctx.save(); ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 5); else ctx.rect(bx, by, bw, bh); ctx.clip();
+    rc.by.forEach(function (n, r) { var ww = bw * n / rc.all; ctx.fillStyle = Component.RATING_COLORS[r]; ctx.fillRect(at, by, ww, bh); at += ww; });
+    ctx.restore();
+    // line 3: each rating with its share of all fields
+    ctx.font = '700 12px Archivo, system-ui, sans-serif'; ctx.textAlign = 'left';
+    var cw = bw / 4;
+    rc.by.forEach(function (n, r) {
+      var cx = bx + r * cw, cy = y0 + 70;
+      ctx.beginPath(); ctx.arc(cx + 5, cy, 5, 0, Math.PI * 2); ctx.fillStyle = Component.RATING_COLORS[r]; ctx.fill();
+      ctx.fillStyle = '#dfe3f6'; ctx.fillText(self.ratingName(r), cx + 14, cy - 8);
+      ctx.fillStyle = '#ffffff'; ctx.font = '800 13px Archivo, system-ui, sans-serif'; ctx.fillText(self.pct(n, rc.all) + '%', cx + 14, cy + 8);
+      ctx.font = '700 12px Archivo, system-ui, sans-serif';
+    });
+    ctx.restore();
+  }
 
   // the difficulty of the next fields, in the middle of each: the name on a pill in the colour of the difficulty
   renderNextLabels(ox, oy, s) {
@@ -2661,6 +2721,8 @@ class Component extends DCLogic {
       }, this);
       if (near) o = near;
     }
+    // a field that is not discovered yet does not show: a touch there is a touch on empty space
+    if (o && this.vis && this.vis[o.f] === 0) o = null;
     if (!mouseRight && o && o.f === this.focus && this.canPaint()) {
       if (g.cellWord[o.i] >= 0) {
         var self = this, wid = g.cellWord[o.i];
@@ -2893,17 +2955,17 @@ class Component extends DCLogic {
       });
       if (core0 && (fi === 0 || core0.nb[fi])) this.dirtyField(0);
       this.recalcLit();
-      var selfA = this, perfectA = !g.used[fi];
+      var selfA = this, ratingA = this.rating(fi);
       var allSolved = g.state.every(function (x) { return x === 'S'; });
       // all solved: no field is darker any more
       if (allSolved) { this.dirtyAll(); this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(true); }); }
       else if (core0 && fi === 0) this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(); });
       // zoom out: the solved field and all fields that it opened are on the screen
-      else this.flyTo(this.camFit(fi, openedIds), function () { selfA.celebrate(fi, openedIds, perfectA); });
+      else this.flyTo(this.camFit(fi, openedIds), function () { selfA.celebrate(fi, openedIds, ratingA); });
       var gave = this.starsFor(fi);
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
-      this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + (g.used[fi] ? '' : this.T('perfectNo')));
+      this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + this.ratedText(fi));
       if (coreOpened) this.say(this.T('coreOpen', this.coreNeed()), 'good', cheer + this.T('fieldSolved', f.name));
       if (allSolved) this.say(this.T('allDone', g.state.length), 'good', this.T('allTitle'));
       else if (core0 && fi === 0) { var nS = g.state.filter(function (x) { return x === 'S'; }).length; this.say(this.T('coreDone', nS, g.state.length), 'good', this.T('finaleTitle')); }
@@ -2976,10 +3038,36 @@ class Component extends DCLogic {
   // one pool of stars: every solved field adds as many as its difficulty (very easy 1 ... expert 5);
   // they can be used in any open field
   starsFor(fi) { var t = this.world().fields[fi].tier; return this.level === 'easy' ? t + 1 : Math.min(5, t); }
+  // Each star in the same field costs 1 more than the one before (1, 2, 3, ...): a few stars when stuck stay cheap,
+  // but many stars in one field are expensive. g.used counts the stars used in each field.
+  starCost(fi) { return (this.game.used[fi] || 0) + 1; }
+  starsSpent() { return this.game.used.reduce(function (a, k) { return a + k * (k + 1) / 2; }, 0); }
   starsLeft() {
-    var w = this.world(), g = this.game, self = this, sum = 0, used = 0;
-    w.fields.forEach(function (f) { if (g.state[f.i] === 'S') sum += self.starsFor(f.i); used += g.used[f.i] || 0; });
-    return Math.max(0, sum - used);
+    var w = this.world(), g = this.game, self = this, sum = 0;
+    w.fields.forEach(function (f) { if (g.state[f.i] === 'S') sum += self.starsFor(f.i); });
+    return Math.max(0, sum - this.starsSpent());
+  }
+  // a star was used in the field: its message also says what the next star costs
+  sayStar(fi, text) {
+    this.game.used[fi]++;
+    this.say(text + ' ' + this.T('nextCost', this.starCost(fi)), 'info');
+  }
+
+  // the rating of a solved field, from the stars used in it: 0 perfect (none), 1 great (1), 2 good (2), 3 solved (more)
+  static get RATING_COLORS() { return ['#f2c063', '#d9dfee', '#d8915a', '#7fd17a']; }
+  rating(fi) { return Math.min(3, this.game.used[fi] || 0); }
+  ratingName(r) { return this.T('ratings').split('|')[r]; }
+  ratedText(fi) {
+    var n = this.game.used[fi] || 0, name = this.ratingName(this.rating(fi));
+    return n === 0 ? this.T('perfectNo') : n === 1 ? this.T('rated1', name) : this.T('ratedN', name, n);
+  }
+  // a share of all fields in whole percent: 100 only when all, at least 1 when any
+  pct(n, all) { return n === all ? 100 : n === 0 ? 0 : Math.max(1, Math.min(99, Math.round(100 * n / all))); }
+  // how many fields have each rating (index 0 to 3), and the solved fields
+  ratingCounts() {
+    var g = this.game, self = this, out = [0, 0, 0, 0], done = 0;
+    g.state.forEach(function (st, i) { if (st === 'S') { out[self.rating(i)]++; done++; } });
+    return { by: out, done: done, all: g.state.length };
   }
 
   // ---------- dead ends ----------
@@ -3177,6 +3265,7 @@ class Component extends DCLogic {
     var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi];
     if (g.state[fi] !== 'O') { this.say(this.T('starsOpen'), 'warn'); this.bump(); return; }
     if (this.starsLeft() <= 0) { this.say(this.T('noStars'), 'warn'); this.bump(); return; }
+    if (this.starsLeft() < this.starCost(fi)) { this.say(this.T('noStarsHere', this.starCost(fi), this.starsLeft()), 'warn'); this.bump(); return; }
     var have = {};
     g.hints[fi].forEach(function (h) { have[h.key] = 1; });
     if (this.level !== 'easy') { this.starHelp(fi, have); return; }
@@ -3188,8 +3277,7 @@ class Component extends DCLogic {
     if (wrong.length) {
       var self = this;
       wrong.forEach(function (wd) { g.wrongMarked[wd.id] = 1; self.dirtyCells(wd.cells, 1); });
-      g.used[fi]++;
-      this.say(this.T('starWrong', wrong.map(function (wd) { return wd.word; }).join(', ')), 'info');
+      this.sayStar(fi, this.T('starWrong', wrong.map(function (wd) { return wd.word; }).join(', ')));
       this.save();
       this.paint(); this.bump(); return;
     }
@@ -3202,9 +3290,8 @@ class Component extends DCLogic {
     if (!reg) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
     g.hints[fi].push({ key: 'r' + reg.i, kind: 'word', g: reg.i });
     this.dirtyCells(reg.cells, 1);
-    g.used[fi]++;
+    this.sayStar(fi, this.T('starWord', reg.cells.length));
     this.save();
-    this.say(this.T('starWord', reg.cells.length), 'info');
     this.paint(); this.bump();
   }
 
@@ -3223,9 +3310,8 @@ class Component extends DCLogic {
         split = f.regions.map(function (gi) { return w.regions[gi].cells; }).filter(function (cs) { return cs.every(function (j) { return g.cellWord[j] < 0; }); });
       } else {
         block.forEach(function (wd) { g.wrongMarked[wd.id] = 1; self.dirtyCells(wd.cells, 1); });
-        g.used[fi]++;
         var list = block.map(function (wd) { return wd.word; }).join(', ');
-        this.say(split === false ? this.T('starBlock', list) : this.T('starWrong', list), 'info');
+        this.sayStar(fi, split === false ? this.T('starBlock', list) : this.T('starWrong', list));
         this.save();
         this.paint(); this.bump(); return;
       }
@@ -3235,9 +3321,8 @@ class Component extends DCLogic {
     if (!cs) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
     g.hints[fi].push({ key: 'c' + cs.join('.'), kind: 'word', cells: cs });
     this.dirtyCells(cs, 1);
-    g.used[fi]++;
+    this.sayStar(fi, this.T('starWord', cs.length));
     this.save();
-    this.say(this.T('starWord', cs.length), 'info');
     this.paint(); this.bump();
   }
 
@@ -3261,7 +3346,8 @@ class Component extends DCLogic {
       clearSel: this.clearSel, accept: this.accept, useLight: this.useLight,
       focusName: f.name, focusPips: pips,
       focusLevel: this.T('tiers').split('|')[f.tier], focusLevelColor: Component.TIER_COLORS[f.tier] || '',
-      focusProgress: g.state[fi] === 'S' ? (g.used[fi] ? this.T('solved') : '\u2605 ' + this.T('solved')) : g.state[fi] === 'L' ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
+      focusProgress: g.state[fi] === 'S' ? this.ratingName(this.rating(fi)) : g.state[fi] === 'L' ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
+      focusProgressColor: g.state[fi] === 'S' ? Component.RATING_COLORS[this.rating(fi)] : '',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
       lightLeft: left, zoomBtns: zoomBtns,
       lang: this.lang, level: this.level, newOpen: this.newOpen, switchLang: this.switchLang,
@@ -3270,7 +3356,7 @@ class Component extends DCLogic {
         return { id: lv, name: self.levelName(lv), desc: self.T(['lvEasyDesc', 'lvMediumDesc', 'lvHardDesc'][i]), pips: ['●○○', '●●○', '●●●'][i], pick: self.levelPick[lv],
           on: on, bg: on ? '#2a3a6e' : 'transparent', bd: on ? '#f2c063' : '#34405c', pressed: on ? 'true' : 'false' };
       }),
-      tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
+      tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left, this.starCost(fi)), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
       tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tCheat: this.T('cheat'), cheat: this.cheat, cheatSolve: this.cheatSolve, tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
       tOtherLang: this.T('otherLang'), tOtherLangAria: this.T('otherLangAria'),
       tNgTitle: this.T('ngTitle'), tNgLevel: this.T('ngLevel'), tNgNumber: this.T('ngNumber'), tNgRandom: this.T('ngRandom'), tNgStart: this.T('ngStart'), tNgCancel: this.T('ngCancel'),

@@ -139,7 +139,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '656e5102c9';
+var BUILD = '2d93f3ac46';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -163,7 +163,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=5d0d049f77"></script>
+<script src="game.js?v=bb12c306e9"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -265,6 +265,7 @@ window.loadWords = function (lang, cb) {
     $('name').textContent = v.focusName;
     $('name').classList.toggle('long', (v.focusName || '').length > 10);
     $('progress').textContent = v.focusProgress;
+    $('progress').style.color = v.focusProgressColor;
     $('msg').innerHTML = '';
     // while letters are selected: the word they make, big (it never covers letters on the board)
     if (v.selWord) { var sw = document.createElement('span'); sw.className = 'word'; sw.textContent = v.selWord; $('msg').appendChild(sw); }
