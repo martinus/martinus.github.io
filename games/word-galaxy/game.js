@@ -307,8 +307,6 @@ class Component extends DCLogic {
       f.lockBg = mix(f.lockBg, '#8a6620', 0.75 * f.warm);
       f.lockFg = mix(f.lockBg, '#c0c6e8', 0.45);
       f.openBg = mix('#f4efe4', '#f3d27e', 0.75 * f.warm);
-      // other fields are darkened; near the core with a warm shade
-      f.dim = f.warm > 0.25 ? 'rgba(30,20,4,0.42)' : 'rgba(6,9,19,0.45)';
       // open fields are darker only a little: the border of the field being played is clear, and they still stand out
       f.dimOpen = f.warm > 0.25 ? 'rgba(30,20,4,0.34)' : 'rgba(6,9,19,0.36)';
     });
@@ -2066,7 +2064,7 @@ class Component extends DCLogic {
         ctx.fillRect(rx0, ry0, rw0, rh0);
       }
     }
-    var lit = this.lit, fontTile = tile, allDone = g.state.indexOf('O') < 0 && g.state.indexOf('L') < 0;
+    var lit = this.lit, fontTile = tile;
     var core0 = w.fields[0].round ? w.fields[0] : null;
     if (core0 && fine) this.drawCoreBack(ctx, core0, s, ox, oy, px);
     for (i = 0; i < w.cells.length; i++) {
@@ -2086,9 +2084,10 @@ class Component extends DCLogic {
       else if (f.goal) { bg = '#f2c063'; fg = '#3a2806'; }
       else { bg = f.lockBg; fg = f.lockFg; }
       ctx.fillStyle = bg;
-      // the other fields are darker, so the border of the field being played is clear; solved fields more than open ones
-      var dimIt = o.f !== this.focus && fst !== 'L' && !allDone, dimCol = fst === 'S' ? f.dim : f.dimOpen;
-      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = dimCol; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
+      // the other fields are darker, so the border of the field being played is clear; solved fields more than open ones.
+      // A solved field is brighter and has the tint of its rating: perfect is bright gold, then darker for each lower rating.
+      var dimIt = o.f !== this.focus && fst !== 'L', dimCol = fst === 'S' ? Component.RATING_SHADES[this.rating(o.f)] : [f.dimOpen];
+      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) dimCol.forEach(function (c) { ctx.fillStyle = c; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); }); continue; }
       var me = grp[i], fl = o.flags;
       var sT = me !== 0 && o.nb[0] >= 0 && grp[o.nb[0]] === me;
       var sR = me !== 0 && o.nb[1] >= 0 && grp[o.nb[1]] === me;
@@ -2130,7 +2129,7 @@ class Component extends DCLogic {
         ctx.fillText(o.l, x + tile / 2, y + tile / 2 + tile * 0.03);
       }
       // other fields are darker, so the field being played stands out
-      if (dimIt) { ctx.fillStyle = dimCol; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
+      for (var dk = 0; dimIt && dk < dimCol.length; dk++) { ctx.fillStyle = dimCol[dk]; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
     }
     tile = P * s; tileCss = tile / px; fine = tileCss >= 6; text = tileCss >= 10;
     if (core0 && fine) this.drawCoreFront(ctx, core0, s, ox, oy, px);
@@ -2537,20 +2536,6 @@ class Component extends DCLogic {
     var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, VW = this.VW, VH = this.VH, prog = this.fieldProgress();
     ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     var self = this;
-    // solved fields: a small medal in the colour of their rating (only when the letters are too small to read)
-    var medals = w.P * s < 9;
-    w.fields.forEach(function (f) {
-      if (!medals || g.state[f.i] !== 'S' || f.round) return;
-      var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
-      if (fw < 10 || fh < 10) return;
-      var sx = 0, sy = 0;
-      f.cells.forEach(function (j) { var o = w.cells[j]; sx += o.x + o.p / 2; sy += o.y + o.p / 2; });
-      var cx = sx / f.cells.length * s + ox, cy = sy / f.cells.length * s + oy, r = Math.max(3, Math.min(6, fw / 5));
-      if (cx < -10 || cy < -10 || cx > VW + 10 || cy > VH + 10) return;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = Component.RATING_COLORS[self.rating(f.i)]; ctx.fill();
-      ctx.strokeStyle = 'rgba(6,9,19,0.85)'; ctx.lineWidth = 1.5; ctx.stroke();
-    });
     w.fields.forEach(function (f) {
       if (g.state[f.i] !== 'O' || !(prog[f.i] > 0)) return;
       var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
@@ -3116,6 +3101,12 @@ class Component extends DCLogic {
 
   // the rating of a solved field, from the stars used in it: 0 perfect (none), 1 great (1), 2 good (2), 3 solved (more)
   static get RATING_COLORS() { return ['#f2c063', '#d9dfee', '#d8915a', '#7fd17a']; }
+  // the two layers over a solved field for each rating (see drawWorld): a tint in the colour of the rating,
+  // then a dark layer. Perfect is the brightest, each lower rating is darker.
+  static get RATING_SHADES() {
+    return [['rgba(255,200,80,0.42)', 'rgba(6,9,19,0)'], ['rgba(205,218,245,0.4)', 'rgba(6,9,19,0.22)'],
+      ['rgba(214,120,50,0.5)', 'rgba(6,9,19,0.4)'], ['rgba(90,200,110,0.45)', 'rgba(6,9,19,0.58)']];
+  }
   rating(fi) { return Math.min(3, this.game.used[fi] || 0); }
   ratingName(r) { return this.T('ratings').split('|')[r]; }
   ratedText(fi) {
