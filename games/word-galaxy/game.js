@@ -83,6 +83,8 @@ class Component extends DCLogic {
     this.clearSel = function () { self.dirtyCells(Object.keys(self.game.sel).map(Number), 1); self.game.sel = {}; self.game.selN = 0; self.draw(); self.refreshQuick(); };
     this.accept = function () { self.doAccept(); };
     this.useLight = function () { self.doLight(); };
+    this.starNo = function () { self.starCancel(); };
+    this.starYes = function () { self.starConfirm(); };
   }
 
   componentDidUpdate(prev) {
@@ -126,7 +128,8 @@ class Component extends DCLogic {
         starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
-        noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.', nextCost: 'The next star in this field costs {0}.',
+        noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.',
+        starAskWord: 'The star shows the shape of a word.', starAskWrong: 'The star marks the wrong words.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} ★ · {1} missing', nextCost: 'The next star in this field costs {0}.',
         ratings: 'Perfect|Great|Good|Solved', rated1: ' {0}: 1 star used.', ratedN: ' {0}: {1} stars used.', scoreFields: '{0} of {1} fields · {2}%',
         deadEnd: 'No word can use these free letters any more: {0}. A word needs at least 4 touching letters. Remove a word, or use a star.', deadEndTitle: '{0}: dead end',
         starBlock: 'A star shows the words that cause the dead end: {0}. Remove them.', starStillRed: 'The red words still cause the dead end. Remove them first.',
@@ -167,7 +170,8 @@ class Component extends DCLogic {
         starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
-        noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
+        noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.',
+        starAskWord: 'Der Stern zeigt die Form eines Worts.', starAskWrong: 'Der Stern markiert die falschen Wörter.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: '{0} ★ · {1} fehlen', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
         ratings: 'Perfekt|Sehr gut|Gut|Gelöst', rated1: ' {0}: 1 Stern genutzt.', ratedN: ' {0}: {1} Sterne genutzt.', scoreFields: '{0} von {1} Feldern · {2} %',
         deadEnd: 'Kein Wort kann diese freien Buchstaben mehr nutzen: {0}. Ein Wort braucht mindestens 4 Buchstaben, die sich berühren. Entferne ein Wort oder nutze einen Stern.', deadEndTitle: '{0}: Sackgasse',
         starBlock: 'Ein Stern zeigt die Wörter, die die Sackgasse verursachen: {0}. Entferne sie.', starStillRed: 'Die roten Wörter verursachen die Sackgasse noch. Entferne sie zuerst.',
@@ -2696,6 +2700,8 @@ class Component extends DCLogic {
     if (this._anim) { cancelAnimationFrame(this._anim); this._anim = 0; }
     try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
     var p = this.pt(e);
+    // a touch on the map closes the star bubble
+    if (this.starAsk) { this.starAsk = null; this.bump(); }
     // a new first finger: forget fingers whose 'lifted' event never arrived (they would turn a touch into a pinch)
     if (e.isPrimary) { this.ptrs = {}; if (this.drag && this.drag.mode === 'pinch') this.drag = null; }
     this.ptrs[e.pointerId] = p;
@@ -2902,6 +2908,7 @@ class Component extends DCLogic {
   // ---------- rules ----------
   doAccept() {
     var w = this.world(), g = this.game;
+    this.starAsk = null;
     var sel = Object.keys(g.sel).map(Number).filter(function (j) { return g.cellWord[j] < 0; });
     if (sel.length < 4) { this.say(this.T('min4'), 'warn'); this.bump(); return; }
     sel.sort(function (a, b) { return w.cells[a].r - w.cells[b].r || w.cells[a].c - w.cells[b].c; });
@@ -3022,6 +3029,7 @@ class Component extends DCLogic {
   // removes a word; its letters stay selected, so the player can change the selection
   doRemove(wid) {
     var g = this.game, wd = g.words[wid];
+    this.starAsk = null;
     if (!wd || !wd.alive) return;
     this.dirtyCells(Object.keys(g.sel).map(Number), 1);
     this.dirtyCells(wd.cells, 1);
@@ -3261,69 +3269,91 @@ class Component extends DCLogic {
     return out;
   }
 
+  // A tap on the star button opens a bubble: what the star will do, its price, and the rating of the field after it.
+  // Only the ✓ in the bubble spends the star (starConfirm); ✕, a second tap on the star button or a touch on the map closes it.
   doLight() {
-    var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi];
+    var g = this.game, fi = this.focus;
+    if (this.starAsk) { this.starCancel(); return; }
     if (g.state[fi] !== 'O') { this.say(this.T('starsOpen'), 'warn'); this.bump(); return; }
     if (this.starsLeft() <= 0) { this.say(this.T('noStars'), 'warn'); this.bump(); return; }
-    if (this.starsLeft() < this.starCost(fi)) { this.say(this.T('noStarsHere', this.starCost(fi), this.starsLeft()), 'warn'); this.bump(); return; }
-    var have = {};
+    var plan = this.starPlan(fi);
+    if (plan.kind === 'stillRed') { this.say(this.T('starStillRed'), 'warn'); this.bump(); return; }
+    if (plan.kind === 'nothing') { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
+    this.starAsk = { fi: fi, plan: plan };
+    // too few stars: the bubble shows the price in red, and its ✓ is off
+    if (this.starsLeft() < this.starCost(fi)) this.say(this.T('noStarsHere', this.starCost(fi), this.starsLeft()), 'warn');
+    this.bump();
+  }
+  starCancel() {
+    if (!this.starAsk) return;
+    this.starAsk = null;
+    this.bump();
+  }
+  starConfirm() {
+    var a = this.starAsk, g = this.game;
+    this.starAsk = null;
+    if (!a || a.fi !== this.focus || g.state[a.fi] !== 'O' || this.starsLeft() < this.starCost(a.fi)) { this.bump(); return; }
+    this.applyStar(a.fi, a.plan);
+  }
+
+  // What a star would do now in the field:
+  // { kind: 'wrong', words, dead } marks words in red (dead: they make a dead end),
+  // { kind: 'word', hint } shows the shape of a word, { kind: 'stillRed' } or { kind: 'nothing' }: it can not help.
+  starPlan(fi) {
+    var w = this.world(), g = this.game, f = w.fields[fi], have = {};
     g.hints[fi].forEach(function (h) { have[h.key] = 1; });
-    if (this.level !== 'easy') { this.starHelp(fi, have); return; }
-    // easy galaxies: wrong words go away by themselves, so the words of the player are the words of the generator
-    // 1. all wrong words in this field
-    var wrong = g.words.filter(function (wd) {
-      return wd.alive && wd.f === fi && !wd.correct && !g.wrongMarked[wd.id];
-    });
-    if (wrong.length) {
-      var self = this;
-      wrong.forEach(function (wd) { g.wrongMarked[wd.id] = 1; self.dirtyCells(wd.cells, 1); });
-      this.sayStar(fi, this.T('starWrong', wrong.map(function (wd) { return wd.word; }).join(', ')));
-      this.save();
-      this.paint(); this.bump(); return;
+    var pick = function (list) { return list.length ? list[Math.floor(Math.random() * list.length)] : null; };
+    if (this.level === 'easy') {
+      // easy galaxies: wrong words go away by themselves, so the words of the player are the words of the generator
+      var wrong = g.words.filter(function (wd) { return wd.alive && wd.f === fi && !wd.correct && !g.wrongMarked[wd.id]; });
+      if (wrong.length) return { kind: 'wrong', words: wrong, dead: false };
+      var gi = pick(f.regions.filter(function (x) {
+        var c = g.cellWord[w.regions[x].cells[0]];
+        return !have['r' + x] && !(c >= 0 && g.words[c].correct);
+      }));
+      return gi == null ? { kind: 'nothing' } : { kind: 'word', hint: { key: 'r' + gi, kind: 'word', g: gi } };
     }
-    // 2. the shape of a random word that is not found yet
-    var open = f.regions.filter(function (gi) {
-      var x = g.cellWord[w.regions[gi].cells[0]];
-      return !have['r' + gi] && !(x >= 0 && g.words[x].correct);
-    });
-    var reg = open.length ? w.regions[open[Math.floor(Math.random() * open.length)]] : null;
-    if (!reg) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
-    g.hints[fi].push({ key: 'r' + reg.i, kind: 'word', g: reg.i });
-    this.dirtyCells(reg.cells, 1);
-    this.sayStar(fi, this.T('starWord', reg.cells.length));
+    // medium and hard galaxies: the words of the player can differ from the words of the generator.
+    // At a dead end, the words that make it; else the shape of a word that fits the words of the player.
+    var split = this.splitFree(this.freeCells(fi), this.preferIn(fi));
+    if (!split) {
+      var block = this.blockingWords(fi).filter(function (wd) { return !g.wrongMarked[wd.id]; });
+      if (block.length) return { kind: 'wrong', words: block, dead: split === false };
+      if (split === false) return { kind: 'stillRed' };
+      // the search ran out of steps: show a word of the generator
+      split = f.regions.map(function (x) { return w.regions[x].cells; }).filter(function (cs) { return cs.every(function (j) { return g.cellWord[j] < 0; }); });
+    }
+    var cs = pick(split.filter(function (c) { return !have['c' + c.join('.')]; }));
+    return cs ? { kind: 'word', hint: { key: 'c' + cs.join('.'), kind: 'word', cells: cs } } : { kind: 'nothing' };
+  }
+  applyStar(fi, plan) {
+    var g = this.game, self = this;
+    if (plan.kind === 'wrong') {
+      plan.words.forEach(function (wd) { g.wrongMarked[wd.id] = 1; self.dirtyCells(wd.cells, 1); });
+      var list = plan.words.map(function (wd) { return wd.word; }).join(', ');
+      this.sayStar(fi, plan.dead ? this.T('starBlock', list) : this.T('starWrong', list));
+    } else {
+      var cs = this.hintCells(plan.hint);
+      g.hints[fi].push(plan.hint);
+      this.dirtyCells(cs, 1);
+      this.sayStar(fi, this.T('starWord', cs.length));
+    }
     this.save();
     this.paint(); this.bump();
   }
 
-  // a star in a medium or hard galaxy. The words of the player can differ from the words of the generator.
-  // 1. At a dead end: the star marks the words that make it.
-  // 2. Else: the star shows the shape of a word that fits the words of the player.
-  starHelp(fi, have) {
-    var g = this.game, self = this;
-    var free = this.freeCells(fi), split = this.splitFree(free, this.preferIn(fi));
-    if (!split) {
-      var block = this.blockingWords(fi).filter(function (wd) { return !g.wrongMarked[wd.id]; });
-      if (!block.length) {
-        if (split === false) { this.say(this.T('starStillRed'), 'warn'); this.bump(); return; }
-        // the search ran out of steps: show a word of the generator, as in easy galaxies
-        var w = this.world(), f = w.fields[fi];
-        split = f.regions.map(function (gi) { return w.regions[gi].cells; }).filter(function (cs) { return cs.every(function (j) { return g.cellWord[j] < 0; }); });
-      } else {
-        block.forEach(function (wd) { g.wrongMarked[wd.id] = 1; self.dirtyCells(wd.cells, 1); });
-        var list = block.map(function (wd) { return wd.word; }).join(', ');
-        this.sayStar(fi, split === false ? this.T('starBlock', list) : this.T('starWrong', list));
-        this.save();
-        this.paint(); this.bump(); return;
-      }
-    }
-    var open = split.filter(function (cs) { return !have['c' + cs.join('.')]; });
-    var cs = open.length ? open[Math.floor(Math.random() * open.length)] : null;
-    if (!cs) { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
-    g.hints[fi].push({ key: 'c' + cs.join('.'), kind: 'word', cells: cs });
-    this.dirtyCells(cs, 1);
-    this.sayStar(fi, this.T('starWord', cs.length));
-    this.save();
-    this.paint(); this.bump();
+  // the values of the star bubble, or null when it is closed
+  starAskVals() {
+    var a = this.starAsk, g = this.game;
+    if (!a || a.fi !== this.focus || g.state[a.fi] !== 'O') return null;
+    var fi = a.fi, cost = this.starCost(fi), have = this.starsLeft(), used = g.used[fi] || 0;
+    var from = Math.min(3, used), to = Math.min(3, used + 1), RC = Component.RATING_COLORS;
+    return {
+      kind: a.plan.kind, cost: cost, have: have, ok: have >= cost, changes: from !== to,
+      fromName: this.ratingName(from), toName: this.ratingName(to), fromColor: RC[from], toColor: RC[to],
+      tAfter: have >= cost ? have + ' → ' + (have - cost) : this.T('starMissing', have, cost - have),
+      tKind: this.T(a.plan.kind === 'wrong' ? 'starAskWrong' : 'starAskWord'), tNo: this.T('starAskNo'), tYes: this.T('starAskYes', cost)
+    };
   }
 
   // ---------- markup values ----------
@@ -3343,7 +3373,7 @@ class Component extends DCLogic {
     });
     return {
       canvasRef: this.canvasRef, loRef: this.loRef, ovRef: this.ovRef, zoomRef: this.zoomRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
-      clearSel: this.clearSel, accept: this.accept, useLight: this.useLight,
+      clearSel: this.clearSel, accept: this.accept, useLight: this.useLight, starNo: this.starNo, starYes: this.starYes, starAsk: this.starAskVals(),
       focusName: f.name, focusPips: pips,
       focusLevel: this.T('tiers').split('|')[f.tier], focusLevelColor: Component.TIER_COLORS[f.tier] || '',
       focusProgress: g.state[fi] === 'S' ? this.ratingName(this.rating(fi)) : g.state[fi] === 'L' ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
