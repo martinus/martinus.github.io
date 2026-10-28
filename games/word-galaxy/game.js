@@ -43,6 +43,7 @@ class Component extends DCLogic {
       this.cheat = localStorage.getItem('wordgalaxy:cheat') === '1';
     } catch (e) {}
     this.cheatSolve = function () { self.menuOpen = false; self.doCheat(); };
+    this.redoField = function () { self.menuOpen = false; self.askRedo(self.focus); };
     this.onSeedInput = function (e) { self.seedText = e.target.value; self.bump(); };
     this.buildSeed = function () {
       var n = parseInt(String(self.seedText).replace(/[^0-9]/g, ''), 10);
@@ -136,6 +137,9 @@ class Component extends DCLogic {
         tiers: '|Very easy|Easy|Medium|Hard|Expert|Master', solved: 'Solved', locked1: 'Locked',
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
         lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Many words up to 10 letters. Big fields.',
+        redoBtn: '↺ Play {0} again…', redoTitle: 'Play {0} again?', redoYes: 'Play {0} again', redoNo: 'Keep my words',
+        redoText: 'This removes all your words in {0}. Then you solve it again, and its rating can be Perfect again. Stars that you used stay used.',
+        redoSolved: ' Until you solve {0} again, the {1} ★ that it gave do not count.', redone: '{0} starts again. Solve it without a star for Perfect.',
         menu: 'Menu', starsAria: 'Use one star for a hint ({0} left, a star costs {1} in this field)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
         zGalaxy: 'Show the whole galaxy ({0}% done)', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
@@ -178,6 +182,9 @@ class Component extends DCLogic {
         tiers: '|Sehr leicht|Leicht|Mittel|Schwer|Experte|Meister', solved: 'Gelöst', locked1: 'Gesperrt',
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
         lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Viele Wörter bis 10 Buchstaben. Große Felder.',
+        redoBtn: '↺ {0} neu spielen …', redoTitle: '{0} neu spielen?', redoYes: '{0} neu spielen', redoNo: 'Meine Wörter behalten',
+        redoText: 'Damit sind alle deine Wörter in {0} weg. Dann löst du das Feld noch einmal, und seine Bewertung kann wieder Perfekt sein. Genutzte Sterne bleiben genutzt.',
+        redoSolved: ' Bis du {0} wieder löst, zählen die {1} ★ nicht, die das Feld gegeben hat.', redone: '{0} beginnt von vorn. Löse es ohne Stern für Perfekt.',
         menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig, ein Stern kostet {1} in diesem Feld)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
         zGalaxy: 'Die ganze Galaxie zeigen ({0}% geschafft)', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
@@ -1286,14 +1293,14 @@ class Component extends DCLogic {
     var g = this.game, alive = [], index = {};
     g.words.forEach(function (wd) { if (wd.alive) { index[wd.id] = alive.length; alive.push([wd.cells, wd.colour, wd.correct ? 1 : 0, wd.gift ? 1 : 0]); } });
     var wrong = Object.keys(g.wrongMarked).map(function (id) { return index[id]; }).filter(function (x) { return x != null; });
-    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, gen: Component.GEN, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
+    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, gen: Component.GEN, focus: this.focus, state: g.state, words: alive, used: g.used, paid: g.paid, hints: g.hints, wrong: wrong };
   }
 
   // ---------- moving progress to another device: the whole save in a link ----------
   // The code is the save as JSON, with word cells as differences (small numbers), deflated, in base64url.
   exportCode() {
     var sv = this.saveData();
-    var c = { v: 1, seed: sv.seed, level: sv.level, lang: sv.lang, gen: sv.gen, focus: sv.focus, state: sv.state.join(''), used: sv.used, hints: sv.hints, wrong: sv.wrong,
+    var c = { v: 1, seed: sv.seed, level: sv.level, lang: sv.lang, gen: sv.gen, focus: sv.focus, state: sv.state.join(''), used: sv.used, paid: sv.paid, hints: sv.hints, wrong: sv.wrong,
       words: sv.words.map(function (x) { var d = x[0].map(function (j, i) { return i ? j - x[0][i - 1] : j; }); return [d, x[1], x[2], x[3]]; }) };
     var json = JSON.stringify(c);
     var b64 = function (bytes) {
@@ -1315,7 +1322,7 @@ class Component extends DCLogic {
       var c = JSON.parse(text);
       if (!c || c.v !== 1 || typeof c.seed !== 'number') throw new Error('not a Word Galaxy progress link');
       if (c.gen !== Component.GEN) throw new Error(self.T('linkOld'));
-      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', gen: c.gen, focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
+      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', gen: c.gen, focus: c.focus, state: c.state.split(''), used: c.used, paid: c.paid, hints: c.hints, wrong: c.wrong,
         words: c.words.map(function (x) { var cells = [], a = 0; x[0].forEach(function (d, i) { a = i ? a + d : d; cells.push(a); }); return [cells, x[1], x[2], x[3]]; }) };
     };
     if (kind === 'j') return Promise.resolve(done(new TextDecoder().decode(u)));
@@ -1379,6 +1386,7 @@ class Component extends DCLogic {
     // the core opens sooner now than in older versions of the game
     if (w.fields[0].round && g.state[0] === 'L' && this.coreReady()) g.state[0] = 'O';
     if (sv.used && sv.used.length === w.fields.length) g.used = sv.used.slice();
+    if (sv.paid > 0) g.paid = sv.paid;
     if (sv.hints && sv.hints.length === w.fields.length) g.hints = sv.hints;
     (sv.wrong || []).forEach(function (i) { if (ids[i] >= 0) g.wrongMarked[ids[i]] = 1; });
     if (sv.focus >= 0 && sv.focus < w.fields.length) this.focus = sv.focus;
@@ -1428,6 +1436,7 @@ class Component extends DCLogic {
       state: w.fields.map(function (f) { return f.state0; }),
       sel: {}, selN: 0,
       used: w.fields.map(function () { return 0; }),
+      paid: 0,
       hints: w.fields.map(function () { return []; }),
       wrongMarked: {},
       msg: this.T('howTo'), msgKind: 'info', msgTitle: ''
@@ -3043,13 +3052,57 @@ class Component extends DCLogic {
     this.paint(); this.bump();
   }
 
+  // ---------- play a field again ----------
+  // An open or solved field can start again, for a new chance at a better rating.
+  canRedo(fi) {
+    var g = this.game;
+    if (g.state[fi] === 'L') return false;
+    return g.state[fi] === 'S' || g.used[fi] > 0 || g.hints[fi].length > 0 || g.words.some(function (wd) { return wd.alive && wd.f === fi && !wd.gift; });
+  }
+  askRedo(fi) {
+    var self = this, f = this.world().fields[fi];
+    if (!this.canRedo(fi)) { this.bump(); return; }
+    var text = this.T('redoText', f.name) + (this.game.state[fi] === 'S' ? this.T('redoSolved', f.name, this.starsFor(fi)) : '');
+    this.confirm = { title: this.T('redoTitle', f.name), text: text, yes: this.T('redoYes', f.name), no: this.T('redoNo'), action: function () { self.doRedo(fi); } };
+    this.bump();
+  }
+  // Removes all words, star hints and red marks of the field, and its count of stars. A solved field is open again.
+  // The stars used in it stay used (g.paid): else a redo would give them back.
+  // Fields that it opened stay open. The gift words of the field come back.
+  doRedo(fi) {
+    var w = this.world(), g = this.game, f = w.fields[fi], self = this;
+    if (!this.canRedo(fi)) return;
+    var k = g.used[fi] || 0;
+    g.paid = (g.paid || 0) + k * (k + 1) / 2;
+    g.used[fi] = 0; g.hints[fi] = [];
+    g.words.forEach(function (wd) {
+      if (!wd.alive || wd.f !== fi) return;
+      wd.alive = false;
+      wd.cells.forEach(function (j) { g.cellWord[j] = -1; });
+      delete g.wrongMarked[wd.id];
+    });
+    f.regions.forEach(function (gi) {
+      var r = w.regions[gi];
+      if (r.found0) { var id = self.addWord(r.cells.slice(), r.colour0 >= 0 ? r.colour0 : self.pickColour(r.cells), true); g.words[id].gift = true; }
+    });
+    if (g.state[fi] === 'S') g.state[fi] = 'O';
+    g.sel = {}; g.selN = 0;
+    this.starAsk = null; this.fx = null; this.quick = null;
+    this.recalcLit();
+    this.say(this.T('redone', f.name), 'info');
+    this.save();
+    this.flyTo(this.camFor('field', fi));
+    this.paint(); this.bump();
+  }
+
   // one pool of stars: every solved field adds as many as its difficulty (very easy 1 ... expert 5);
   // they can be used in any open field
   starsFor(fi) { var t = this.world().fields[fi].tier; return this.level === 'easy' ? t + 1 : Math.min(5, t); }
   // Each star in the same field costs 1 more than the one before (1, 2, 3, ...): a few stars when stuck stay cheap,
   // but many stars in one field are expensive. g.used counts the stars used in each field.
+  // g.paid counts the stars used in fields that the player started again (doRedo).
   starCost(fi) { return (this.game.used[fi] || 0) + 1; }
-  starsSpent() { return this.game.used.reduce(function (a, k) { return a + k * (k + 1) / 2; }, 0); }
+  starsSpent() { return this.game.used.reduce(function (a, k) { return a + k * (k + 1) / 2; }, this.game.paid || 0); }
   starsLeft() {
     var w = this.world(), g = this.game, self = this, sum = 0;
     w.fields.forEach(function (f) { if (g.state[f.i] === 'S') sum += self.starsFor(f.i); });
@@ -3387,7 +3440,8 @@ class Component extends DCLogic {
           on: on, bg: on ? '#2a3a6e' : 'transparent', bd: on ? '#f2c063' : '#34405c', pressed: on ? 'true' : 'false' };
       }),
       tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left, this.starCost(fi)), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
-      tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tCheat: this.T('cheat'), cheat: this.cheat, cheatSolve: this.cheatSolve, tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
+      tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tCheat: this.T('cheat'), cheat: this.cheat, cheatSolve: this.cheatSolve,
+      canRedo: this.canRedo(fi), tRedo: this.T('redoBtn', f.name), redoField: this.redoField, tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
       tOtherLang: this.T('otherLang'), tOtherLangAria: this.T('otherLangAria'),
       tNgTitle: this.T('ngTitle'), tNgLevel: this.T('ngLevel'), tNgNumber: this.T('ngNumber'), tNgRandom: this.T('ngRandom'), tNgStart: this.T('ngStart'), tNgCancel: this.T('ngCancel'),
       quickAccept: !!this.quick,

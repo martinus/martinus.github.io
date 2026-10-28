@@ -113,6 +113,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <div class="menu hidden" id="menu">
       <div class="label" id="menuLabel">Galaxy</div>
       <button type="button" id="shareBtn">Copy progress link</button>
+      <button type="button" id="redoBtn" class="hidden">↺ Play this field again…</button>
       <button type="button" id="newGalaxyBtn">New galaxy…</button>
       <button type="button" id="cheatBtn" class="hidden" style="color: var(--gold)">🪄 Solve this field (test)</button>
       <button type="button" id="langBtn">🌐 Deutsch</button>
@@ -162,7 +163,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '000e9ca718';
+var BUILD = 'fb8b4dfddd';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -186,7 +187,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=1d09f2674b"></script>
+<script src="game.js?v=c82b3df266"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -311,6 +312,7 @@ window.loadWords = function (lang, cb) {
   $('buildBtn').onclick = function () { v.buildSeed && v.buildSeed(); };
   $('ngCancel').onclick = function () { v.closeSeed && v.closeSeed(); };
   $('cheatBtn').onclick = function () { v.cheatSolve && v.cheatSolve(); };
+  $('redoBtn').onclick = function () { v.redoField && v.redoField(); };
   $('langBtn').onclick = function () { v.switchLang && v.switchLang(); };
   $('menuBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
   $('menuCloseBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
@@ -348,6 +350,7 @@ window.loadWords = function (lang, cb) {
     $('cv').setAttribute('aria-label', v.tMap);
     $('shareBtn').textContent = v.tCopyLink;
     $('newGalaxyBtn').textContent = v.tNewGalaxy;
+    $('redoBtn').textContent = v.tRedo; $('redoBtn').classList.toggle('hidden', !v.canRedo);
     $('cheatBtn').textContent = v.tCheat; $('cheatBtn').classList.toggle('hidden', !v.cheat);
     $('langBtn').textContent = '🌐 ' + v.tOtherLang; $('langBtn').setAttribute('aria-label', v.tOtherLangAria);
     $('allGames').textContent = v.tAllGames;
