@@ -116,11 +116,11 @@ class Component extends DCLogic {
         newTitle: 'Start a new galaxy?', newText: 'This removes all progress in galaxy {0}. You can not undo this.', newYes: 'Start new galaxy', keepPlaying: 'Keep playing',
         bigSolved: '{0} solved', perfect: 'Perfect',
         holdToRemove: 'Hold the word to remove it.', backAgain: 'You are still in the game. Go back again to leave it.',
-        locked: '{0} is locked. Solve a field next to it first.', isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
+        isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
         solvedOther: '{0} is solved. Tap a field with a blue outline.', tapAgain: 'Tap {0} again to go there.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
         nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
         coreOpen: '{0} fields next to the core are solved: the core is open!', coreGate: 'The core opens when {0} fields next to it are solved. Solved now: {1}.',
-        hidden: 'Nobody has seen this part of the galaxy yet. Solve the fields next to it.',
+        coreOpenAll: 'All {0} fields next to the core are solved: the core is open!', coreGateAll: 'The core opens when all {0} fields next to it are solved. Solved now: {1}.',
         finaleTitle: 'Core reached!', finaleSub: 'GALAXY {0}', stFields: 'fields', stWords: 'words', stStars: 'stars used', stPerfect: 'perfect',
         coreDone: 'You solved the Galactic Core! {0} of {1} fields of this galaxy are solved.',
         allTitle: 'Galaxy complete!', allDone: 'You solved all {0} fields of this galaxy. Start a new galaxy in the menu.',
@@ -161,11 +161,11 @@ class Component extends DCLogic {
         newTitle: 'Neue Galaxie starten?', newText: 'Damit ist der ganze Fortschritt in Galaxie {0} weg. Das kann man nicht rückgängig machen.', newYes: 'Neue Galaxie starten', keepPlaying: 'Weiterspielen',
         bigSolved: '{0} gelöst', perfect: 'Perfekt',
         holdToRemove: 'Halte das Wort gedrückt, um es zu entfernen.', backAgain: 'Du bist noch im Spiel. Gehe noch einmal zurück, um es zu verlassen.',
-        locked: '{0} ist gesperrt. Löse zuerst ein Feld daneben.', isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
+        isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
         solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit blauem Rand.', tapAgain: 'Tippe noch einmal auf {0}, um dorthin zu gehen.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
         nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
         coreOpen: '{0} Felder neben dem Kern sind gelöst: Der Kern ist offen!', coreGate: 'Der Kern öffnet sich, wenn {0} Felder daneben gelöst sind. Jetzt gelöst: {1}.',
-        hidden: 'Diesen Teil der Galaxie hat noch niemand gesehen. Löse die Felder daneben.',
+        coreOpenAll: 'Alle {0} Felder neben dem Kern sind gelöst: Der Kern ist offen!', coreGateAll: 'Der Kern öffnet sich, wenn alle {0} Felder daneben gelöst sind. Jetzt gelöst: {1}.',
         finaleTitle: 'Kern erreicht!', finaleSub: 'GALAXIE {0}', stFields: 'Felder', stWords: 'Wörter', stStars: 'Sterne genutzt', stPerfect: 'perfekt',
         coreDone: 'Du hast den Galaktischen Kern gelöst! {0} von {1} Feldern dieser Galaxie sind gelöst.',
         allTitle: 'Galaxie geschafft!', allDone: 'Du hast alle {0} Felder dieser Galaxie gelöst. Eine neue Galaxie startest du im Menü.',
@@ -1389,8 +1389,8 @@ class Component extends DCLogic {
     (sv.wrong || []).forEach(function (i) { if (ids[i] >= 0) g.wrongMarked[ids[i]] = 1; });
     if (sv.focus >= 0 && sv.focus < w.fields.length) this.focus = sv.focus;
     this.recalcLit();
-    // older saves can show a field that is not discovered yet: show an open field instead
-    if (this.vis[this.focus] === 0) { var open = g.state.indexOf('O'); this.focus = open >= 0 ? open : w.current; }
+    // older saves can show a locked field (not discovered yet, or a next field): show an open field instead
+    if (this.vis[this.focus] < 2) { var open = g.state.indexOf('O'); this.focus = open >= 0 ? open : w.current; }
     if (this.hasProgress()) this.say(this.T('welcome'), 'info');
     return true;
   }
@@ -1456,11 +1456,28 @@ class Component extends DCLogic {
   }
 
   // ---------- camera ----------
-  galaxyScale() { return Math.min(this.VW, this.VH) / this.world().W; }
+  galaxyScale() { return this.camFor('galaxy').s; }
+  // the box around the given fields, in world units
+  fieldsBox(ids) {
+    var w = this.world(), b = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
+    ids.forEach(function (i) { var f = w.fields[i]; b.x0 = Math.min(b.x0, f.x0); b.y0 = Math.min(b.y0, f.y0); b.x1 = Math.max(b.x1, f.x1); b.y1 = Math.max(b.y1, f.y1); });
+    return b;
+  }
+  // the box around all fields of the galaxy
+  galaxyBox() {
+    var w = this.world();
+    return w.box || (w.box = this.fieldsBox(w.fields.map(function (f) { return f.i; })));
+  }
   camFor(kind, fi) {
-    var w = this.world(), f = w.fields[fi], VW = this.VW, VH = this.VH;
-    var cx = (f.x0 + f.x1) / 2, cy = (f.y0 + f.y1) / 2;
-    if (kind === 'galaxy') return { x: w.W / 2, y: w.W / 2, s: this.galaxyScale() * 0.98 };
+    var w = this.world(), VW = this.VW, VH = this.VH;
+    if (kind === 'galaxy') {
+      // the whole shape of the galaxy, in the middle of the space above the score card (see renderScore)
+      // (on a very short screen, the score card gets at most a third of the height)
+      var b = this.galaxyBox(), below = Math.min(Component.SCORE_H + 12, VH / 3);
+      var sg = Math.min((VW - 16) / (b.x1 - b.x0), Math.max(8, VH - below - 16) / (b.y1 - b.y0));
+      return { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 + below / 2 / sg, s: sg };
+    }
+    var f = w.fields[fi], cx = (f.x0 + f.x1) / 2, cy = (f.y0 + f.y1) / 2;
     if (kind === 'area') return { x: cx, y: cy, s: 9 / w.P };
     if (f.round) {
       // the round core: the whole circle with its ring when its letters are big enough to tap,
@@ -1483,10 +1500,9 @@ class Component extends DCLogic {
   }
   // the whole field and the fields in 'more', centred, even if letters get smaller than usual
   camFit(fi, more) {
-    var w = this.world(), x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-    [fi].concat(more || []).forEach(function (i) { var f = w.fields[i]; x0 = Math.min(x0, f.x0); y0 = Math.min(y0, f.y0); x1 = Math.max(x1, f.x1); y1 = Math.max(y1, f.y1); });
-    var s = Math.min((this.VW - 36) / (x1 - x0), (this.VH - 36) / (y1 - y0), 2.4);
-    return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, s: s };
+    var b = this.fieldsBox([fi].concat(more || []));
+    var s = Math.min((this.VW - 36) / (b.x1 - b.x0), (this.VH - 36) / (b.y1 - b.y0), 2.4);
+    return { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, s: s };
   }
   fieldScale(fi) { return this.camFor('field', fi).s; }
   clampCam() {
@@ -1705,17 +1721,15 @@ class Component extends DCLogic {
     if (this.loMissing) this.paint();
   }
 
-  // the round core opens when this many fields next to it are solved
-  coreNeed() { return Math.min(3, this.world().fields[0].nbList.length); }
+  // the core opens when 3 fields next to it are solved; in hard galaxies, when all of them are solved
+  coreNeed() { var n = this.world().fields[0].nbList.length; return this.coreAll() ? n : Math.min(3, n); }
+  coreAll() { return this.level === 'hard'; }
   coreSolvedNext() { var g = this.game; return this.world().fields[0].nbList.filter(function (j) { return g.state[j] === 'S'; }).length; }
   coreReady() { return this.coreSolvedNext() >= this.coreNeed(); }
-  lockedMsg(fi) {
-    var f = this.world().fields[fi];
-    if (f.round) return this.T('coreGate', this.coreNeed(), this.coreSolvedNext());
-    return this.vis && this.vis[fi] === 0 ? this.T('hidden') : this.T('locked', f.name);
-  }
+  // the message for a tap on the locked core (other locked fields can not be tapped)
+  coreGateMsg() { return this.T(this.coreAll() ? 'coreGateAll' : 'coreGate', this.coreNeed(), this.coreSolvedNext()); }
 
-  // What the player sees of each field: 2 all (open, solved, and the core), 1 only the outline and the difficulty
+  // What the player sees of each field: 2 all (open, solved, and the core), 1 only the cells and the outline
   // (a locked field next to an open or solved one), 0 nothing (the rest of the galaxy is not discovered yet)
   recalcVis() {
     var w = this.world(), g = this.game;
@@ -1774,6 +1788,8 @@ class Component extends DCLogic {
   zoomLevel() {
     var s = this.cam.s;
     if (s >= this.fieldScale(this.focus) * 0.7) return 2;
+    // the view of the whole galaxy is level 0, also on a big screen where it is close to the area view
+    if (s <= this.galaxyScale() * 1.1) return 0;
     if (s >= this.camFor('area', this.focus).s * 0.5) return 1;
     return 0;
   }
@@ -2531,34 +2547,30 @@ class Component extends DCLogic {
     for (var j = 0; j < w.cells.length; j++) { var x = g.cellWord[j]; if (x >= 0 && g.words[x].correct) done++; }
     return done / w.cells.length;
   }
-  // zoomed out: the percent on open fields that are started
+  // zoomed out: the difficulty and the percent done on open fields
   renderBadges(ox, oy, s) {
-    var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, VW = this.VW, VH = this.VH, prog = this.fieldProgress();
-    ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    var self = this;
+    var w = this.world(), g = this.game, prog = this.fieldProgress(), self = this;
+    // open fields: their difficulty in its colour, and how much of the field is done.
+    // When the field is too small for that, only how much is done.
     w.fields.forEach(function (f) {
-      if (g.state[f.i] !== 'O' || !(prog[f.i] > 0)) return;
-      var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
-      if (fw < 14 || fh < 14) return;
-      var cx = (f.x0 + f.x1) / 2 * s + ox, cy = (f.y0 + f.y1) / 2 * s + oy;
-      if (cx < -30 || cy < -30 || cx > VW + 30 || cy > VH + 30) return;
-      var txt = Math.round(prog[f.i] * 100) + '%', tw = Math.max(30, ctx.measureText(txt).width + 12), th = 19;
-      ctx.fillStyle = 'rgba(17,26,51,0.92)'; ctx.strokeStyle = '#7fb2ff'; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, th / 2); else ctx.rect(cx - tw / 2, cy - th / 2, tw, th);
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#eef0f7'; ctx.fillText(txt, cx, cy + 0.5);
+      if (g.state[f.i] !== 'O' || f.round) return;
+      var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s, done = prog[f.i] > 0 ? Math.round(prog[f.i] * 100) + '%' : '';
+      if (fw >= 44 && fh >= 22) self.fieldLabel(f.i, self.tierName(f.tier) + (done ? ' · ' + done : ''), Component.TIER_COLORS[f.tier] || '#b0baec', ox, oy, s);
+      else if (done && fw >= 14 && fh >= 14) self.fieldLabel(f.i, done, 'rgba(17,26,51,0.92)', ox, oy, s, '#eef0f7', '#7fb2ff');
     });
   }
 
+  tierName(t) { return this.T('tiers').split('|')[t] || ''; }
   // one colour for each difficulty, from green (very easy) to violet (master)
   static get TIER_COLORS() { return ['', '#7fd17a', '#b9dc63', '#f2c063', '#f39a4b', '#ee6262', '#c584ff']; }
 
+  // the height of the score card
+  static get SCORE_H() { return 92; }
   // The score card, at the bottom of the view of the whole galaxy, so a screenshot shows it:
   // the galaxy, the share of solved fields, and the share of all fields with each rating (best: 100% perfect).
   renderScore() {
     var ctx = this.dctx || this.ctx, VW = this.VW, VH = this.VH, rc = this.ratingCounts(), self = this;
-    var W = Math.min(VW - 24, 380), H = 92, x0 = (VW - W) / 2, y0 = VH - H - 12, pad = 14;
+    var W = Math.min(VW - 24, 380), H = Component.SCORE_H, x0 = (VW - W) / 2, y0 = VH - H - 12, pad = 14;
     ctx.save();
     ctx.fillStyle = 'rgba(12,18,40,0.9)'; ctx.strokeStyle = 'rgba(242,192,99,0.55)'; ctx.lineWidth = 1.2;
     ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0, y0, W, H, 14); else ctx.rect(x0, y0, W, H); ctx.fill(); ctx.stroke();
@@ -2588,32 +2600,31 @@ class Component extends DCLogic {
     ctx.restore();
   }
 
-  // the difficulty of the next fields, in the middle of each: the name on a pill in the colour of the difficulty
-  renderNextLabels(ox, oy, s) {
-    var ctx = this.dctx || this.ctx, w = this.world(), vis = this.vis, VW = this.VW, VH = this.VH, names = this.T('tiers').split('|');
-    if (!vis) return;
+  // the middle of the cells of a field, in world units
+  fieldMiddle(fi) {
+    var w = this.world(), f = w.fields[fi], cache = w.mids || (w.mids = {});
+    if (cache[fi]) return cache[fi];
+    var sx = 0, sy = 0;
+    f.cells.forEach(function (j) { var o = w.cells[j]; sx += o.x + o.p / 2; sy += o.y + o.p / 2; });
+    return (cache[fi] = { x: sx / f.cells.length, y: sy / f.cells.length });
+  }
+  // a label on a pill in the middle of the cells of a field (the box of an irregular field can have its middle outside the field).
+  // Without ink and edge: dark text on the colour with a dark edge.
+  fieldLabel(fi, txt, colour, ox, oy, s, ink, edge) {
+    var ctx = this.dctx || this.ctx, m = this.fieldMiddle(fi), VW = this.VW, VH = this.VH;
+    var cx = m.x * s + ox, cy = m.y * s + oy;
+    if (cx < -60 || cy < -20 || cx > VW + 60 || cy > VH + 20) return;
     ctx.font = '800 11px Archivo, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    w.fields.forEach(function (f) {
-      if (vis[f.i] !== 1) return;
-      var fw = (f.x1 - f.x0) * s, fh = (f.y1 - f.y0) * s;
-      if (fw < 44 || fh < 22) return;
-      // the middle of the cells (the box of an irregular field can have its middle outside the field)
-      var sx = 0, sy = 0;
-      f.cells.forEach(function (j) { var o = w.cells[j]; sx += o.x + o.p / 2; sy += o.y + o.p / 2; });
-      var cx = sx / f.cells.length * s + ox, cy = sy / f.cells.length * s + oy;
-      if (cx < -40 || cy < -20 || cx > VW + 40 || cy > VH + 20) return;
-      var txt = names[f.tier] || '', tw = ctx.measureText(txt).width + 14, th = 19;
-      ctx.fillStyle = Component.TIER_COLORS[f.tier] || '#b0baec'; ctx.strokeStyle = 'rgba(6,9,19,0.85)'; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, th / 2); else ctx.rect(cx - tw / 2, cy - th / 2, tw, th);
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#141a2e'; ctx.fillText(txt, cx, cy + 0.5);
-    });
+    var tw = Math.max(30, ctx.measureText(txt).width + 14), th = 19;
+    ctx.fillStyle = colour; ctx.strokeStyle = edge || 'rgba(6,9,19,0.85)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, th / 2); else ctx.rect(cx - tw / 2, cy - th / 2, tw, th);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = ink || '#141a2e'; ctx.fillText(txt, cx, cy + 0.5);
   }
 
   renderOverlay(ox, oy, s) {
     var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, f = w.fields[this.focus], VW = this.VW, VH = this.VH;
-    this.renderNextLabels(ox, oy, s);
     if (s < this.fieldScale(this.focus) * 0.75) { this.renderBadges(ox, oy, s); return; }
     var x0 = f.x0 * s + ox, x1 = f.x1 * s + ox, y0 = f.y0 * s + oy, y1 = f.y1 * s + oy;
     var more = { l: x0 < -4, r: x1 > VW + 4, t: y0 < -4, b: y1 > VH + 4 };
@@ -2721,8 +2732,8 @@ class Component extends DCLogic {
       }, this);
       if (near) o = near;
     }
-    // a field that is not discovered yet does not show: a touch there is a touch on empty space
-    if (o && this.vis && this.vis[o.f] === 0) o = null;
+    // a field that is locked (not discovered yet, or a next field) can not be played: a touch there is a touch on empty space
+    if (o && this.vis && this.vis[o.f] < 2) o = null;
     if (!mouseRight && o && o.f === this.focus && this.canPaint()) {
       if (g.cellWord[o.i] >= 0) {
         var self = this, wid = g.cellWord[o.i];
@@ -2757,6 +2768,8 @@ class Component extends DCLogic {
     var g = this.game, d = this.drag;
     d.changed.forEach(function (j) { if (d.add) { delete g.sel[j]; g.selN--; } else { g.sel[j] = 1; g.selN++; } });
     this.dirtyCells(d.changed, 1);
+    // the word in the message bar shows the selection too
+    this.bump();
   }
 
   move(e) {
@@ -2866,13 +2879,13 @@ class Component extends DCLogic {
       this.save();
       g.sel = {}; g.selN = 0;
       var st = g.state[o.f];
-      this.say(st === 'L' ? this.lockedMsg(o.f) : st === 'S' ? this.T('isSolved', f.name) : this.T('howTo'), st === 'L' ? 'warn' : 'info');
+      this.say(st === 'L' ? this.coreGateMsg() : st === 'S' ? this.T('isSolved', f.name) : this.T('howTo'), st === 'L' ? 'warn' : 'info');
       this.flyTo(this.camFor('field', o.f));
       this.bump();
       return;
     }
     if (g.cellWord[o.i] >= 0) { var mn = this.meaning(g.words[g.cellWord[o.i]].word); this.say(mn.text, 'info', mn.title); this.bump(); }
-    else if (g.state[o.f] === 'L') { this.say(this.lockedMsg(o.f), 'warn'); this.bump(); }
+    else if (g.state[o.f] === 'L') { this.say(this.coreGateMsg(), 'warn'); this.bump(); }
     else if (g.state[o.f] === 'S') { this.say(this.T('solvedOther', f.name), 'info'); this.bump(); }
   }
 
@@ -2967,7 +2980,7 @@ class Component extends DCLogic {
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
       this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + this.ratedText(fi));
-      if (coreOpened) this.say(this.T('coreOpen', this.coreNeed()), 'good', cheer + this.T('fieldSolved', f.name));
+      if (coreOpened) this.say(this.T(this.coreAll() ? 'coreOpenAll' : 'coreOpen', this.coreNeed()), 'good', cheer + this.T('fieldSolved', f.name));
       if (allSolved) this.say(this.T('allDone', g.state.length), 'good', this.T('allTitle'));
       else if (core0 && fi === 0) { var nS = g.state.filter(function (x) { return x === 'S'; }).length; this.say(this.T('coreDone', nS, g.state.length), 'good', this.T('finaleTitle')); }
     } else {
@@ -2998,7 +3011,7 @@ class Component extends DCLogic {
   // test mode: put the correct words into the shown field, one by one, as if the player found them
   doCheat() {
     var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi], self = this;
-    if (g.state[fi] !== 'O') { this.say(g.state[fi] === 'S' ? this.T('isSolved', f.name) : this.lockedMsg(fi), 'warn'); this.bump(); return; }
+    if (g.state[fi] !== 'O') { this.say(g.state[fi] === 'S' ? this.T('isSolved', f.name) : this.coreGateMsg(), 'warn'); this.bump(); return; }
     f.regions.slice().forEach(function (gi) {
       if (g.state[fi] !== 'O') return;
       var reg = w.regions[gi], cw = g.cellWord[reg.cells[0]];
@@ -3405,8 +3418,9 @@ class Component extends DCLogic {
     var self = this, w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi];
     var MODS = { FOG: 'fog', GIFT: 'gift word', STAR: 'star cell', THEME: 'theme: space' };
     var STATE = { S: 'solved', O: 'open', L: 'locked' };
-    var pips = '';
-    for (var q = 0; q < 6; q++) pips += q < f.tier ? '●' : '○';
+    // a locked field does not show its difficulty yet
+    var pips = '', locked = g.state[fi] === 'L';
+    if (!locked) for (var q = 0; q < 6; q++) pips += q < f.tier ? '●' : '○';
     var meta = f.shape + ' · ' + f.words + ' words · ' + f.len[0] + '–' + f.len[1] + ' letters';
     if (f.mods.length) meta += ' · ' + f.mods.map(function (m) { return MODS[m]; }).join(', ');
     var covered = f.cells.filter(function (j) { return g.cellWord[j] >= 0; }).length;
@@ -3419,8 +3433,8 @@ class Component extends DCLogic {
       canvasRef: this.canvasRef, loRef: this.loRef, ovRef: this.ovRef, zoomRef: this.zoomRef, onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onWheel: this.onWheel, onMenu: this.onMenu,
       clearSel: this.clearSel, accept: this.accept, useLight: this.useLight, starNo: this.starNo, starYes: this.starYes, starAsk: this.starAskVals(),
       focusName: f.name, focusPips: pips,
-      focusLevel: this.T('tiers').split('|')[f.tier], focusLevelColor: Component.TIER_COLORS[f.tier] || '',
-      focusProgress: g.state[fi] === 'S' ? this.ratingName(this.rating(fi)) : g.state[fi] === 'L' ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
+      focusLevel: locked ? '?' : this.tierName(f.tier), focusLevelColor: locked ? '#9aa3c4' : Component.TIER_COLORS[f.tier] || '',
+      focusProgress: g.state[fi] === 'S' ? this.ratingName(this.rating(fi)) : locked ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
       focusProgressColor: g.state[fi] === 'S' ? Component.RATING_COLORS[this.rating(fi)] : '',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
       lightLeft: left, zoomBtns: zoomBtns,
