@@ -163,7 +163,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = 'af71d9daf8';
+var BUILD = '95b3c9d909';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -187,7 +187,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=6a5d05b5f7"></script>
+<script src="game.js?v=48df515131"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -274,15 +274,11 @@ window.loadWords = function (lang, cb) {
     return '<svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true"><path d="M13 2h6l-3 12h-6zM21 2h6l1 12h-6z" fill="#5a6aa8"/>' +
       '<circle cx="20" cy="25" r="12" fill="' + col + '" stroke="#0a1029" stroke-width="2"/><circle cx="20" cy="25" r="7" fill="none" stroke="rgba(10,16,41,.35)" stroke-width="2"/></svg>';
   }
-  // a small grid: a word shape with an orange frame and "?" (shows a word), or a word with a red dashed line and "x" (marks wrong words)
-  function actSvg(kind) {
-    var word = kind !== 'wrong', on = word ? { '0,1': 1, '1,1': 1, '1,2': 1, '2,2': 1 } : { '0,0': 1, '0,1': 1, '1,1': 1, '1,2': 1 }, out = '';
-    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) {
-      var hit = on[r + ',' + c];
-      out += '<rect x="' + (c * 13 + 1) + '" y="' + (r * 13 + 1) + '" width="11" height="11" rx="2" fill="' + (hit ? (word ? 'rgba(242,160,40,.35)' : '#f4b26b') : '#f4efe4') + '"/>';
-    }
-    out += word ? '<path d="M13 0H25V13H38V39H25V26H13Z" fill="none" stroke="#f2a028" stroke-width="2.4" stroke-linejoin="round"/><circle cx="46" cy="7" r="7" fill="#f2a028"/><text x="46" y="11" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="11" fill="#1d2433">?</text>'
-      : '<path d="M0 0H25V13H38V26H12V13H0Z" fill="none" stroke="#ee6262" stroke-width="2.4" stroke-dasharray="4 3" stroke-linejoin="round"/><circle cx="46" cy="7" r="7" fill="#ee6262"/><path d="M43 4l6 6M49 4l-6 6" stroke="#fff" stroke-width="2"/>';
+  // a small grid of letters with a "?": the same picture for each kind of help, so the bubble does not tell whether the words are right
+  function helpSvg() {
+    var out = '';
+    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) out += '<rect x="' + (c * 13 + 1) + '" y="' + (r * 13 + 1) + '" width="11" height="11" rx="2" fill="#f4efe4"/>';
+    out += '<circle cx="46" cy="7" r="7" fill="#f2c063"/><text x="46" y="11" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="11" fill="#1d2433">?</text>';
     return '<svg width="50" height="37" viewBox="0 0 54 40" aria-hidden="true">' + out + '</svg>';
   }
   function showStarAsk(a) {
@@ -290,7 +286,7 @@ window.loadWords = function (lang, cb) {
     box.classList.toggle('hidden', !a);
     if (!a) return;
     $('saKind').textContent = a.tKind;
-    $('saIcon').innerHTML = actSvg(a.kind);
+    $('saIcon').innerHTML = helpSvg();
     $('saIcon').title = a.tKind;
     var col = a.ok ? '#f2c063' : '#ee6262';
     $('saPrice').style.color = col;

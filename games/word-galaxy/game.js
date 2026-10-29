@@ -130,7 +130,7 @@ class Component extends DCLogic {
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
         noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.',
-        starAskWord: 'The star shows the shape of a word.', starAskWrong: 'The star marks the wrong words.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} ★ · {1} missing', nextCost: 'The next star in this field costs {0}.',
+        starAskHelp: 'The star helps in this field.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} ★ · {1} missing', nextCost: 'The next star in this field costs {0}.',
         ratings: 'Perfect|Great|Good|Solved', rated1: ' {0}: 1 star used.', ratedN: ' {0}: {1} stars used.', scoreFields: '{0} of {1} fields · {2}%',
         deadEnd: 'No word can use these free letters any more: {0}. A word needs at least 4 touching letters. Remove a word, or use a star.', deadEndTitle: '{0}: dead end',
         starBlock: 'A star shows the words that cause the dead end: {0}. Remove them.', starStillRed: 'The red words still cause the dead end. Remove them first.',
@@ -175,7 +175,7 @@ class Component extends DCLogic {
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
         noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.',
-        starAskWord: 'Der Stern zeigt die Form eines Worts.', starAskWrong: 'Der Stern markiert die falschen Wörter.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: '{0} ★ · {1} fehlen', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
+        starAskHelp: 'Der Stern hilft in diesem Feld.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: '{0} ★ · {1} fehlen', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
         ratings: 'Perfekt|Sehr gut|Gut|Gelöst', rated1: ' {0}: 1 Stern genutzt.', ratedN: ' {0}: {1} Sterne genutzt.', scoreFields: '{0} von {1} Feldern · {2} %',
         deadEnd: 'Kein Wort kann diese freien Buchstaben mehr nutzen: {0}. Ein Wort braucht mindestens 4 Buchstaben, die sich berühren. Entferne ein Wort oder nutze einen Stern.', deadEndTitle: '{0}: Sackgasse',
         starBlock: 'Ein Stern zeigt die Wörter, die die Sackgasse verursachen: {0}. Entferne sie.', starStillRed: 'Die roten Wörter verursachen die Sackgasse noch. Entferne sie zuerst.',
@@ -3406,10 +3406,11 @@ class Component extends DCLogic {
     var fi = a.fi, cost = this.starCost(fi), have = this.starsLeft(), used = g.used[fi] || 0;
     var from = Math.min(3, used), to = Math.min(3, used + 1), RC = Component.RATING_COLORS;
     return {
-      kind: a.plan.kind, cost: cost, have: have, ok: have >= cost, changes: from !== to,
+      cost: cost, have: have, ok: have >= cost, changes: from !== to,
       fromName: this.ratingName(from), toName: this.ratingName(to), fromColor: RC[from], toColor: RC[to],
       tAfter: have >= cost ? have + ' → ' + (have - cost) : this.T('starMissing', have, cost - have),
-      tKind: this.T(a.plan.kind === 'wrong' ? 'starAskWrong' : 'starAskWord'), tNo: this.T('starAskNo'), tYes: this.T('starAskYes', cost)
+      // the same text for each kind of help: else the bubble would tell, for free, whether the words are right
+      tKind: this.T('starAskHelp'), tNo: this.T('starAskNo'), tYes: this.T('starAskYes', cost)
     };
   }
 
