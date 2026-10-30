@@ -34,16 +34,11 @@ class Component extends DCLogic {
       if (c && c.action) c.action(); else if (c && c.seed != null) self.reseed(c.seed); else self.bump();
     };
     this.shareProgress = function () { self.menuOpen = false; self.doShare(); };
-    // test mode: open the game once with ?cheat=1 (and ?cheat=0 to stop); the menu then can solve the shown field
-    this.cheat = false;
-    try {
-      var cq = (typeof location !== 'undefined' && location.search) || '';
-      if (/[?&]cheat=1/.test(cq)) localStorage.setItem('wordgalaxy:cheat', '1');
-      if (/[?&]cheat=0/.test(cq)) localStorage.removeItem('wordgalaxy:cheat');
-      this.cheat = localStorage.getItem('wordgalaxy:cheat') === '1';
-    } catch (e) {}
-    this.cheatSolve = function () { self.menuOpen = false; self.doCheat(); };
     this.redoField = function () { self.menuOpen = false; self.askRedo(self.focus); };
+    this.openHow = function () { self.menuOpen = false; self.howOpen = true; self.bump(); };
+    this.closeHow = function () { self.howOpen = false; self.bump(); };
+    this.guideSkip = function () { self.endGuide(); };
+    this.shareCard = function () { self.doShareCard(); };
     this.onSeedInput = function (e) { self.seedText = e.target.value; self.bump(); };
     this.buildSeed = function () {
       var n = parseInt(String(self.seedText).replace(/[^0-9]/g, ''), 10);
@@ -67,6 +62,7 @@ class Component extends DCLogic {
       try { localStorage.setItem(this.saveKey(this.lang, 'backup'), JSON.stringify(saved)); } catch (e) {}
       this.say(this.T('saveBroken'), 'warn');
     }
+    this.startGuide();
     var start = (props && props.start) || 'field';
     this.cam = this.camFor(start, this.focus);
     this.ptrs = {};
@@ -131,6 +127,19 @@ class Component extends DCLogic {
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
         noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.',
         starAskHelp: 'The star helps in this field.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} ★ · {1} missing', nextCost: 'The next star in this field costs {0}.',
+        guideStep: 'Step {0} of 3', guideSkip: 'Skip', guideOk: 'Start playing',
+        guide1: 'Swipe over the letters of a word, then tap ✓. A word has 4 or more letters. The letters are read from left to right, then from top to bottom.',
+        guide2: 'Good! Now use every letter of this field. A long press on a word removes it.',
+        guide3: 'The field is solved, so the fields next to it are open now. Find a way to the core in the middle of the galaxy. "How to play" in the menu has all the rules.',
+        howBtn: 'How to play', howTitle: 'How to play',
+        how1: 'Swipe over letters to select a word. Then tap ✓.',
+        how2: 'The letters are read from left to right, then from top to bottom.',
+        how3: 'A word has 4 or more letters. Its letters must touch.',
+        how4: 'Use every letter of a field. Then the fields next to it open.',
+        how5: 'Find a way to the Galactic Core in the middle. It opens when the fields next to it are solved.',
+        how6: 'Stuck? A star shows a hint. Each star in a field costs 1 more. A field without a star is Perfect.',
+        cardShare: 'Share the score card as a picture', cardSaved: 'The picture of the score card is saved.', cardFail: 'Could not make the picture ({0}).',
+        cardText: 'Word Galaxy {0} ({1}): {2} of {3} fields solved, {4}% perfect.',
         hiOn1: '{0}: 1 field is highlighted. Tap it to go there. The menu can play it again.', hiOnN: '{0}: {1} fields are highlighted. Tap one to go there. The menu can play it again.',
         hiNone: 'No field has the rating {0}.', hiOff: 'No field is highlighted.', hiAria: 'Highlight the fields with the rating {0}',
         ratings: 'Perfect|Great|Good|Solved', rated1: ' {0}: 1 star used.', ratedN: ' {0}: {1} stars used.', scoreFields: '{0} of {1} fields · {2}%',
@@ -145,7 +154,7 @@ class Component extends DCLogic {
         menu: 'Menu', starsAria: 'Use one star for a hint ({0} left, a star costs {1} in this field)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
         zGalaxy: 'Show the whole galaxy ({0}% done)', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
-        menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', cheat: '🪄 Solve this field (test)', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
+        menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
         ngTitle: 'New galaxy', ngLevel: 'Difficulty', ngNumber: 'Galaxy number', ngRandom: 'Random', ngStart: 'Start', ngCancel: 'Cancel',
         loadingWords: 'Loading the words…', loadFail: 'Could not load the words. Check the connection and try again.', firstGame: 'Choose how hard your galaxy should be.'
       },
@@ -178,6 +187,19 @@ class Component extends DCLogic {
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
         noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.',
         starAskHelp: 'Der Stern hilft in diesem Feld.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: '{0} ★ · {1} fehlen', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
+        guideStep: 'Schritt {0} von 3', guideSkip: 'Überspringen', guideOk: 'Los geht’s',
+        guide1: 'Wische über die Buchstaben eines Worts, dann tippe auf ✓. Ein Wort hat 4 oder mehr Buchstaben. Die Buchstaben werden von links nach rechts gelesen, dann von oben nach unten.',
+        guide2: 'Gut! Nutze jetzt jeden Buchstaben dieses Felds. Halte ein Wort gedrückt, um es zu entfernen.',
+        guide3: 'Das Feld ist gelöst, darum sind die Felder daneben jetzt offen. Finde einen Weg zum Kern in der Mitte der Galaxie. „So geht’s“ im Menü hat alle Regeln.',
+        howBtn: 'So geht’s', howTitle: 'So geht’s',
+        how1: 'Wische über Buchstaben, um ein Wort zu wählen. Dann tippe auf ✓.',
+        how2: 'Die Buchstaben werden von links nach rechts gelesen, dann von oben nach unten.',
+        how3: 'Ein Wort hat 4 oder mehr Buchstaben. Seine Buchstaben müssen sich berühren.',
+        how4: 'Nutze jeden Buchstaben eines Felds. Dann öffnen sich die Felder daneben.',
+        how5: 'Finde einen Weg zum Galaktischen Kern in der Mitte. Er öffnet sich, wenn die Felder daneben gelöst sind.',
+        how6: 'Kommst du nicht weiter? Ein Stern zeigt einen Hinweis. Jeder Stern in einem Feld kostet 1 mehr. Ein Feld ohne Stern ist Perfekt.',
+        cardShare: 'Die Punktekarte als Bild teilen', cardSaved: 'Das Bild der Punktekarte ist gespeichert.', cardFail: 'Das Bild konnte nicht erstellt werden ({0}).',
+        cardText: 'Word Galaxy {0} ({1}): {2} von {3} Feldern gelöst, {4} % perfekt.',
         hiOn1: '{0}: 1 Feld ist hervorgehoben. Tippe darauf, um dorthin zu gehen. Im Menü kannst du es neu spielen.', hiOnN: '{0}: {1} Felder sind hervorgehoben. Tippe auf eines, um dorthin zu gehen. Im Menü kannst du es neu spielen.',
         hiNone: 'Kein Feld hat die Bewertung {0}.', hiOff: 'Kein Feld ist hervorgehoben.', hiAria: 'Felder mit der Bewertung {0} hervorheben',
         ratings: 'Perfekt|Sehr gut|Gut|Gelöst', rated1: ' {0}: 1 Stern genutzt.', ratedN: ' {0}: {1} Sterne genutzt.', scoreFields: '{0} von {1} Feldern · {2} %',
@@ -192,7 +214,7 @@ class Component extends DCLogic {
         menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig, ein Stern kostet {1} in diesem Feld)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
         zGalaxy: 'Die ganze Galaxie zeigen ({0}% geschafft)', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
-        menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', cheat: '🪄 Feld lösen (Test)', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
+        menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
         ngTitle: 'Neue Galaxie', ngLevel: 'Schwierigkeit', ngNumber: 'Galaxie-Nummer', ngRandom: 'Zufällig', ngStart: 'Starten', ngCancel: 'Abbrechen',
         loadingWords: 'Die Wörter werden geladen …', loadFail: 'Die Wörter konnten nicht geladen werden. Prüfe die Verbindung und versuche es noch einmal.', firstGame: 'Wähle, wie schwer deine Galaxie sein soll.'
       }
@@ -1258,6 +1280,7 @@ class Component extends DCLogic {
         self.seedMode = false;
         self.save();
         self.say(self.T('ready', n), 'good');
+        self.startGuide();
         self.cam = self.camFor('galaxy', self.focus);
         self.paint(); self.bump();
         self.flyTo(self.camFor('field', self.focus));
@@ -1427,6 +1450,7 @@ class Component extends DCLogic {
     this.newGame();
     this.focus = this.world().current;
     if (sv) this.restore(sv); else this.say(this.T('howTo'), 'info');
+    this.startGuide();
     this.dirtyAll();
     this.cam = this.camFor('field', this.focus);
     if (!sv) { this.save(); this.newOpen = true; this.newLevel = this.level; this.seedText = String(Math.floor(Math.random() * 1000000)); this.say(this.T('firstGame'), 'info'); }
@@ -1496,13 +1520,15 @@ class Component extends DCLogic {
       return { x: f.round.cx, y: Math.min(f.round.cy, y0), s: s0 };
     }
     var fw = f.x1 - f.x0, fh = f.y1 - f.y0;
-    var s = Math.min((VW - 28) / fw, (VH - 28) / fh, 2.4);
+    // while the guide shows, its card covers the bottom of the map: the field fits above it
+    var below = this.guide ? Math.min(Component.GUIDE_H, VH / 3) : 0;
+    var s = Math.min((VW - 28) / fw, (VH - below - 28) / fh, 2.4);
     // the whole field fits with letters of 32 px or more: show it all; else use 40 px letters and pan
     if (s * w.P < 32) s = this.MIN_TILE / w.P;
-    var x = cx, y = cy;
+    var x = cx, y = cy + below / 2 / s;
     // too big to fit: start at the top left, where reading starts
     if (fw * s > VW - 28) x = f.x0 - 14 / s + VW / 2 / s;
-    if (fh * s > VH - 28) y = f.y0 - 14 / s + VH / 2 / s;
+    if (fh * s > VH - below - 28) y = f.y0 - 14 / s + VH / 2 / s;
     return { x: x, y: y, s: s };
   }
   // the whole field and the fields in 'more', centred, even if letters get smaller than usual
@@ -2580,7 +2606,7 @@ class Component extends DCLogic {
   // the place of the score card on the screen, and of each rating in it (each rating is a button, see pickRating)
   scoreLayout() {
     var VW = this.VW, W = Math.min(VW - 24, 380), H = Component.SCORE_H, x0 = (VW - W) / 2, y0 = this.VH - H - 12, pad = 14, cw = (W - 2 * pad) / 4;
-    return { x0: x0, y0: y0, W: W, H: H, pad: pad,
+    return { x0: x0, y0: y0, W: W, H: H, pad: pad, share: { x: x0 + W - pad - 30, y: y0 + 4, w: 30, h: 28 },
       items: [0, 1, 2, 3].map(function (r) { return { x: x0 + pad + r * cw - 6, y: y0 + 52, w: cw - 2, h: 36 }; }) };
   }
   renderScore() {
@@ -2594,7 +2620,8 @@ class Component extends DCLogic {
     ctx.font = '800 13px Archivo, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#eef0f7';
     ctx.fillText(this.T('menuGalaxy', this.seed, this.levelName(this.level)), x0 + pad, y0 + 18);
     ctx.textAlign = 'right'; ctx.fillStyle = '#f2c063';
-    ctx.fillText(this.T('scoreFields', rc.done, rc.all, this.pct(rc.done, rc.all)), x0 + W - pad, y0 + 18);
+    // (the share button sits at the right end of this line; the picture to share has no button)
+    ctx.fillText(this.T('scoreFields', rc.done, rc.all, this.pct(rc.done, rc.all)), x0 + W - pad - (this.cardOnly ? 0 : 38), y0 + 18);
     // line 2: one bar for all fields, a part for each rating
     var bx = x0 + pad, bw = W - 2 * pad, by = y0 + 34, bh = 10, at = bx;
     ctx.fillStyle = 'rgba(255,255,255,0.1)';
@@ -2690,6 +2717,7 @@ class Component extends DCLogic {
       if (this.hiRating != null) this.renderHighlight(ox, oy, s); else this.renderBadges(ox, oy, s);
       return;
     }
+    this.renderGuideHand(ox, oy, s);
     var x0 = f.x0 * s + ox, x1 = f.x1 * s + ox, y0 = f.y0 * s + oy, y1 = f.y1 * s + oy;
     var more = { l: x0 < -4, r: x1 > VW + 4, t: y0 < -4, b: y1 > VH + 4 };
     if (!more.l && !more.r && !more.t && !more.b) return;
@@ -3018,6 +3046,7 @@ class Component extends DCLogic {
       return;
     }
     var full = f.cells.every(function (j) { return g.cellWord[j] >= 0; });
+    this.guideEvent(full ? 'solved' : 'word');
     if (full) {
       g.state[fi] = 'S';
       var opened = [], openedIds = [];
@@ -3070,31 +3099,6 @@ class Component extends DCLogic {
     });
     var c = 0; while (taken[c]) c++;
     return c;
-  }
-
-  // test mode: put the correct words into the shown field, one by one, as if the player found them
-  doCheat() {
-    var w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi], self = this;
-    if (g.state[fi] !== 'O') { this.say(g.state[fi] === 'S' ? this.T('isSolved', f.name) : this.coreGateMsg(), 'warn'); this.bump(); return; }
-    f.regions.slice().forEach(function (gi) {
-      if (g.state[fi] !== 'O') return;
-      var reg = w.regions[gi], cw = g.cellWord[reg.cells[0]];
-      if (cw >= 0 && g.words[cw].alive && g.words[cw].correct) return;
-      // words in the way are taken away first
-      reg.cells.forEach(function (j) {
-        var k = g.cellWord[j];
-        if (k < 0) return;
-        var wd = g.words[k];
-        self.dirtyCells(wd.cells, 1);
-        wd.alive = false; wd.cells.forEach(function (q) { g.cellWord[q] = -1; });
-        delete g.wrongMarked[wd.id];
-      });
-      g.sel = {}; g.selN = reg.cells.length;
-      reg.cells.forEach(function (j) { g.sel[j] = 1; });
-      self.doAccept();
-    });
-    g.sel = {}; g.selN = 0;
-    this.save(); this.paint(); this.bump();
   }
 
   // removes a word; its letters stay selected, so the player can change the selection
@@ -3155,6 +3159,126 @@ class Component extends DCLogic {
     this.save();
     this.flyTo(this.camFor('field', fi));
     this.paint(); this.bump();
+  }
+
+  // ---------- the guide for new players: 3 steps on the first field, shown once ----------
+  // Step 1: a finger shows how to swipe a word. Step 2 (after the first word): use every letter.
+  // Step 3 (after the first solved field): find a way to the core. Skip or the last button ends it for good.
+  static get GUIDE_H() { return 150; }
+  guideDone() { try { return localStorage.getItem('wordgalaxy:guide') === 'done'; } catch (e) { return true; } }
+  // (called for each new or loaded galaxy: the guide starts again on the first field of a new galaxy, until it is done)
+  startGuide() {
+    var running = this.guide && this.guide.step === 1;
+    this.guide = null;
+    if (this.guideDone() || this.hasProgress() || this.game.state[this.focus] !== 'O') return;
+    this.guide = { step: 1, walk: this.guideWalk(), t0: Date.now() };
+    if (!running) this.guideLoop();
+  }
+  // the finger walks over the shortest word of the field that is not found: from letter to touching letter
+  guideWalk() {
+    var w = this.world(), g = this.game, f = w.fields[this.focus], best = null;
+    f.regions.forEach(function (gi) {
+      var cs = w.regions[gi].cells;
+      if (cs.some(function (j) { return g.cellWord[j] >= 0; })) return;
+      if (!best || cs.length < best.length) best = cs;
+    });
+    if (!best) return [];
+    var inWord = {}, seen = {}, out = [];
+    best.forEach(function (j) { inWord[j] = 1; });
+    (function go(j) {
+      seen[j] = 1; out.push(j);
+      w.cells[j].nb.forEach(function (q) { if (q >= 0 && inWord[q] && !seen[q]) { go(q); out.push(j); } });
+    })(best[0]);
+    return out;
+  }
+  // step 1 moves the finger: only the overlay is drawn again, each frame
+  guideLoop() {
+    var self = this;
+    if (typeof requestAnimationFrame === 'undefined') return;
+    requestAnimationFrame(function () {
+      if (!self.guide || self.guide.step !== 1) return;
+      if (self._ov) self.drawOverlay();
+      self.guideLoop();
+    });
+  }
+  guideEvent(kind) {
+    var gd = this.guide;
+    if (!gd) return;
+    var step = kind === 'solved' ? 3 : kind === 'word' ? Math.max(gd.step, 2) : gd.step;
+    if (step !== gd.step) { gd.step = step; this.paint(); this.bump(); }
+  }
+  endGuide() {
+    if (!this.guide) return;
+    this.guide = null;
+    try { localStorage.setItem('wordgalaxy:guide', 'done'); } catch (e) {}
+    // the field can use the room of the card again
+    if (this.zoomLevel() === 2) this.flyTo(this.camFor('field', this.focus));
+    this.paint(); this.bump();
+  }
+  // the finger of step 1: it moves along the word and leaves a blue trail, then waits a moment and starts again
+  renderGuideHand(ox, oy, s) {
+    var gd = this.guide, g = this.game;
+    if (!gd || gd.step !== 1 || !gd.walk.length || g.selN || (this.drag && this.drag.mode !== 'pan') || this._anim) return;
+    var ctx = this.dctx || this.ctx, w = this.world(), walk = gd.walk, STEP = 420, PAUSE = 1100;
+    var pts = walk.map(function (j) { var o = w.cells[j]; return { x: (o.x + o.p / 2) * s + ox, y: (o.y + o.p / 2) * s + oy }; });
+    var t = (Date.now() - gd.t0) % ((pts.length - 1) * STEP + PAUSE), k = Math.min(pts.length - 1, t / STEP);
+    var i = Math.floor(k), fr = k - i, j2 = Math.min(i + 1, pts.length - 1);
+    var hx = pts[i].x + (pts[j2].x - pts[i].x) * fr, hy = pts[i].y + (pts[j2].y - pts[i].y) * fr, tile = w.P * s;
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for (var q = 1; q <= i; q++) ctx.lineTo(pts[q].x, pts[q].y);
+    ctx.lineTo(hx, hy);
+    ctx.strokeStyle = 'rgba(37,99,255,0.55)'; ctx.lineWidth = tile * 0.42; ctx.stroke();
+    ctx.beginPath(); ctx.arc(hx, hy, tile * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 10; ctx.fill();
+    ctx.shadowBlur = 0; ctx.strokeStyle = '#2563ff'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.restore();
+  }
+
+  // ---------- the score card as a picture to share ----------
+  // the address of this galaxy: a friend who opens it plays the same galaxy
+  galaxyLink() { return this.shareBase() + '?seed=' + this.seed + '&level=' + this.level + (this.lang === 'de' ? '&lang=de' : ''); }
+  // the map as it is now, the score card on it, and a line with the name and the address of the game
+  cardPicture() {
+    var d = this.dpr || 1, VW = this.VW, VH = this.VH, FOOT = 40;
+    this.render();
+    var cv = document.createElement('canvas');
+    cv.width = Math.round(VW * d); cv.height = Math.round((VH + FOOT) * d);
+    var ctx = cv.getContext('2d');
+    ctx.fillStyle = '#060913'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(this._cv, 0, 0);
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    this.dctx = ctx; this.cardOnly = true;
+    try { this.renderScore(); } finally { this.dctx = null; this.cardOnly = false; }
+    ctx.fillStyle = '#0b1020'; ctx.fillRect(0, VH, VW, FOOT);
+    ctx.textBaseline = 'middle';
+    ctx.font = '800 15px Archivo, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#f2c063';
+    ctx.fillText('Word Galaxy', 14, VH + FOOT / 2);
+    ctx.font = '600 12px Archivo, system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.fillStyle = '#a3abc6';
+    ctx.fillText(this.shareBase().replace(/^https?:\/\//, '').replace(/\/$/, ''), VW - 14, VH + FOOT / 2);
+    return cv;
+  }
+  // a phone shares the picture (with a text and the address of this galaxy); else the picture is saved as a file
+  doShareCard() {
+    var self = this, cv;
+    var fail = function (err) { self.say(self.T('cardFail', err && err.message || err), 'warn'); self.bump(); };
+    try { cv = this.cardPicture(); } catch (e) { fail(e); return; }
+    var rc = this.ratingCounts(), name = 'word-galaxy-' + this.seed + '.png';
+    var text = this.T('cardText', this.seed, this.levelName(this.level), rc.done, rc.all, this.pct(rc.by[0], rc.all)) + ' ' + this.galaxyLink();
+    cv.toBlob(function (blob) {
+      if (!blob) { fail('toBlob'); return; }
+      var file = typeof File !== 'undefined' ? new File([blob], name, { type: 'image/png' }) : null;
+      var coarse = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+      if (coarse && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Word Galaxy', text: text }).catch(function () {});
+        return;
+      }
+      var a = document.createElement('a'), url = URL.createObjectURL(blob);
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      self.say(self.T('cardSaved'), 'good'); self.bump();
+    }, 'image/png');
   }
 
   // one pool of stars: every solved field adds as many as its difficulty (very easy 1 ... expert 5);
@@ -3472,6 +3596,8 @@ class Component extends DCLogic {
     };
   }
 
+  // the share button of the score card (only in the view of the whole galaxy), or null
+  cardBtn() { return this.cam && this.zoomLevel() === 0 ? this.scoreLayout().share : null; }
   // the buttons on the ratings of the score card (only in the view of the whole galaxy)
   scoreBtns() {
     if (!this.cam || this.zoomLevel() !== 0) return [];
@@ -3513,8 +3639,12 @@ class Component extends DCLogic {
           on: on, bg: on ? '#2a3a6e' : 'transparent', bd: on ? '#f2c063' : '#34405c', pressed: on ? 'true' : 'false' };
       }),
       tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left, this.starCost(fi)), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
-      tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tCheat: this.T('cheat'), cheat: this.cheat, cheatSolve: this.cheatSolve,
-      scoreBtns: this.scoreBtns(),
+      tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'),
+      scoreBtns: this.scoreBtns(), cardBtn: this.cardBtn(), tCardShare: this.T('cardShare'), shareCard: this.shareCard,
+      guideOpen: !!this.guide, guideStep: this.guide ? this.T('guideStep', this.guide.step) : '', guideText: this.guide ? this.T('guide' + this.guide.step) : '',
+      guideLast: !!this.guide && this.guide.step === 3, guideNotLast: !!this.guide && this.guide.step !== 3, tGuideSkip: this.T('guideSkip'), tGuideOk: this.T('guideOk'), guideSkip: this.guideSkip,
+      howOpen: !!this.howOpen, tHowBtn: this.T('howBtn'), tHowTitle: this.T('howTitle'), openHow: this.openHow, closeHow: this.closeHow,
+      howRules: [1, 2, 3, 4, 5, 6].map(function (i) { return { n: i, text: self.T('how' + i) }; }),
       canRedo: this.canRedo(fi), tRedo: this.T('redoBtn', f.name), redoField: this.redoField, tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
       tOtherLang: this.T('otherLang'), tOtherLangAria: this.T('otherLangAria'),
       tNgTitle: this.T('ngTitle'), tNgLevel: this.T('ngLevel'), tNgNumber: this.T('ngNumber'), tNgRandom: this.T('ngRandom'), tNgStart: this.T('ngStart'), tNgCancel: this.T('ngCancel'),

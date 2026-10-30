@@ -27,6 +27,16 @@ header { flex: none; min-height: 56px; padding: env(safe-area-inset-top) 10px 0 
 .progress { font-size: 17px; font-weight: 800; color: var(--soft); flex: none; }
 .zoom { position: relative; flex: none; height: 70px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .zoom canvas { position: absolute; left: 0; top: 0; width: 100%; height: 70px; }
+.guide { position: absolute; left: 12px; right: 12px; bottom: 10px; max-width: 440px; margin: 0 auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; border-radius: 14px; background: rgba(20,28,62,.97); border: 1px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 4; }
+.guide .g-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+.guide .btn { flex: none; height: 44px; }
+.guide p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--text); }
+.guide .g-skip { padding: 6px 4px; border: none; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+.how { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.how li { display: flex; align-items: center; gap: 12px; font-size: 14px; line-height: 1.4; color: var(--soft); }
+.how svg { flex: none; }
+.dialog.how-d { max-width: 400px; max-height: 100%; overflow-y: auto; }
+#cardBtn { position: absolute; z-index: 2; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(242,192,99,.55); border-radius: 8px; background: rgba(255,255,255,.06); color: var(--gold); }
 #scoreBtns button { position: absolute; z-index: 2; padding: 0; border: none; border-radius: 8px; background: transparent; }
 .zoom button { position: absolute; padding: 0; border: none; border-radius: 8px; background: transparent; }
 .stage { position: relative; flex: 1; min-height: 0; background: #060913; overflow: hidden; }
@@ -111,13 +121,19 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <canvas id="cv" aria-label="Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom."></canvas>
     <canvas id="ov" aria-hidden="true"></canvas>
     <div id="scoreBtns"></div>
+    <button type="button" id="cardBtn" class="hidden"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"></path></svg></button>
+    <section class="guide hidden" id="guide" aria-live="polite">
+      <div class="g-top"><span id="gStep"></span><button type="button" class="g-skip" id="gSkip">Skip</button></div>
+      <p id="gText"></p>
+      <button type="button" class="btn main hidden" id="gOk">Start playing</button>
+    </section>
     <button type="button" class="quick hidden" id="quickBtn" aria-label="Accept the selected word" title="Accept the selected word"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path id="quickPath" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
     <div class="menu hidden" id="menu">
       <div class="label" id="menuLabel">Galaxy</div>
+      <button type="button" id="howBtn">How to play</button>
       <button type="button" id="shareBtn">Copy progress link</button>
       <button type="button" id="redoBtn" class="hidden">↺ Play this field again…</button>
       <button type="button" id="newGalaxyBtn">New galaxy…</button>
-      <button type="button" id="cheatBtn" class="hidden" style="color: var(--gold)">🪄 Solve this field (test)</button>
       <button type="button" id="langBtn">🌐 Deutsch</button>
       <a href="/games/" id="allGames">All games</a>
       <button type="button" class="quiet" id="menuCloseBtn">Close</button>
@@ -147,6 +163,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
         </div>
       </div>
     </div>
+    <div class="dialog-back hidden" id="howBack">
+      <div class="dialog how-d" role="dialog" aria-labelledby="howTitle">
+        <h2 id="howTitle">How to play</h2>
+        <ul class="how" id="howList"></ul>
+        <div class="row"><button type="button" class="btn main" id="howClose">Close</button></div>
+      </div>
+    </div>
     <div class="dialog-back hidden" id="dialog">
       <div class="dialog" role="alertdialog" aria-labelledby="dlgTitle" aria-describedby="dlgText">
         <h2 id="dlgTitle"></h2>
@@ -165,7 +188,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '81a9748c92';
+var BUILD = 'ee7d3db965';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -189,7 +212,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=4ad789f20b"></script>
+<script src="game.js?v=b7165c8f49"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -268,7 +291,10 @@ window.loadWords = function (lang, cb) {
   $('quickBtn').onclick = function () { v.accept && v.accept(); };
   $('saNo').onclick = function () { v.starNo && v.starNo(); };
   $('saYes').onclick = function () { v.starYes && v.starYes(); };
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && v.starAsk) v.starNo(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (v.starAsk) v.starNo(); else if (v.howOpen) v.closeHow();
+  });
   // the pictures of the star bubble
   var STAR = '<path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z"/>';
   function starSvg(size, col) { return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true" fill="' + col + '">' + STAR + '</svg>'; }
@@ -282,6 +308,23 @@ window.loadWords = function (lang, cb) {
     for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) out += '<rect x="' + (c * 13 + 1) + '" y="' + (r * 13 + 1) + '" width="11" height="11" rx="2" fill="#f4efe4"/>';
     out += '<circle cx="46" cy="7" r="7" fill="#f2c063"/><text x="46" y="11" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="11" fill="#1d2433">?</text>';
     return '<svg width="50" height="37" viewBox="0 0 54 40" aria-hidden="true">' + out + '</svg>';
+  }
+  // the pictures of "How to play": small grids of letters (4 x 3)
+  function howSvg(n) {
+    var cell = function (r, c, fill, txt) {
+      var x = c * 13 + 1, y = r * 13 + 1, o = '<rect x="' + x + '" y="' + y + '" width="11" height="11" rx="2" fill="' + fill + '"/>';
+      return o + (txt ? '<text x="' + (x + 5.5) + '" y="' + (y + 8.5) + '" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="8" fill="#1d2433">' + txt + '</text>' : '');
+    };
+    var grid = function (f) { var o = ''; for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) o += f(r, c); return o; };
+    var badge = function (fill, inner) { return '<circle cx="46" cy="7" r="7" fill="' + fill + '"/>' + inner; };
+    var out;
+    if (n === 1) out = grid(function (r, c) { return cell(r, c, r === 1 ? '#2563ff' : '#f4efe4'); }) + badge('#2f8a3a', '<path d="M42.5 7.2l2.4 2.4 4.6-4.8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>');
+    else if (n === 2) { var ord = { '0,1': 1, '1,0': 2, '1,1': 3, '1,2': 4 }; out = grid(function (r, c) { var k = ord[r + ',' + c]; return cell(r, c, k ? '#f4b26b' : '#f4efe4', k); }); }
+    else if (n === 3) { var on = { '0,0': 1, '0,1': 1, '1,1': 1, '2,1': 1 }; out = grid(function (r, c) { return cell(r, c, on[r + ',' + c] ? '#bfe08f' : '#f4efe4'); }) + badge('#f2c063', '<text x="46" y="10" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="8" fill="#1d2433">4+</text>'); }
+    else if (n === 4) out = grid(function (r, c) { return cell(r, c, ['#9cc9ea', '#f4b26b', '#bfe08f'][r]); });
+    else if (n === 5) out = '<rect x="2" y="15" width="10" height="10" rx="2" fill="#7fd17a"/><rect x="42" y="15" width="10" height="10" rx="2" fill="#8fbcff"/><rect x="22" y="0" width="10" height="7" rx="2" fill="#7fd17a"/><rect x="22" y="33" width="10" height="7" rx="2" fill="#5a3f86"/><circle cx="27" cy="20" r="10" fill="#f2c063"/>';
+    else out = '<g transform="translate(6 4) scale(1.35)"><path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z" fill="#f2c063"/></g><text x="46" y="38" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="11" fill="#f2c063">+1</text>';
+    return '<svg width="54" height="40" viewBox="0 0 54 40" aria-hidden="true">' + out + '</svg>';
   }
   function showStarAsk(a) {
     var box = $('starAsk');
@@ -309,7 +352,11 @@ window.loadWords = function (lang, cb) {
   $('randomBtn').onclick = function () { v.randomSeed && v.randomSeed(); };
   $('buildBtn').onclick = function () { v.buildSeed && v.buildSeed(); };
   $('ngCancel').onclick = function () { v.closeSeed && v.closeSeed(); };
-  $('cheatBtn').onclick = function () { v.cheatSolve && v.cheatSolve(); };
+  $('howBtn').onclick = function () { v.openHow && v.openHow(); };
+  $('howClose').onclick = function () { v.closeHow && v.closeHow(); };
+  $('gSkip').onclick = function () { v.guideSkip && v.guideSkip(); };
+  $('gOk').onclick = function () { v.guideSkip && v.guideSkip(); };
+  $('cardBtn').onclick = function () { v.shareCard && v.shareCard(); };
   $('redoBtn').onclick = function () { v.redoField && v.redoField(); };
   $('langBtn').onclick = function () { v.switchLang && v.switchLang(); };
   $('menuBtn').onclick = function () { v.toggleMenu && v.toggleMenu(); };
@@ -349,7 +396,6 @@ window.loadWords = function (lang, cb) {
     $('shareBtn').textContent = v.tCopyLink;
     $('newGalaxyBtn').textContent = v.tNewGalaxy;
     $('redoBtn').textContent = v.tRedo; $('redoBtn').classList.toggle('hidden', !v.canRedo);
-    $('cheatBtn').textContent = v.tCheat; $('cheatBtn').classList.toggle('hidden', !v.cheat);
     $('langBtn').textContent = '🌐 ' + v.tOtherLang; $('langBtn').setAttribute('aria-label', v.tOtherLangAria);
     $('allGames').textContent = v.tAllGames;
     $('menuCloseBtn').textContent = v.tClose;
@@ -385,6 +431,32 @@ window.loadWords = function (lang, cb) {
     $('lightBtn').setAttribute('aria-label', v.tStarsAria);
     var inp = $('seedInput');
     if (document.activeElement !== inp) inp.value = v.seedText;
+    // the guide for new players
+    $('guide').classList.toggle('hidden', !v.guideOpen);
+    if (v.guideOpen) {
+      $('gStep').textContent = v.guideStep; $('gText').textContent = v.guideText;
+      $('gSkip').textContent = v.tGuideSkip; $('gSkip').classList.toggle('hidden', v.guideLast);
+      $('gOk').textContent = v.tGuideOk; $('gOk').classList.toggle('hidden', !v.guideLast);
+    }
+    // how to play: the pictures are made once, the texts follow the language
+    $('howBtn').textContent = v.tHowBtn;
+    $('howBack').classList.toggle('hidden', !v.howOpen);
+    if (v.howOpen) {
+      $('howTitle').textContent = v.tHowTitle; $('howClose').textContent = v.tClose;
+      var hl = $('howList');
+      if (hl.children.length !== v.howRules.length) {
+        hl.innerHTML = '';
+        v.howRules.forEach(function (h) { var li = document.createElement('li'); li.innerHTML = howSvg(h.n) + '<span></span>'; hl.appendChild(li); });
+      }
+      v.howRules.forEach(function (h, i) { hl.children[i].querySelector('span').textContent = h.text; });
+    }
+    // the share button of the score card
+    var cb = $('cardBtn');
+    cb.classList.toggle('hidden', !v.cardBtn);
+    if (v.cardBtn) {
+      cb.style.left = v.cardBtn.x + 'px'; cb.style.top = v.cardBtn.y + 'px'; cb.style.width = v.cardBtn.w + 'px'; cb.style.height = v.cardBtn.h + 'px';
+      cb.setAttribute('aria-label', v.tCardShare); cb.title = v.tCardShare;
+    }
     // the ratings of the score card: buttons over the drawn card (only in the view of the whole galaxy)
     var sb = $('scoreBtns'), sl = v.scoreBtns || [];
     while (sb.children.length > sl.length) sb.removeChild(sb.lastChild);
