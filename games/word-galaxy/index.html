@@ -27,6 +27,7 @@ header { flex: none; min-height: 56px; padding: env(safe-area-inset-top) 10px 0 
 .progress { font-size: 17px; font-weight: 800; color: var(--soft); flex: none; }
 .zoom { position: relative; flex: none; height: 70px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .zoom canvas { position: absolute; left: 0; top: 0; width: 100%; height: 70px; }
+#scoreBtns button { position: absolute; z-index: 2; padding: 0; border: none; border-radius: 8px; background: transparent; }
 .zoom button { position: absolute; padding: 0; border: none; border-radius: 8px; background: transparent; }
 .stage { position: relative; flex: 1; min-height: 0; background: #060913; overflow: hidden; }
 #cv { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
@@ -109,6 +110,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <canvas id="lo" aria-hidden="true"></canvas>
     <canvas id="cv" aria-label="Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom."></canvas>
     <canvas id="ov" aria-hidden="true"></canvas>
+    <div id="scoreBtns"></div>
     <button type="button" class="quick hidden" id="quickBtn" aria-label="Accept the selected word" title="Accept the selected word"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path id="quickPath" d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
     <div class="menu hidden" id="menu">
       <div class="label" id="menuLabel">Galaxy</div>
@@ -163,7 +165,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '95b3c9d909';
+var BUILD = '81a9748c92';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -187,7 +189,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=48df515131"></script>
+<script src="game.js?v=4ad789f20b"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -383,6 +385,19 @@ window.loadWords = function (lang, cb) {
     $('lightBtn').setAttribute('aria-label', v.tStarsAria);
     var inp = $('seedInput');
     if (document.activeElement !== inp) inp.value = v.seedText;
+    // the ratings of the score card: buttons over the drawn card (only in the view of the whole galaxy)
+    var sb = $('scoreBtns'), sl = v.scoreBtns || [];
+    while (sb.children.length > sl.length) sb.removeChild(sb.lastChild);
+    while (sb.children.length < sl.length) {
+      var bt = document.createElement('button'); bt.type = 'button';
+      (function (i) { bt.onclick = function () { var x = v.scoreBtns && v.scoreBtns[i]; if (x) x.pick(); }; })(sb.children.length);
+      sb.appendChild(bt);
+    }
+    sl.forEach(function (x, i) {
+      var b = sb.children[i];
+      b.style.left = x.x + 'px'; b.style.top = x.y + 'px'; b.style.width = x.w + 'px'; b.style.height = x.h + 'px';
+      b.setAttribute('aria-label', x.label); b.title = x.label; b.setAttribute('aria-pressed', x.pressed);
+    });
     (v.zoomBtns || []).forEach(function (z, i) { var b = $('z' + i); b.style.left = z.x + 'px'; b.style.top = z.y + 'px'; b.style.width = z.w + 'px'; b.style.height = z.h + 'px'; });
     $('menu').classList.toggle('hidden', !v.menuOpen);
     $('menuBtn').setAttribute('aria-expanded', v.menuExpanded);

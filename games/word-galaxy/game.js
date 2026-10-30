@@ -131,6 +131,8 @@ class Component extends DCLogic {
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
         noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.',
         starAskHelp: 'The star helps in this field.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} ★ · {1} missing', nextCost: 'The next star in this field costs {0}.',
+        hiOn1: '{0}: 1 field is highlighted. Tap it to go there. The menu can play it again.', hiOnN: '{0}: {1} fields are highlighted. Tap one to go there. The menu can play it again.',
+        hiNone: 'No field has the rating {0}.', hiOff: 'No field is highlighted.', hiAria: 'Highlight the fields with the rating {0}',
         ratings: 'Perfect|Great|Good|Solved', rated1: ' {0}: 1 star used.', ratedN: ' {0}: {1} stars used.', scoreFields: '{0} of {1} fields · {2}%',
         deadEnd: 'No word can use these free letters any more: {0}. A word needs at least 4 touching letters. Remove a word, or use a star.', deadEndTitle: '{0}: dead end',
         starBlock: 'A star shows the words that cause the dead end: {0}. Remove them.', starStillRed: 'The red words still cause the dead end. Remove them first.',
@@ -176,6 +178,8 @@ class Component extends DCLogic {
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
         noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.',
         starAskHelp: 'Der Stern hilft in diesem Feld.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: '{0} ★ · {1} fehlen', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
+        hiOn1: '{0}: 1 Feld ist hervorgehoben. Tippe darauf, um dorthin zu gehen. Im Menü kannst du es neu spielen.', hiOnN: '{0}: {1} Felder sind hervorgehoben. Tippe auf eines, um dorthin zu gehen. Im Menü kannst du es neu spielen.',
+        hiNone: 'Kein Feld hat die Bewertung {0}.', hiOff: 'Kein Feld ist hervorgehoben.', hiAria: 'Felder mit der Bewertung {0} hervorheben',
         ratings: 'Perfekt|Sehr gut|Gut|Gelöst', rated1: ' {0}: 1 Stern genutzt.', ratedN: ' {0}: {1} Sterne genutzt.', scoreFields: '{0} von {1} Feldern · {2} %',
         deadEnd: 'Kein Wort kann diese freien Buchstaben mehr nutzen: {0}. Ein Wort braucht mindestens 4 Buchstaben, die sich berühren. Entferne ein Wort oder nutze einen Stern.', deadEndTitle: '{0}: Sackgasse',
         starBlock: 'Ein Stern zeigt die Wörter, die die Sackgasse verursachen: {0}. Entferne sie.', starStillRed: 'Die roten Wörter verursachen die Sackgasse noch. Entferne sie zuerst.',
@@ -307,6 +311,8 @@ class Component extends DCLogic {
       f.lockBg = mix(f.lockBg, '#8a6620', 0.75 * f.warm);
       f.lockFg = mix(f.lockBg, '#c0c6e8', 0.45);
       f.openBg = mix('#f4efe4', '#f3d27e', 0.75 * f.warm);
+      // other fields are darkened; near the core with a warm shade
+      f.dim = f.warm > 0.25 ? 'rgba(30,20,4,0.42)' : 'rgba(6,9,19,0.45)';
       // open fields are darker only a little: the border of the field being played is clear, and they still stand out
       f.dimOpen = f.warm > 0.25 ? 'rgba(30,20,4,0.34)' : 'rgba(6,9,19,0.36)';
     });
@@ -1440,6 +1446,7 @@ class Component extends DCLogic {
       msg: this.T('howTo'), msgKind: 'info', msgTitle: ''
     };
     this.game = g;
+    this.hiRating = null;
     var self = this;
     w.regions.forEach(function (r) { if (r.found0) { var id = self.addWord(r.cells.slice(), r.colour0 >= 0 ? r.colour0 : self.pickColour(r.cells), true); g.words[id].gift = true; } });
     this.recalcLit();
@@ -1573,7 +1580,10 @@ class Component extends DCLogic {
     ctx.setTransform(d, 0, 0, d, 0, 0);
     this.dctx = ctx;
     this.renderOverlay(ox, oy, s);
-    if (this.zoomLevel() === 0) this.renderScore();
+    var zl = this.zoomLevel();
+    if (zl === 0) this.renderScore();
+    // the buttons on the ratings of the score card show only at this level
+    if (zl !== this._zl) { this._zl = zl; this.bump(); }
     if (this.fx) this.renderFx(ox, oy, s);
     this.dctx = null;
   }
@@ -2080,7 +2090,7 @@ class Component extends DCLogic {
         ctx.fillRect(rx0, ry0, rw0, rh0);
       }
     }
-    var lit = this.lit, fontTile = tile;
+    var lit = this.lit, fontTile = tile, allDone = g.state.indexOf('O') < 0 && g.state.indexOf('L') < 0;
     var core0 = w.fields[0].round ? w.fields[0] : null;
     if (core0 && fine) this.drawCoreBack(ctx, core0, s, ox, oy, px);
     for (i = 0; i < w.cells.length; i++) {
@@ -2100,10 +2110,9 @@ class Component extends DCLogic {
       else if (f.goal) { bg = '#f2c063'; fg = '#3a2806'; }
       else { bg = f.lockBg; fg = f.lockFg; }
       ctx.fillStyle = bg;
-      // the other fields are darker, so the border of the field being played is clear; solved fields more than open ones.
-      // A solved field is brighter and has the tint of its rating: perfect is bright gold, then darker for each lower rating.
-      var dimIt = o.f !== this.focus && fst !== 'L', dimCol = fst === 'S' ? Component.RATING_SHADES[this.rating(o.f)] : [f.dimOpen];
-      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) dimCol.forEach(function (c) { ctx.fillStyle = c; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); }); continue; }
+      // the other fields are darker, so the border of the field being played is clear; solved fields more than open ones
+      var dimIt = o.f !== this.focus && fst !== 'L' && !allDone, dimCol = fst === 'S' ? f.dim : f.dimOpen;
+      if (!fine) { ctx.fillRect(x, y, tile + 0.3, tile + 0.3); if (dimIt) { ctx.fillStyle = dimCol; ctx.fillRect(x, y, tile + 0.3, tile + 0.3); } continue; }
       var me = grp[i], fl = o.flags;
       var sT = me !== 0 && o.nb[0] >= 0 && grp[o.nb[0]] === me;
       var sR = me !== 0 && o.nb[1] >= 0 && grp[o.nb[1]] === me;
@@ -2145,7 +2154,7 @@ class Component extends DCLogic {
         ctx.fillText(o.l, x + tile / 2, y + tile / 2 + tile * 0.03);
       }
       // other fields are darker, so the field being played stands out
-      for (var dk = 0; dimIt && dk < dimCol.length; dk++) { ctx.fillStyle = dimCol[dk]; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
+      if (dimIt) { ctx.fillStyle = dimCol; if (ctx.roundRect && tileCss >= 12) ctx.fill(); else ctx.fillRect(rx, ry, rw, rh); }
     }
     tile = P * s; tileCss = tile / px; fine = tileCss >= 6; text = tileCss >= 10;
     if (core0 && fine) this.drawCoreFront(ctx, core0, s, ox, oy, px);
@@ -2568,9 +2577,15 @@ class Component extends DCLogic {
   static get SCORE_H() { return 92; }
   // The score card, at the bottom of the view of the whole galaxy, so a screenshot shows it:
   // the galaxy, the share of solved fields, and the share of all fields with each rating (best: 100% perfect).
+  // the place of the score card on the screen, and of each rating in it (each rating is a button, see pickRating)
+  scoreLayout() {
+    var VW = this.VW, W = Math.min(VW - 24, 380), H = Component.SCORE_H, x0 = (VW - W) / 2, y0 = this.VH - H - 12, pad = 14, cw = (W - 2 * pad) / 4;
+    return { x0: x0, y0: y0, W: W, H: H, pad: pad,
+      items: [0, 1, 2, 3].map(function (r) { return { x: x0 + pad + r * cw - 6, y: y0 + 52, w: cw - 2, h: 36 }; }) };
+  }
   renderScore() {
-    var ctx = this.dctx || this.ctx, VW = this.VW, VH = this.VH, rc = this.ratingCounts(), self = this;
-    var W = Math.min(VW - 24, 380), H = Component.SCORE_H, x0 = (VW - W) / 2, y0 = VH - H - 12, pad = 14;
+    var ctx = this.dctx || this.ctx, rc = this.ratingCounts(), self = this, L = this.scoreLayout();
+    var W = L.W, H = L.H, x0 = L.x0, y0 = L.y0, pad = L.pad;
     ctx.save();
     ctx.fillStyle = 'rgba(12,18,40,0.9)'; ctx.strokeStyle = 'rgba(242,192,99,0.55)'; ctx.lineWidth = 1.2;
     ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0, y0, W, H, 14); else ctx.rect(x0, y0, W, H); ctx.fill(); ctx.stroke();
@@ -2587,11 +2602,14 @@ class Component extends DCLogic {
     ctx.save(); ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 5); else ctx.rect(bx, by, bw, bh); ctx.clip();
     rc.by.forEach(function (n, r) { var ww = bw * n / rc.all; ctx.fillStyle = Component.RATING_COLORS[r]; ctx.fillRect(at, by, ww, bh); at += ww; });
     ctx.restore();
-    // line 3: each rating with its share of all fields
+    // line 3: each rating with its share of all fields, on a button; the highlighted rating has a frame in its colour
     ctx.font = '700 12px Archivo, system-ui, sans-serif'; ctx.textAlign = 'left';
     var cw = bw / 4;
     rc.by.forEach(function (n, r) {
-      var cx = bx + r * cw, cy = y0 + 70;
+      var cx = bx + r * cw, cy = y0 + 70, it = L.items[r], on = self.hiRating === r;
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(it.x, it.y, it.w, it.h, 8); else ctx.rect(it.x, it.y, it.w, it.h);
+      ctx.fillStyle = on ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)'; ctx.fill();
+      if (on) { ctx.strokeStyle = Component.RATING_COLORS[r]; ctx.lineWidth = 2; ctx.stroke(); }
       ctx.beginPath(); ctx.arc(cx + 5, cy, 5, 0, Math.PI * 2); ctx.fillStyle = Component.RATING_COLORS[r]; ctx.fill();
       ctx.fillStyle = '#dfe3f6'; ctx.fillText(self.ratingName(r), cx + 14, cy - 8);
       ctx.fillStyle = '#ffffff'; ctx.font = '800 13px Archivo, system-ui, sans-serif'; ctx.fillText(self.pct(n, rc.all) + '%', cx + 14, cy + 8);
@@ -2600,6 +2618,48 @@ class Component extends DCLogic {
     ctx.restore();
   }
 
+  // a tap on a rating in the score card highlights the solved fields with this rating; a second tap ends it
+  pickRating(r) {
+    var self = this, name = this.ratingName(r);
+    this.hiRating = this.hiRating === r ? null : r;
+    var n = this.game.state.filter(function (st, i) { return st === 'S' && self.rating(i) === r; }).length;
+    if (this.hiRating == null) this.say(this.T('hiOff'), 'info');
+    else this.say(n === 0 ? this.T('hiNone', name) : n === 1 ? this.T('hiOn1', name) : this.T('hiOnN', name, n), 'info');
+    this.paint(); this.bump();
+  }
+  // a field as paths in world units: cells = all its cells, edge = its border
+  fieldPaths(fi) {
+    var w = this.world(), cache = w.paths || (w.paths = {});
+    if (cache[fi]) return cache[fi];
+    var cells = new Path2D(), edge = new Path2D();
+    w.fields[fi].cells.forEach(function (j) {
+      var o = w.cells[j], x = o.x, y = o.y, t = o.p, fl = o.flags;
+      cells.rect(x, y, t, t);
+      if (fl & 1) { edge.moveTo(x, y); edge.lineTo(x + t, y); }
+      if (fl & 4) { edge.moveTo(x, y + t); edge.lineTo(x + t, y + t); }
+      if (fl & 8) { edge.moveTo(x, y); edge.lineTo(x, y + t); }
+      if (fl & 2) { edge.moveTo(x + t, y); edge.lineTo(x + t, y + t); }
+    });
+    return (cache[fi] = { cells: cells, edge: edge });
+  }
+  // zoomed out, with a rating picked in the score card: a dark veil over the map, with holes for the solved fields
+  // that have this rating, and a line in the colour of the rating around each of them
+  renderHighlight(ox, oy, s) {
+    var r = this.hiRating, g = this.game, self = this;
+    // (the holes are cut into the overlay canvas: without it, they would cut into the map)
+    if (r == null || !this.ovCtx || typeof Path2D === 'undefined') return;
+    var ctx = this.dctx || this.ctx, ids = g.state.map(function (st, i) { return st === 'S' && self.rating(i) === r ? i : -1; }).filter(function (i) { return i >= 0; });
+    ctx.save();
+    ctx.fillStyle = 'rgba(4,6,13,0.66)'; ctx.fillRect(0, 0, this.VW, this.VH);
+    ctx.translate(ox, oy); ctx.scale(s, s);
+    ctx.globalCompositeOperation = 'destination-out';
+    ids.forEach(function (i) { ctx.fill(self.fieldPaths(i).cells); });
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = Component.RATING_COLORS[r]; ctx.lineWidth = 2.5 / s; ctx.lineJoin = 'round';
+    ctx.shadowColor = Component.RATING_COLORS[r]; ctx.shadowBlur = 8;
+    ids.forEach(function (i) { ctx.stroke(self.fieldPaths(i).edge); });
+    ctx.restore();
+  }
   // the middle of the cells of a field, in world units
   fieldMiddle(fi) {
     var w = this.world(), f = w.fields[fi], cache = w.mids || (w.mids = {});
@@ -2625,7 +2685,11 @@ class Component extends DCLogic {
 
   renderOverlay(ox, oy, s) {
     var ctx = this.dctx || this.ctx, w = this.world(), g = this.game, f = w.fields[this.focus], VW = this.VW, VH = this.VH;
-    if (s < this.fieldScale(this.focus) * 0.75) { this.renderBadges(ox, oy, s); return; }
+    if (s < this.fieldScale(this.focus) * 0.75) {
+      // a highlighted rating shows alone: no labels on open fields
+      if (this.hiRating != null) this.renderHighlight(ox, oy, s); else this.renderBadges(ox, oy, s);
+      return;
+    }
     var x0 = f.x0 * s + ox, x1 = f.x1 * s + ox, y0 = f.y0 * s + oy, y1 = f.y1 * s + oy;
     var more = { l: x0 < -4, r: x1 > VW + 4, t: y0 < -4, b: y1 > VH + 4 };
     if (!more.l && !more.r && !more.t && !more.b) return;
@@ -3114,12 +3178,6 @@ class Component extends DCLogic {
 
   // the rating of a solved field, from the stars used in it: 0 perfect (none), 1 great (1), 2 good (2), 3 solved (more)
   static get RATING_COLORS() { return ['#f2c063', '#d9dfee', '#d8915a', '#7fd17a']; }
-  // the two layers over a solved field for each rating (see drawWorld): a tint in the colour of the rating,
-  // then a dark layer. Perfect is the brightest, each lower rating is darker.
-  static get RATING_SHADES() {
-    return [['rgba(255,200,80,0.42)', 'rgba(6,9,19,0)'], ['rgba(205,218,245,0.4)', 'rgba(6,9,19,0.22)'],
-      ['rgba(214,120,50,0.5)', 'rgba(6,9,19,0.4)'], ['rgba(90,200,110,0.45)', 'rgba(6,9,19,0.58)']];
-  }
   rating(fi) { return Math.min(3, this.game.used[fi] || 0); }
   ratingName(r) { return this.T('ratings').split('|')[r]; }
   ratedText(fi) {
@@ -3414,6 +3472,15 @@ class Component extends DCLogic {
     };
   }
 
+  // the buttons on the ratings of the score card (only in the view of the whole galaxy)
+  scoreBtns() {
+    if (!this.cam || this.zoomLevel() !== 0) return [];
+    var self = this;
+    return this.scoreLayout().items.map(function (it, r) {
+      return { x: it.x, y: it.y, w: it.w, h: it.h, label: self.T('hiAria', self.ratingName(r)), pressed: self.hiRating === r ? 'true' : 'false', pick: function () { self.pickRating(r); } };
+    });
+  }
+
   // ---------- markup values ----------
   renderVals() {
     var self = this, w = this.world(), g = this.game, fi = this.focus, f = w.fields[fi];
@@ -3447,6 +3514,7 @@ class Component extends DCLogic {
       }),
       tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left, this.starCost(fi)), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
       tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'), tCheat: this.T('cheat'), cheat: this.cheat, cheatSolve: this.cheatSolve,
+      scoreBtns: this.scoreBtns(),
       canRedo: this.canRedo(fi), tRedo: this.T('redoBtn', f.name), redoField: this.redoField, tNewGalaxy: this.T('newGalaxy'), tAllGames: this.T('allGames'), tClose: this.T('close'),
       tOtherLang: this.T('otherLang'), tOtherLangAria: this.T('otherLangAria'),
       tNgTitle: this.T('ngTitle'), tNgLevel: this.T('ngLevel'), tNgNumber: this.T('ngNumber'), tNgRandom: this.T('ngRandom'), tNgStart: this.T('ngStart'), tNgCancel: this.T('ngCancel'),
