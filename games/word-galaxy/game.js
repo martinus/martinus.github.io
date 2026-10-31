@@ -248,9 +248,10 @@ class Component extends DCLogic {
     // the core is round, with its own finer grid of smaller letters
     var core = DATA.core, coreIdx = core ? new Int32Array(core.n * core.n).fill(-1) : null;
     var fields = DATA.fields.map(function (f, i) {
-      return { i: i, name: i === 0 ? self.T('core') : f.name, mods: f.mods, tier: f.tier, state0: f.state, goal: !!f.goal, words: f.words, len: f.len, shape: f.shape,
+      return { i: i, name: i === 0 ? self.T('core') : f.name, mods: f.mods, tier: f.tier, abs: f.tier, state0: f.state, goal: !!f.goal, words: f.words, len: f.len, shape: f.shape,
         cells: [], regions: [], nb: {}, minR: 1e9, maxR: -1, minC: 1e9, maxC: -1, x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
     });
+    Component.rankTiers(fields);
     var regions = DATA.regions.map(function (g, i) { return { i: i, f: g[0], found0: !!g[1], colour0: g[2], cells: [] }; });
     var owner = new Int32Array(N * N).fill(-1);
     var cells = DATA.cells.map(function (c, i) {
@@ -350,6 +351,26 @@ class Component extends DCLogic {
   }
 
   // ---------- word data (built once) ----------
+  // The difficulty that a field shows (tier, 1 very easy ... 6 master) compares it with the other fields of the same galaxy:
+  // so an easy galaxy has very easy to expert fields too, and only the level of the galaxy says how hard it is overall.
+  // The fields are sorted by the difficulty of the generator (abs: words + 2 x traps, see generate) and then by their number
+  // of words. Each field gets the share of fields below it (fields with the same values count half): its place from 0 to 1.
+  // The start fields are the easiest fields that the generator found for the start (with a gift word in easy galaxies):
+  // they show at most easy, also when they have more words than other fields. The core is the last goal: master.
+  // The stars of a field come from abs (see starsFor), so this does not change how many stars a player gets.
+  static get TIER_SHARES() { return [0.12, 0.35, 0.65, 0.85, 0.96]; }
+  static rankTiers(fields) {
+    var list = fields.filter(function (f) { return f.i !== 0; }), n = list.length;
+    var key = function (f) { return f.abs * 1000 + f.words; };
+    list.forEach(function (f) {
+      var k = key(f), below = 0, same = 0;
+      list.forEach(function (o) { var ko = key(o); if (ko < k) below++; else if (ko === k) same++; });
+      var at = (below + same / 2) / n, t = 1;
+      Component.TIER_SHARES.forEach(function (lim) { if (at >= lim) t++; });
+      f.tier = f.state0 === 'O' ? Math.min(t, 2) : t;
+    });
+    if (fields[0]) fields[0].tier = 6;
+  }
   static get GEN() { return 13; }
   // all beginnings of accepted words, to stop searching early
   // accepted words of 4 to 6 letters as numbers (5 bits per letter), for fast checks while building a galaxy
@@ -3283,7 +3304,7 @@ class Component extends DCLogic {
 
   // one pool of stars: every solved field adds as many as its difficulty (very easy 1 ... expert 5);
   // they can be used in any open field
-  starsFor(fi) { var t = this.world().fields[fi].tier; return this.level === 'easy' ? t + 1 : Math.min(5, t); }
+  starsFor(fi) { var t = this.world().fields[fi].abs; return this.level === 'easy' ? t + 1 : Math.min(5, t); }
   // Each star in the same field costs 1 more than the one before (1, 2, 3, ...): a few stars when stuck stay cheap,
   // but many stars in one field are expensive. g.used counts the stars used in each field.
   // g.paid counts the stars used in fields that the player started again (doRedo).
