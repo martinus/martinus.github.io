@@ -58,7 +58,7 @@ button { font-family: inherit; cursor: pointer; }
 .seed { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--soft); }
 .seed input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--btn); background: #111a33; color: var(--text); font: 700 16px 'Archivo', system-ui, sans-serif; -webkit-user-select: text; user-select: text; }
 .hidden { display: none !important; }
-.stars { flex: none; height: 34px; padding: 0 10px 0 7px; display: flex; align-items: center; gap: 5px; border-radius: 17px; border: 1px solid var(--gold); background: transparent; color: var(--gold); font-size: 16px; font-weight: 800; }
+.stars { flex: none; width: 44px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 17px; border: 1px solid var(--gold); background: transparent; color: var(--gold); font-size: 16px; font-weight: 800; }
 #ov { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 .lvl { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--btn); background: transparent; color: var(--text); text-align: left; }
 .lvl[aria-pressed="true"] { border-color: var(--gold); background: #2a3a6e; }
@@ -73,16 +73,14 @@ button { font-family: inherit; cursor: pointer; }
 .menu button { height: 44px; padding: 0 10px; border: none; border-radius: 10px; background: transparent; color: var(--text); font-size: 15px; font-weight: 700; text-align: left; }
 .menu button:hover { background: #1a2547; }
 .menu button.quiet { color: var(--muted); font-weight: 600; }
-/* the star bubble: ✕ on the left, the price in the middle, ✓ on the right; under it, how the rating changes */
+/* the star bubble: ✕ on the left, a star in the middle, ✓ on the right; under it, how the rating changes */
 .starask { position: fixed; z-index: 7; width: 200px; padding: 10px; display: flex; flex-direction: column; gap: 6px; border-radius: 16px; background: #141c3e; border: 1px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
 .starask::before { content: ""; position: absolute; top: -7px; right: var(--arrow, 26px); width: 12px; height: 12px; background: #141c3e; border-left: 1px solid var(--gold); border-top: 1px solid var(--gold); transform: rotate(45deg); }
 .starask .sa-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.starask .sa-price { display: flex; align-items: center; gap: 2px; font-size: 24px; font-weight: 800; }
+.starask .sa-star { display: flex; }
 .starask .sa-note { min-height: 16px; font-size: 13px; font-weight: 700; color: var(--soft); text-align: center; white-space: nowrap; }
-.starask .sa-note.short { color: #ee6262; }
 .starask .round { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid var(--btn); background: transparent; color: var(--text); font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .starask .round.go { border: none; background: var(--gold); color: #1d2433; }
-.starask .round.go:disabled { background: #3a3f55; color: #8a90a8; }
 .dialog-back { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(4,6,13,.72); z-index: 6; }
 .dialog { width: 100%; max-width: 330px; padding: 20px; display: flex; flex-direction: column; gap: 12px; border-radius: 16px; background: #111a33; border: 1px solid #2e3a62; }
 .dialog h2 { margin: 0; font-size: 20px; font-weight: 800; }
@@ -104,7 +102,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <div class="level" id="level"></div>
       <div class="progress" id="progress"></div>
     </div>
-    <button type="button" class="stars" id="lightBtn" aria-label="Use one star for a hint" title="Use a star for a hint"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z" fill="#f2c063" stroke="#f2c063" stroke-width="1.2" stroke-linejoin="round"></path></svg><span id="lightText">0</span></button>
+    <button type="button" class="stars" id="lightBtn" aria-label="Use one star for a hint" title="Use a star for a hint"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z" fill="#f2c063" stroke="#f2c063" stroke-width="1.2" stroke-linejoin="round"></path></svg></button>
   </header>
   <div class="zoom" id="zoomBar">
     <canvas id="zc" aria-hidden="true"></canvas>
@@ -138,7 +136,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <div class="starask hidden" id="starAsk" role="dialog" aria-labelledby="saKind">
       <div class="sa-row">
         <button type="button" class="round" id="saNo">✕</button>
-        <span class="sa-price" id="saPrice"></span>
+        <span class="sa-star" id="saStar"></span>
         <button type="button" class="round go" id="saYes">✓</button>
       </div>
       <div class="sa-note" id="saNote"></div>
@@ -184,7 +182,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = '38b0529969';
+var BUILD = 'b9cf386154';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -208,7 +206,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=5a685fb899"></script>
+<script src="game.js?v=4d05d6076a"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -289,14 +287,17 @@ window.loadWords = function (lang, cb) {
   $('saYes').onclick = function () { v.starYes && v.starYes(); };
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (v.starAsk) v.starNo(); else if (v.menuOpen) v.toggleMenu(); else if (v.howOpen) v.closeHow();
+    // (C has the state now; v can be one frame old)
+    if (!C) return;
+    if (C.starAsk) C.starCancel(); else if (C.menuOpen) C.toggleMenu(); else if (v.howOpen) v.closeHow();
   });
   // A press outside the open menu closes the menu. A press outside the star bubble closes the bubble.
   // On the map, this press does nothing more: it does not move the map and does not select letters.
   document.addEventListener('pointerdown', function (e) {
+    if (!C) return;
     var t = e.target, closed = false;
-    if (v.menuOpen && !$('menu').contains(t) && !$('menuBtn').contains(t)) { v.toggleMenu(); closed = true; }
-    if (v.starAsk && !$('starAsk').contains(t) && !$('lightBtn').contains(t)) { v.starNo(); closed = true; }
+    if (C.menuOpen && !$('menu').contains(t) && !$('menuBtn').contains(t)) { C.toggleMenu(); closed = true; }
+    if (C.starAsk && !$('starAsk').contains(t) && !$('lightBtn').contains(t)) { C.starCancel(); closed = true; }
     if (closed && t === cv) { e.stopPropagation(); e.preventDefault(); }
   }, true);
   // the star of the star bubble
@@ -316,7 +317,7 @@ window.loadWords = function (lang, cb) {
     else if (n === 3) { var on = { '0,0': 1, '0,1': 1, '1,1': 1, '2,1': 1 }; out = grid(function (r, c) { return cell(r, c, on[r + ',' + c] ? '#bfe08f' : '#f4efe4'); }) + badge('#f2c063', '<text x="46" y="10" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="8" fill="#1d2433">4+</text>'); }
     else if (n === 4) out = grid(function (r, c) { return cell(r, c, ['#9cc9ea', '#f4b26b', '#bfe08f'][r]); });
     else if (n === 5) out = '<rect x="2" y="15" width="10" height="10" rx="2" fill="#7fd17a"/><rect x="42" y="15" width="10" height="10" rx="2" fill="#8fbcff"/><rect x="22" y="0" width="10" height="7" rx="2" fill="#7fd17a"/><rect x="22" y="33" width="10" height="7" rx="2" fill="#5a3f86"/><circle cx="27" cy="20" r="10" fill="#f2c063"/>';
-    else out = '<g transform="translate(6 4) scale(1.35)"><path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z" fill="#f2c063"/></g><text x="46" y="38" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="11" fill="#f2c063">+1</text>';
+    else out = '<g transform="translate(11 4) scale(1.35)"><path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z" fill="#f2c063"/></g>';
     return '<svg width="54" height="40" viewBox="0 0 54 40" aria-hidden="true">' + out + '</svg>';
   }
   function showStarAsk(a) {
@@ -324,18 +325,13 @@ window.loadWords = function (lang, cb) {
     box.classList.toggle('hidden', !a);
     if (!a) return;
     $('saKind').textContent = a.tKind;
-    var col = a.ok ? '#f2c063' : '#ee6262';
-    $('saPrice').style.color = col;
-    $('saPrice').innerHTML = '−' + a.cost + starSvg(22, col);
-    // one short line: how the rating changes, or how many stars are missing
+    $('saStar').innerHTML = starSvg(26, '#f2c063');
+    // how the rating changes
     var note = $('saNote'), word = function (name, c) { var x = document.createElement('span'); x.style.color = c; x.textContent = name; return x; };
     note.textContent = '';
-    note.classList.toggle('short', !a.ok);
-    if (!a.ok) note.textContent = a.tMissing;
-    else if (a.changes) { note.appendChild(word(a.fromName, a.fromColor)); note.appendChild(document.createTextNode(' → ')); note.appendChild(word(a.toName, a.toColor)); }
+    note.appendChild(word(a.fromName, a.fromColor)); note.appendChild(document.createTextNode(' → ')); note.appendChild(word(a.toName, a.toColor));
     $('saNo').setAttribute('aria-label', a.tNo); $('saNo').title = a.tNo;
     $('saYes').setAttribute('aria-label', a.tYes); $('saYes').title = a.tYes;
-    $('saYes').disabled = !a.ok;
     // under the star button, its arrow pointing to the button
     var r = $('lightBtn').getBoundingClientRect(), W = box.offsetWidth || 200;
     var left = Math.max(8, Math.min(window.innerWidth - W - 8, r.right - W));
@@ -414,7 +410,6 @@ window.loadWords = function (lang, cb) {
         el.querySelector('.p').textContent = b.pips; el.querySelector('.n').textContent = b.name; el.querySelector('.d').textContent = b.desc;
       });
     }
-    $('lightText').textContent = v.lightLeft;
     var qb = $('quickBtn');
     qb.classList.toggle('hidden', !v.quickShow);
     if (v.quickShow) {

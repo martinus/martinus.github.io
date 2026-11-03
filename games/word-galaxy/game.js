@@ -114,19 +114,18 @@ class Component extends DCLogic {
         holdToRemove: 'Hold the word to remove it.', backAgain: 'You are still in the game. Go back again to leave it.',
         isSolved: '{0} is solved.', howTo: 'Swipe over letters to select a word, then tap the ✓ button.',
         solvedOther: '{0} is solved. Tap a field with a blue outline.', tapAgain: 'Tap {0} again to go there.', min4: 'Select at least 4 letters first.', touch: 'The letters of a word must touch each other.', notInList: '{0} is not in the word list.',
-        nowOpen: 'Now open: {0}. ', earned1: 'You earned 1 star. ', earnedN: 'You earned {0} stars. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
+        nowOpen: 'Now open: {0}. ', lastWord: 'Last word {0} {1}', fieldSolved: '{0} solved!', perfectNo: ' Perfect, no stars used.',
         coreOpen: '{0} fields next to the core are solved: the core is open!', coreGate: 'The core opens when {0} fields next to it are solved. Solved now: {1}.',
         coreOpenAll: 'All {0} fields next to the core are solved: the core is open!', coreGateAll: 'The core opens when all {0} fields next to it are solved. Solved now: {1}.',
-        finaleTitle: 'Core reached!', finaleSub: 'GALAXY {0}', stFields: 'fields', stWords: 'words', stStars: 'stars used', stPerfect: 'perfect',
+        finaleTitle: 'Core reached!', finaleSub: 'GALAXY {0}', stFields: 'fields', stWords: 'words', stPerfect: 'perfect',
         coreDone: 'You solved the Galactic Core! {0} of {1} fields of this galaxy are solved.',
         allTitle: 'Galaxy complete!', allDone: 'You solved all {0} fields of this galaxy. Start a new galaxy in the menu.',
         cheers: 'Great!|Well done!|Super!|Fantastic!|You did it!', notHere: '{0} is a word, but not the one we look for here. Try again!',
         removed: '{0} removed.', staySelected: 'The letters stay selected. Swipe to change them, then tap the ✓ button.',
-        starsOpen: 'Stars work only in an open field.', noStars: 'No stars left. Solve fields to earn stars: harder fields give more.',
+        starsOpen: 'Stars work only in an open field.',
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
-        noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.',
-        starAskHelp: 'The star helps in this field.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} more ★ needed', nextCost: 'The next star in this field costs {0}.',
+        starAskHelp: 'The star helps in this field.', starAskNo: 'No hint', starAskYes: 'Show the hint',
         guideStep: 'Step {0} of 3', guideSkip: 'Skip', guideOk: 'Start playing',
         guide1: 'Swipe over the letters of a word, then tap ✓. A word has 4 or more letters. The letters are read from left to right, then from top to bottom.',
         guide2: 'Good! Now use every letter of this field. A long press on a word removes it.',
@@ -137,7 +136,7 @@ class Component extends DCLogic {
         how3: 'A word has 4 or more letters. Its letters must touch.',
         how4: 'Use every letter of a field. Then the fields next to it open.',
         how5: 'Find a way to the Galactic Core in the middle. It opens when the fields next to it are solved.',
-        how6: 'Stuck? A star shows a hint. Each star in a field costs 1 more. A field without a star is Perfect.',
+        how6: 'Stuck? A star shows a hint. Stars are free. A field without a star is Perfect.',
         cardShare: 'Share the score card as a picture', cardSaved: 'The picture of the score card is saved.', cardFail: 'Could not make the picture ({0}).',
         cardText: 'Word Galaxy {0} ({1}): {2} of {3} fields solved, {4}% perfect.',
         hiOn1: '{0}: 1 field is highlighted. Tap it to go there. The menu can play it again.', hiOnN: '{0}: {1} fields are highlighted. Tap one to go there. The menu can play it again.',
@@ -149,9 +148,9 @@ class Component extends DCLogic {
         lvEasy: 'Easy', lvMedium: 'Medium', lvHard: 'Hard',
         lvEasyDesc: 'Short, well known words and small fields. Good for children.', lvMediumDesc: 'Words up to 9 letters. Medium fields.', lvHardDesc: 'Many words up to 10 letters. Big fields.',
         redoBtn: '↺ Play {0} again…', redoTitle: 'Play {0} again?', redoYes: 'Play {0} again', redoNo: 'Keep my words',
-        redoText: 'This removes all your words in {0}. Then you solve it again, and its rating can be Perfect again. Stars that you used stay used.',
-        redoSolved: ' Until you solve {0} again, the {1} ★ that it gave do not count.', redone: '{0} starts again. Solve it without a star for Perfect.',
-        menu: 'Menu', starsAria: 'Use one star for a hint ({0} left, a star costs {1} in this field)', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
+        redoText: 'This removes all your words in {0}. Then you solve it again, and its rating can be Perfect again.',
+        redone: '{0} starts again. Solve it without a star for Perfect.',
+        menu: 'Menu', starsAria: 'Use a star for a hint', starsTitle: 'Use a star for a hint', accept: 'Accept the selected word',
         zGalaxy: 'Show the whole galaxy ({0}% done)', zArea: 'Show the area around this field', zField: 'Show this field',
         map: 'Galaxy map. Swipe over letters to select a word. Drag elsewhere to move around. Pinch or scroll to zoom.',
         menuGalaxy: 'Galaxy {0} · {1}', copyLink: 'Copy progress link', newGalaxy: 'New galaxy…', allGames: 'All games', close: 'Close', otherLang: 'Deutsch', otherLangAria: 'Auf Deutsch spielen',
@@ -174,19 +173,18 @@ class Component extends DCLogic {
         holdToRemove: 'Halte das Wort gedrückt, um es zu entfernen.', backAgain: 'Du bist noch im Spiel. Gehe noch einmal zurück, um es zu verlassen.',
         isSolved: '{0} ist gelöst.', howTo: 'Wische über Buchstaben, um ein Wort zu wählen, dann tippe auf ✓.',
         solvedOther: '{0} ist gelöst. Tippe auf ein Feld mit blauem Rand.', tapAgain: 'Tippe noch einmal auf {0}, um dorthin zu gehen.', min4: 'Wähle zuerst mindestens 4 Buchstaben.', touch: 'Die Buchstaben eines Wortes müssen sich berühren.', notInList: '{0} ist nicht in der Wortliste.',
-        nowOpen: 'Jetzt offen: {0}. ', earned1: 'Du bekommst 1 Stern. ', earnedN: 'Du bekommst {0} Sterne. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
+        nowOpen: 'Jetzt offen: {0}. ', lastWord: 'Letztes Wort {0} {1}', fieldSolved: '{0} gelöst!', perfectNo: ' Perfekt, ohne Sterne.',
         coreOpen: '{0} Felder neben dem Kern sind gelöst: Der Kern ist offen!', coreGate: 'Der Kern öffnet sich, wenn {0} Felder daneben gelöst sind. Jetzt gelöst: {1}.',
         coreOpenAll: 'Alle {0} Felder neben dem Kern sind gelöst: Der Kern ist offen!', coreGateAll: 'Der Kern öffnet sich, wenn alle {0} Felder daneben gelöst sind. Jetzt gelöst: {1}.',
-        finaleTitle: 'Kern erreicht!', finaleSub: 'GALAXIE {0}', stFields: 'Felder', stWords: 'Wörter', stStars: 'Sterne genutzt', stPerfect: 'perfekt',
+        finaleTitle: 'Kern erreicht!', finaleSub: 'GALAXIE {0}', stFields: 'Felder', stWords: 'Wörter', stPerfect: 'perfekt',
         coreDone: 'Du hast den Galaktischen Kern gelöst! {0} von {1} Feldern dieser Galaxie sind gelöst.',
         allTitle: 'Galaxie geschafft!', allDone: 'Du hast alle {0} Felder dieser Galaxie gelöst. Eine neue Galaxie startest du im Menü.',
         cheers: 'Super!|Toll gemacht!|Klasse!|Spitze!|Geschafft!', notHere: '{0} ist ein Wort, aber nicht das gesuchte. Versuch es noch einmal!',
         removed: '{0} entfernt.', staySelected: 'Die Buchstaben bleiben gewählt. Wische, um sie zu ändern, dann tippe auf ✓.',
-        starsOpen: 'Sterne helfen nur in einem offenen Feld.', noStars: 'Keine Sterne mehr. Löse Felder, um Sterne zu bekommen: schwerere Felder geben mehr.',
+        starsOpen: 'Sterne helfen nur in einem offenen Feld.',
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
-        noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.',
-        starAskHelp: 'Der Stern hilft in diesem Feld.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: 'Noch {0} ★ nötig', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
+        starAskHelp: 'Der Stern hilft in diesem Feld.', starAskNo: 'Kein Hinweis', starAskYes: 'Hinweis zeigen',
         guideStep: 'Schritt {0} von 3', guideSkip: 'Überspringen', guideOk: 'Los geht’s',
         guide1: 'Wische über die Buchstaben eines Worts, dann tippe auf ✓. Ein Wort hat 4 oder mehr Buchstaben. Die Buchstaben werden von links nach rechts gelesen, dann von oben nach unten.',
         guide2: 'Gut! Nutze jetzt jeden Buchstaben dieses Felds. Halte ein Wort gedrückt, um es zu entfernen.',
@@ -197,7 +195,7 @@ class Component extends DCLogic {
         how3: 'Ein Wort hat 4 oder mehr Buchstaben. Seine Buchstaben müssen sich berühren.',
         how4: 'Nutze jeden Buchstaben eines Felds. Dann öffnen sich die Felder daneben.',
         how5: 'Finde einen Weg zum Galaktischen Kern in der Mitte. Er öffnet sich, wenn die Felder daneben gelöst sind.',
-        how6: 'Kommst du nicht weiter? Ein Stern zeigt einen Hinweis. Jeder Stern in einem Feld kostet 1 mehr. Ein Feld ohne Stern ist Perfekt.',
+        how6: 'Kommst du nicht weiter? Ein Stern zeigt einen Hinweis. Sterne kosten nichts. Ein Feld ohne Stern ist Perfekt.',
         cardShare: 'Die Punktekarte als Bild teilen', cardSaved: 'Das Bild der Punktekarte ist gespeichert.', cardFail: 'Das Bild konnte nicht erstellt werden ({0}).',
         cardText: 'Word Galaxy {0} ({1}): {2} von {3} Feldern gelöst, {4} % perfekt.',
         hiOn1: '{0}: 1 Feld ist hervorgehoben. Tippe darauf, um dorthin zu gehen. Im Menü kannst du es neu spielen.', hiOnN: '{0}: {1} Felder sind hervorgehoben. Tippe auf eines, um dorthin zu gehen. Im Menü kannst du es neu spielen.',
@@ -209,9 +207,9 @@ class Component extends DCLogic {
         lvEasy: 'Leicht', lvMedium: 'Mittel', lvHard: 'Schwer',
         lvEasyDesc: 'Kurze, bekannte Wörter und kleine Felder. Gut für Kinder.', lvMediumDesc: 'Wörter bis 9 Buchstaben. Mittlere Felder.', lvHardDesc: 'Viele Wörter bis 10 Buchstaben. Große Felder.',
         redoBtn: '↺ {0} neu spielen …', redoTitle: '{0} neu spielen?', redoYes: '{0} neu spielen', redoNo: 'Meine Wörter behalten',
-        redoText: 'Damit sind alle deine Wörter in {0} weg. Dann löst du das Feld noch einmal, und seine Bewertung kann wieder Perfekt sein. Genutzte Sterne bleiben genutzt.',
-        redoSolved: ' Bis du {0} wieder löst, zählen die {1} ★ nicht, die das Feld gegeben hat.', redone: '{0} beginnt von vorn. Löse es ohne Stern für Perfekt.',
-        menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen ({0} übrig, ein Stern kostet {1} in diesem Feld)', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
+        redoText: 'Damit sind alle deine Wörter in {0} weg. Dann löst du das Feld noch einmal, und seine Bewertung kann wieder Perfekt sein.',
+        redone: '{0} beginnt von vorn. Löse es ohne Stern für Perfekt.',
+        menu: 'Menü', starsAria: 'Einen Stern als Hilfe nutzen', starsTitle: 'Einen Stern als Hilfe nutzen', accept: 'Gewähltes Wort annehmen',
         zGalaxy: 'Die ganze Galaxie zeigen ({0}% geschafft)', zArea: 'Die Gegend um dieses Feld zeigen', zField: 'Dieses Feld zeigen',
         map: 'Karte der Galaxie. Wische über Buchstaben, um ein Wort zu wählen. Ziehe woanders, um dich zu bewegen. Mit zwei Fingern oder dem Mausrad zoomen.',
         menuGalaxy: 'Galaxie {0} · {1}', copyLink: 'Fortschritts-Link kopieren', newGalaxy: 'Neue Galaxie …', allGames: 'Alle Spiele', close: 'Schließen', otherLang: 'English', otherLangAria: 'Play in English',
@@ -357,7 +355,6 @@ class Component extends DCLogic {
   // of words. Each field gets the share of fields below it (fields with the same values count half): its place from 0 to 1.
   // The start fields are the easiest fields that the generator found for the start (with a gift word in easy galaxies):
   // they show at most easy, also when they have more words than other fields. The core is the last goal: master.
-  // The stars of a field come from abs (see starsFor), so this does not change how many stars a player gets.
   static get TIER_SHARES() { return [0.12, 0.35, 0.65, 0.85, 0.96]; }
   static rankTiers(fields) {
     var list = fields.filter(function (f) { return f.i !== 0; }), n = list.length;
@@ -1341,14 +1338,14 @@ class Component extends DCLogic {
     var g = this.game, alive = [], index = {};
     g.words.forEach(function (wd) { if (wd.alive) { index[wd.id] = alive.length; alive.push([wd.cells, wd.colour, wd.correct ? 1 : 0, wd.gift ? 1 : 0]); } });
     var wrong = Object.keys(g.wrongMarked).map(function (id) { return index[id]; }).filter(function (x) { return x != null; });
-    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, gen: Component.GEN, focus: this.focus, state: g.state, words: alive, used: g.used, paid: g.paid, hints: g.hints, wrong: wrong };
+    return { v: 1, seed: this.seed, level: this.level, lang: this.lang, gen: Component.GEN, focus: this.focus, state: g.state, words: alive, used: g.used, hints: g.hints, wrong: wrong };
   }
 
   // ---------- moving progress to another device: the whole save in a link ----------
   // The code is the save as JSON, with word cells as differences (small numbers), deflated, in base64url.
   exportCode() {
     var sv = this.saveData();
-    var c = { v: 1, seed: sv.seed, level: sv.level, lang: sv.lang, gen: sv.gen, focus: sv.focus, state: sv.state.join(''), used: sv.used, paid: sv.paid, hints: sv.hints, wrong: sv.wrong,
+    var c = { v: 1, seed: sv.seed, level: sv.level, lang: sv.lang, gen: sv.gen, focus: sv.focus, state: sv.state.join(''), used: sv.used, hints: sv.hints, wrong: sv.wrong,
       words: sv.words.map(function (x) { var d = x[0].map(function (j, i) { return i ? j - x[0][i - 1] : j; }); return [d, x[1], x[2], x[3]]; }) };
     var json = JSON.stringify(c);
     var b64 = function (bytes) {
@@ -1370,7 +1367,7 @@ class Component extends DCLogic {
       var c = JSON.parse(text);
       if (!c || c.v !== 1 || typeof c.seed !== 'number') throw new Error('not a Word Galaxy progress link');
       if (c.gen !== Component.GEN) throw new Error(self.T('linkOld'));
-      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', gen: c.gen, focus: c.focus, state: c.state.split(''), used: c.used, paid: c.paid, hints: c.hints, wrong: c.wrong,
+      return { v: 1, seed: c.seed, level: c.level || 'hard', lang: c.lang === 'de' ? 'de' : 'en', gen: c.gen, focus: c.focus, state: c.state.split(''), used: c.used, hints: c.hints, wrong: c.wrong,
         words: c.words.map(function (x) { var cells = [], a = 0; x[0].forEach(function (d, i) { a = i ? a + d : d; cells.push(a); }); return [cells, x[1], x[2], x[3]]; }) };
     };
     if (kind === 'j') return Promise.resolve(done(new TextDecoder().decode(u)));
@@ -1434,7 +1431,6 @@ class Component extends DCLogic {
     // the core opens sooner now than in older versions of the game
     if (w.fields[0].round && g.state[0] === 'L' && this.coreReady()) g.state[0] = 'O';
     if (sv.used && sv.used.length === w.fields.length) g.used = sv.used.slice();
-    if (sv.paid > 0) g.paid = sv.paid;
     if (sv.hints && sv.hints.length === w.fields.length) g.hints = sv.hints;
     (sv.wrong || []).forEach(function (i) { if (ids[i] >= 0) g.wrongMarked[ids[i]] = 1; });
     if (sv.focus >= 0 && sv.focus < w.fields.length) this.focus = sv.focus;
@@ -1485,7 +1481,6 @@ class Component extends DCLogic {
       state: w.fields.map(function (f) { return f.state0; }),
       sel: {}, selN: 0,
       used: w.fields.map(function () { return 0; }),
-      paid: 0,
       hints: w.fields.map(function () { return []; }),
       wrongMarked: {},
       msg: this.T('howTo'), msgKind: 'info', msgTitle: ''
@@ -2403,7 +2398,6 @@ class Component extends DCLogic {
     this.fx = { kind: 'finale', all: !!all, bursts: bursts, fi: 0, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       stats: [[g.state.filter(function (x) { return x === 'S'; }).length + ' / ' + g.state.length, this.T('stFields')],
         [g.words.filter(function (x) { return x.alive && !x.gift; }).length, this.T('stWords')],
-        [this.starsSpent(), this.T('stStars')],
         [this.pct(this.ratingCounts().by[0], g.state.length) + '%', this.T('stPerfect')]] };
     this.paint();
   }
@@ -2574,12 +2568,8 @@ class Component extends DCLogic {
     ctx.fillText(this.T('bigSolved', fx.name), 0, -4);
     ctx.fillStyle = '#f2c063';
     ctx.font = '800 18px Archivo, system-ui, sans-serif';
-    // the rating in its colour, then the stars that the field gave
-    var gotStars = this.starsFor(fx.fi), rName = this.ratingName(fx.rating || 0), rest = '  ·  +' + gotStars + ' ★';
-    var wN = ctx.measureText(rName).width, wR = ctx.measureText(rest).width;
-    ctx.textAlign = 'left';
-    ctx.fillStyle = Component.RATING_COLORS[fx.rating || 0]; ctx.fillText(rName, -(wN + wR) / 2, 34);
-    ctx.fillStyle = '#f2c063'; ctx.fillText(rest, -(wN + wR) / 2 + wN, 34);
+    // the rating in its colour
+    ctx.fillStyle = Component.RATING_COLORS[fx.rating || 0]; ctx.fillText(this.ratingName(fx.rating || 0), 0, 34);
     ctx.restore();
     this.paint();
   }
@@ -3090,10 +3080,9 @@ class Component extends DCLogic {
       else if (core0 && fi === 0) this.flyTo(this.camFor('galaxy', fi), function () { selfA.finale(); });
       // zoom out: the solved field and all fields that it opened are on the screen
       else this.flyTo(this.camFit(fi, openedIds), function () { selfA.celebrate(fi, openedIds, ratingA); });
-      var gave = this.starsFor(fi);
       var mw = this.meaning(word);
       var cheers = this.T('cheers').split('|'), cheer = this.level === 'easy' ? cheers[fi % cheers.length] + ' ' : '';
-      this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + (gave === 1 ? this.T('earned1') : this.T('earnedN', gave)) + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + this.ratedText(fi));
+      this.say((opened.length ? this.T('nowOpen', opened.join(', ')) : '') + this.T('lastWord', mw.title, mw.text), 'good', cheer + this.T('fieldSolved', f.name) + this.ratedText(fi));
       if (coreOpened) this.say(this.T(this.coreAll() ? 'coreOpenAll' : 'coreOpen', this.coreNeed()), 'good', cheer + this.T('fieldSolved', f.name));
       if (allSolved) this.say(this.T('allDone', g.state.length), 'good', this.T('allTitle'));
       else if (core0 && fi === 0) { var nS = g.state.filter(function (x) { return x === 'S'; }).length; this.say(this.T('coreDone', nS, g.state.length), 'good', this.T('finaleTitle')); }
@@ -3149,18 +3138,14 @@ class Component extends DCLogic {
   askRedo(fi) {
     var self = this, f = this.world().fields[fi];
     if (!this.canRedo(fi)) { this.bump(); return; }
-    var text = this.T('redoText', f.name) + (this.game.state[fi] === 'S' ? this.T('redoSolved', f.name, this.starsFor(fi)) : '');
-    this.confirm = { title: this.T('redoTitle', f.name), text: text, yes: this.T('redoYes', f.name), no: this.T('redoNo'), action: function () { self.doRedo(fi); } };
+    this.confirm = { title: this.T('redoTitle', f.name), text: this.T('redoText', f.name), yes: this.T('redoYes', f.name), no: this.T('redoNo'), action: function () { self.doRedo(fi); } };
     this.bump();
   }
   // Removes all words, star hints and red marks of the field, and its count of stars. A solved field is open again.
-  // The stars used in it stay used (g.paid): else a redo would give them back.
   // Fields that it opened stay open. The gift words of the field come back.
   doRedo(fi) {
     var w = this.world(), g = this.game, f = w.fields[fi], self = this;
     if (!this.canRedo(fi)) return;
-    var k = g.used[fi] || 0;
-    g.paid = (g.paid || 0) + k * (k + 1) / 2;
     g.used[fi] = 0; g.hints[fi] = [];
     g.words.forEach(function (wd) {
       if (!wd.alive || wd.f !== fi) return;
@@ -3302,23 +3287,11 @@ class Component extends DCLogic {
     }, 'image/png');
   }
 
-  // one pool of stars: every solved field adds as many as its difficulty (very easy 1 ... expert 5);
-  // they can be used in any open field
-  starsFor(fi) { var t = this.world().fields[fi].abs; return this.level === 'easy' ? t + 1 : Math.min(5, t); }
-  // Each star in the same field costs 1 more than the one before (1, 2, 3, ...): a few stars when stuck stay cheap,
-  // but many stars in one field are expensive. g.used counts the stars used in each field.
-  // g.paid counts the stars used in fields that the player started again (doRedo).
-  starCost(fi) { return (this.game.used[fi] || 0) + 1; }
-  starsSpent() { return this.game.used.reduce(function (a, k) { return a + k * (k + 1) / 2; }, this.game.paid || 0); }
-  starsLeft() {
-    var w = this.world(), g = this.game, self = this, sum = 0;
-    w.fields.forEach(function (f) { if (g.state[f.i] === 'S') sum += self.starsFor(f.i); });
-    return Math.max(0, sum - this.starsSpent());
-  }
-  // a star was used in the field: its message also says what the next star costs
+  // Stars are free. g.used counts the stars used in each field: they set its rating.
+  // a star was used in the field
   sayStar(fi, text) {
     this.game.used[fi]++;
-    this.say(text + ' ' + this.T('nextCost', this.starCost(fi)), 'info');
+    this.say(text, 'info');
   }
 
   // the rating of a solved field, from the stars used in it: 0 perfect (none), 1 great (1), 2 good (2), 3 solved (more)
@@ -3529,19 +3502,18 @@ class Component extends DCLogic {
     return out;
   }
 
-  // A tap on the star button opens a bubble: the price of the star, and how the rating of the field changes.
-  // Only the ✓ in the bubble spends the star (starConfirm); ✕, a second tap on the star button or a press outside the bubble closes it.
+  // A tap on the star button opens a bubble when the star changes the rating of the field: it shows the change.
+  // Only the ✓ in the bubble uses the star (starConfirm); ✕, a second tap on the star button or a press outside the bubble closes it.
+  // When the rating can not get lower (3 stars or more), the star helps at once.
   doLight() {
     var g = this.game, fi = this.focus;
     if (this.starAsk) { this.starCancel(); return; }
     if (g.state[fi] !== 'O') { this.say(this.T('starsOpen'), 'warn'); this.bump(); return; }
-    if (this.starsLeft() <= 0) { this.say(this.T('noStars'), 'warn'); this.bump(); return; }
     var plan = this.starPlan(fi);
     if (plan.kind === 'stillRed') { this.say(this.T('starStillRed'), 'warn'); this.bump(); return; }
     if (plan.kind === 'nothing') { this.say(this.T('starNothing'), 'warn'); this.bump(); return; }
+    if (this.rating(fi) >= 3) { this.applyStar(fi, plan); return; }
     this.starAsk = { fi: fi, plan: plan };
-    // too few stars: the bubble shows the price in red, and its ✓ is off
-    if (this.starsLeft() < this.starCost(fi)) this.say(this.T('noStarsHere', this.starCost(fi), this.starsLeft()), 'warn');
     this.bump();
   }
   starCancel() {
@@ -3552,7 +3524,7 @@ class Component extends DCLogic {
   starConfirm() {
     var a = this.starAsk, g = this.game;
     this.starAsk = null;
-    if (!a || a.fi !== this.focus || g.state[a.fi] !== 'O' || this.starsLeft() < this.starCost(a.fi)) { this.bump(); return; }
+    if (!a || a.fi !== this.focus || g.state[a.fi] !== 'O') { this.bump(); return; }
     this.applyStar(a.fi, a.plan);
   }
 
@@ -3606,14 +3578,11 @@ class Component extends DCLogic {
   starAskVals() {
     var a = this.starAsk, g = this.game;
     if (!a || a.fi !== this.focus || g.state[a.fi] !== 'O') return null;
-    var fi = a.fi, cost = this.starCost(fi), have = this.starsLeft(), used = g.used[fi] || 0;
-    var from = Math.min(3, used), to = Math.min(3, used + 1), RC = Component.RATING_COLORS;
+    var from = this.rating(a.fi), to = Math.min(3, from + 1), RC = Component.RATING_COLORS;
     return {
-      cost: cost, have: have, ok: have >= cost, changes: from !== to,
       fromName: this.ratingName(from), toName: this.ratingName(to), fromColor: RC[from], toColor: RC[to],
-      tMissing: this.T('starMissing', cost - have),
       // the same text for each kind of help: else the bubble would tell, for free, whether the words are right
-      tKind: this.T('starAskHelp'), tNo: this.T('starAskNo'), tYes: this.T('starAskYes', cost)
+      tKind: this.T('starAskHelp'), tNo: this.T('starAskNo'), tYes: this.T('starAskYes')
     };
   }
 
@@ -3639,7 +3608,6 @@ class Component extends DCLogic {
     var meta = f.shape + ' · ' + f.words + ' words · ' + f.len[0] + '–' + f.len[1] + ' letters';
     if (f.mods.length) meta += ' · ' + f.mods.map(function (m) { return MODS[m]; }).join(', ');
     var covered = f.cells.filter(function (j) { return g.cellWord[j] >= 0; }).length;
-    var left = this.starsLeft();
     var ZL = this.zoomLayout();
     var zoomBtns = [['galaxy', this.T('zGalaxy', this.percent(this.galaxyProgress()))], ['area', this.T('zArea')], ['field', this.T('zField')]].map(function (p, i) {
       return { label: p[1], x: ZL[i].x, y: ZL[i].y, w: ZL[i].w, h: ZL[i].h, pick: function () { self.flyTo(self.camFor(p[0], self.focus)); } };
@@ -3652,14 +3620,14 @@ class Component extends DCLogic {
       focusProgress: g.state[fi] === 'S' ? this.ratingName(this.rating(fi)) : locked ? this.T('locked1') : Math.round(100 * covered / f.cells.length) + '%',
       focusProgressColor: g.state[fi] === 'S' ? Component.RATING_COLORS[this.rating(fi)] : '',
       solvedCount: g.state.filter(function (s) { return s === 'S'; }).length, fieldCount: w.fields.length,
-      lightLeft: left, zoomBtns: zoomBtns,
+      zoomBtns: zoomBtns,
       lang: this.lang, level: this.level, newOpen: this.newOpen, switchLang: this.switchLang,
       levelBtns: ['easy', 'medium', 'hard'].map(function (lv, i) {
         var on = self.newLevel === lv;
         return { id: lv, name: self.levelName(lv), desc: self.T(['lvEasyDesc', 'lvMediumDesc', 'lvHardDesc'][i]), pips: ['●○○', '●●○', '●●●'][i], pick: self.levelPick[lv],
           on: on, bg: on ? '#2a3a6e' : 'transparent', bd: on ? '#f2c063' : '#34405c', pressed: on ? 'true' : 'false' };
       }),
-      tMenu: this.T('menu'), tStarsAria: this.T('starsAria', left, this.starCost(fi)), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
+      tMenu: this.T('menu'), tStarsAria: this.T('starsAria'), tStarsTitle: this.T('starsTitle'), tAccept: this.T('accept'),
       tMap: this.T('map'), tMenuGalaxy: this.T('menuGalaxy', this.seed, this.levelName(this.level)), tCopyLink: this.T('copyLink'),
       scoreBtns: this.scoreBtns(), cardBtn: this.cardBtn(), tCardShare: this.T('cardShare'), shareCard: this.shareCard,
       guideOpen: !!this.guide, guideStep: this.guide ? this.T('guideStep', this.guide.step) : '', guideText: this.guide ? this.T('guide' + this.guide.step) : '',
