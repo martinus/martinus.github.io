@@ -126,7 +126,7 @@ class Component extends DCLogic {
         starWrong: 'A star shows the words that are not part of the solution: {0}.', starNothing: 'A star has nothing more to show in this field.',
         starWord: 'A star shows the shape of a word with {0} letters. Swipe its letters.',
         noStarsHere: 'A star costs {0} here: each star in the same field costs 1 more than the one before. You have {1}.',
-        starAskHelp: 'The star helps in this field.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} ★ · {1} missing', nextCost: 'The next star in this field costs {0}.',
+        starAskHelp: 'The star helps in this field.', starAskNo: 'Keep the star', starAskYes: 'Use the star for {0}', starMissing: '{0} more ★ needed', nextCost: 'The next star in this field costs {0}.',
         guideStep: 'Step {0} of 3', guideSkip: 'Skip', guideOk: 'Start playing',
         guide1: 'Swipe over the letters of a word, then tap ✓. A word has 4 or more letters. The letters are read from left to right, then from top to bottom.',
         guide2: 'Good! Now use every letter of this field. A long press on a word removes it.',
@@ -186,7 +186,7 @@ class Component extends DCLogic {
         starWrong: 'Ein Stern zeigt die Wörter, die nicht zur Lösung gehören: {0}.', starNothing: 'Ein Stern kann in diesem Feld nichts mehr zeigen.',
         starWord: 'Ein Stern zeigt die Form eines Worts mit {0} Buchstaben. Wische über seine Buchstaben.',
         noStarsHere: 'Ein Stern kostet hier {0}: Jeder Stern im selben Feld kostet 1 mehr als der vorige. Du hast {1}.',
-        starAskHelp: 'Der Stern hilft in diesem Feld.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: '{0} ★ · {1} fehlen', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
+        starAskHelp: 'Der Stern hilft in diesem Feld.', starAskNo: 'Stern behalten', starAskYes: 'Stern für {0} nutzen', starMissing: 'Noch {0} ★ nötig', nextCost: 'Der nächste Stern in diesem Feld kostet {0}.',
         guideStep: 'Schritt {0} von 3', guideSkip: 'Überspringen', guideOk: 'Los geht’s',
         guide1: 'Wische über die Buchstaben eines Worts, dann tippe auf ✓. Ein Wort hat 4 oder mehr Buchstaben. Die Buchstaben werden von links nach rechts gelesen, dann von oben nach unten.',
         guide2: 'Gut! Nutze jetzt jeden Buchstaben dieses Felds. Halte ein Wort gedrückt, um es zu entfernen.',
@@ -3529,8 +3529,8 @@ class Component extends DCLogic {
     return out;
   }
 
-  // A tap on the star button opens a bubble: what the star will do, its price, and the rating of the field after it.
-  // Only the ✓ in the bubble spends the star (starConfirm); ✕, a second tap on the star button or a touch on the map closes it.
+  // A tap on the star button opens a bubble: the price of the star, and how the rating of the field changes.
+  // Only the ✓ in the bubble spends the star (starConfirm); ✕, a second tap on the star button or a press outside the bubble closes it.
   doLight() {
     var g = this.game, fi = this.focus;
     if (this.starAsk) { this.starCancel(); return; }
@@ -3611,7 +3611,7 @@ class Component extends DCLogic {
     return {
       cost: cost, have: have, ok: have >= cost, changes: from !== to,
       fromName: this.ratingName(from), toName: this.ratingName(to), fromColor: RC[from], toColor: RC[to],
-      tAfter: have >= cost ? have + ' → ' + (have - cost) : this.T('starMissing', have, cost - have),
+      tMissing: this.T('starMissing', cost - have),
       // the same text for each kind of help: else the bubble would tell, for free, whether the words are right
       tKind: this.T('starAskHelp'), tNo: this.T('starAskNo'), tYes: this.T('starAskYes', cost)
     };

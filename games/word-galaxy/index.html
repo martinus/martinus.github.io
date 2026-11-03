@@ -73,16 +73,13 @@ button { font-family: inherit; cursor: pointer; }
 .menu button { height: 44px; padding: 0 10px; border: none; border-radius: 10px; background: transparent; color: var(--text); font-size: 15px; font-weight: 700; text-align: left; }
 .menu button:hover { background: #1a2547; }
 .menu button.quiet { color: var(--muted); font-weight: 600; }
-/* the star bubble: what a star does, its price and the rating after it; ✕ on the left, ✓ on the right */
-.starask { position: fixed; z-index: 7; width: 236px; padding: 12px; display: flex; flex-direction: column; gap: 10px; border-radius: 16px; background: #141c3e; border: 1px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+/* the star bubble: ✕ on the left, the price in the middle, ✓ on the right; under it, how the rating changes */
+.starask { position: fixed; z-index: 7; width: 200px; padding: 10px; display: flex; flex-direction: column; gap: 6px; border-radius: 16px; background: #141c3e; border: 1px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
 .starask::before { content: ""; position: absolute; top: -7px; right: var(--arrow, 26px); width: 12px; height: 12px; background: #141c3e; border-left: 1px solid var(--gold); border-top: 1px solid var(--gold); transform: rotate(45deg); }
 .starask .sa-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.starask .sa-medals { display: flex; align-items: flex-start; justify-content: center; gap: 8px; }
-.starask .sa-medal { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; color: var(--soft); }
-.starask .sa-arrow { margin-top: 8px; color: var(--soft); font-weight: 800; }
 .starask .sa-price { display: flex; align-items: center; gap: 2px; font-size: 24px; font-weight: 800; }
-.starask .sa-after { font-size: 13px; font-weight: 700; color: var(--soft); white-space: nowrap; }
-.starask .sa-after.short { color: #ee6262; }
+.starask .sa-note { min-height: 16px; font-size: 13px; font-weight: 700; color: var(--soft); text-align: center; white-space: nowrap; }
+.starask .sa-note.short { color: #ee6262; }
 .starask .round { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid var(--btn); background: transparent; color: var(--text); font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .starask .round.go { border: none; background: var(--gold); color: #1d2433; }
 .starask .round.go:disabled { background: #3a3f55; color: #8a90a8; }
@@ -139,13 +136,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <button type="button" class="quiet" id="menuCloseBtn">Close</button>
     </div>
     <div class="starask hidden" id="starAsk" role="dialog" aria-labelledby="saKind">
-      <div class="sa-row"><span id="saIcon"></span><span class="sa-price" id="saPrice"></span></div>
-      <div class="sa-medals" id="saMedals"></div>
       <div class="sa-row">
         <button type="button" class="round" id="saNo">✕</button>
-        <span class="sa-after" id="saAfter"></span>
+        <span class="sa-price" id="saPrice"></span>
         <button type="button" class="round go" id="saYes">✓</button>
       </div>
+      <div class="sa-note" id="saNote"></div>
       <span id="saKind" class="hidden"></span>
     </div>
     <div class="dialog-back hidden" id="ngBack">
@@ -188,7 +184,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <script>
 // This page can come from the browser cache (up to 10 minutes on GitHub Pages).
 // Ask the server for the newest build without the cache; if this page is older, load the newest once.
-var BUILD = 'b534ee722a';
+var BUILD = '38b0529969';
 (function () {
   try {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
@@ -212,7 +208,7 @@ class DCLogic {
 }
 </script>
 <script src="words.js?v=cf2a84441c"></script>
-<script src="game.js?v=03029b1ced"></script>
+<script src="game.js?v=5a685fb899"></script>
 <script>
 var WORDS_DE_SRC = 'words-de.js?v=1511667f96';
 // German words are a separate file, loaded only when needed
@@ -293,22 +289,19 @@ window.loadWords = function (lang, cb) {
   $('saYes').onclick = function () { v.starYes && v.starYes(); };
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (v.starAsk) v.starNo(); else if (v.howOpen) v.closeHow();
+    if (v.starAsk) v.starNo(); else if (v.menuOpen) v.toggleMenu(); else if (v.howOpen) v.closeHow();
   });
-  // the pictures of the star bubble
+  // A press outside the open menu closes the menu. A press outside the star bubble closes the bubble.
+  // On the map, this press does nothing more: it does not move the map and does not select letters.
+  document.addEventListener('pointerdown', function (e) {
+    var t = e.target, closed = false;
+    if (v.menuOpen && !$('menu').contains(t) && !$('menuBtn').contains(t)) { v.toggleMenu(); closed = true; }
+    if (v.starAsk && !$('starAsk').contains(t) && !$('lightBtn').contains(t)) { v.starNo(); closed = true; }
+    if (closed && t === cv) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+  // the star of the star bubble
   var STAR = '<path d="M12 2.2l2.8 6.3 6.9.6-5.2 4.6 1.6 6.8L12 16.9l-6.1 3.6 1.6-6.8-5.2-4.6 6.9-.6z"/>';
   function starSvg(size, col) { return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true" fill="' + col + '">' + STAR + '</svg>'; }
-  function medalSvg(col) {
-    return '<svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true"><path d="M13 2h6l-3 12h-6zM21 2h6l1 12h-6z" fill="#5a6aa8"/>' +
-      '<circle cx="20" cy="25" r="12" fill="' + col + '" stroke="#0a1029" stroke-width="2"/><circle cx="20" cy="25" r="7" fill="none" stroke="rgba(10,16,41,.35)" stroke-width="2"/></svg>';
-  }
-  // a small grid of letters with a "?": the same picture for each kind of help, so the bubble does not tell whether the words are right
-  function helpSvg() {
-    var out = '';
-    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) out += '<rect x="' + (c * 13 + 1) + '" y="' + (r * 13 + 1) + '" width="11" height="11" rx="2" fill="#f4efe4"/>';
-    out += '<circle cx="46" cy="7" r="7" fill="#f2c063"/><text x="46" y="11" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="11" fill="#1d2433">?</text>';
-    return '<svg width="50" height="37" viewBox="0 0 54 40" aria-hidden="true">' + out + '</svg>';
-  }
   // the pictures of "How to play": small grids of letters (4 x 3)
   function howSvg(n) {
     var cell = function (r, c, fill, txt) {
@@ -331,20 +324,20 @@ window.loadWords = function (lang, cb) {
     box.classList.toggle('hidden', !a);
     if (!a) return;
     $('saKind').textContent = a.tKind;
-    $('saIcon').innerHTML = helpSvg();
-    $('saIcon').title = a.tKind;
     var col = a.ok ? '#f2c063' : '#ee6262';
     $('saPrice').style.color = col;
     $('saPrice').innerHTML = '−' + a.cost + starSvg(22, col);
-    var m = function (name, c) { return '<span class="sa-medal">' + medalSvg(c) + '<span>' + name + '</span></span>'; };
-    $('saMedals').innerHTML = (a.changes ? m(a.fromName, a.fromColor) + '<span class="sa-arrow">→</span>' : '') + m(a.toName, a.toColor);
-    $('saAfter').textContent = a.ok ? a.tAfter + ' ★' : a.tAfter;
-    $('saAfter').classList.toggle('short', !a.ok);
+    // one short line: how the rating changes, or how many stars are missing
+    var note = $('saNote'), word = function (name, c) { var x = document.createElement('span'); x.style.color = c; x.textContent = name; return x; };
+    note.textContent = '';
+    note.classList.toggle('short', !a.ok);
+    if (!a.ok) note.textContent = a.tMissing;
+    else if (a.changes) { note.appendChild(word(a.fromName, a.fromColor)); note.appendChild(document.createTextNode(' → ')); note.appendChild(word(a.toName, a.toColor)); }
     $('saNo').setAttribute('aria-label', a.tNo); $('saNo').title = a.tNo;
     $('saYes').setAttribute('aria-label', a.tYes); $('saYes').title = a.tYes;
     $('saYes').disabled = !a.ok;
     // under the star button, its arrow pointing to the button
-    var r = $('lightBtn').getBoundingClientRect(), W = box.offsetWidth || 236;
+    var r = $('lightBtn').getBoundingClientRect(), W = box.offsetWidth || 200;
     var left = Math.max(8, Math.min(window.innerWidth - W - 8, r.right - W));
     box.style.left = left + 'px'; box.style.top = (r.bottom + 10) + 'px';
     box.style.setProperty('--arrow', Math.max(12, left + W - (r.left + r.width / 2) - 6) + 'px');
