@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wichteln</title>
+<meta name="description" content="Wichteln auslosen: Namen eintragen, Ausnahmen festlegen, jedem seinen geheimen Link schicken.">
+<meta property="og:title" content="Wichteln">
+<meta property="og:description" content="Dein Wichtel-Zettel wartet auf dich.">
+<meta property="og:type" content="website">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#17382B">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2317382B'/%3E%3Cpath d='M11 7h14v18H11l-5-5v-8z' fill='%23D4B58A'/%3E%3Ccircle cx='11.5' cy='16' r='2' fill='%2317382B'/%3E%3C/svg%3E">
+<style>
+/* Schriften (SIL Open Font License 1.1): Grenze Gotisch, Figtree. Keine Anfragen an fremde Server. */
+@font-face { font-family: "Grenze Gotisch"; font-style: normal; font-weight: 100 900; font-display: swap; src: url(grenze-gotisch.woff2) format("woff2"); }
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap; src: url(figtree.woff2) format("woff2"); }
+
+:root {
+  --tanne: #17382B;
+  --tanne-tief: #0E271D;
+  --tanne-hell: #2B5A47;
+  --kraft: #D4B58A;
+  --kraft-kante: #B08D5B;
+  --tinte: #2B2118;
+  --schnee: #F7F4EC;
+  --garn: #C5302A;
+
+  --schrift: "Figtree", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --zierschrift: "Grenze Gotisch", "Figtree", Georgia, serif;
+
+  --faser: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .17  0 0 0 0 .13  0 0 0 0 .09  0 0 0 .2 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+button, a, select, summary { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(120% 70% at 50% 0%, #1E4636 0%, transparent 70%),
+    var(--tanne);
+  color: var(--schnee);
+  font-family: var(--schrift);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+[hidden] { display: none !important; }
+
+.unsichtbar {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
+#schnee, #konfetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#schnee { z-index: 0; }
+#konfetti { z-index: 30; }
+
+main {
+  position: relative;
+  z-index: 1;
+  width: min(100% - 2.5rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px), 37rem);
+  margin-inline: auto;
+  padding-block: calc(clamp(2rem, 7vw, 4.5rem) + env(safe-area-inset-top, 0px)) calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+h1, h2 {
+  font-family: var(--zierschrift);
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.005em;
+}
+
+h1 { font-size: clamp(4rem, 19vw, 7rem); line-height: 0.85; }
+h2 { font-size: clamp(2.5rem, 11vw, 3.5rem); line-height: 0.95; }
+
+.einleitung { max-width: 31ch; margin: 1.25rem 0 0; font-size: 1.1875rem; }
+
+p { margin: 0; }
+
+:focus-visible { outline: 3px solid var(--schnee); outline-offset: 3px; border-radius: 4px; }
+
+/* ---------- Anhänger an der Schnur ---------- */
+
+.schnur {
+  list-style: none;
+  margin: 2.5rem 0 0;
+  padding: 0 0 0 1.75rem;
+  position: relative;
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Die Schnur selbst: rot-weißes Bäckergarn */
+.schnur::before {
+  content: "";
+  position: absolute;
+  left: 0.375rem; top: -1.25rem; bottom: 1.25rem;
+  width: 3px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(135deg, var(--garn) 0 3px, var(--schnee) 3px 6px);
+}
+
+.anhaenger {
+  position: relative;
+  transform-origin: -1.2rem 50%;
+  filter: drop-shadow(0 2px 0 var(--kraft-kante)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.28));
+}
+
+/* Das kurze Stück Garn von der Schnur ins Loch */
+.anhaenger::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: -1.25rem; top: 50%;
+  width: 2.1rem; height: 2px;
+  margin-top: -1px;
+  background: repeating-linear-gradient(90deg, var(--garn) 0 3px, var(--schnee) 3px 6px);
+}
+
+/* Anhänger pendeln sich an der Schnur ein */
+@keyframes pendeln {
+  0% { opacity: 0; transform: translateY(-0.75rem) rotate(-6deg); }
+  30% { opacity: 1; transform: rotate(2.4deg); }
+  55% { transform: rotate(-1.2deg); }
+  78% { transform: rotate(0.5deg); }
+  100% { transform: none; }
+}
+.einzug .anhaenger, .anhaenger.neu {
+  animation: pendeln 1.1s cubic-bezier(0.3, 0.6, 0.4, 1) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+
+.papier {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem 0.875rem;
+  padding: 0.75rem 0.625rem 0.75rem 2.5rem;
+  min-height: 4rem;
+  background: var(--faser), var(--kraft);
+  color: var(--tinte);
+  clip-path: polygon(1rem 0, 100% 0, 100% 100%, 1rem 100%, 0 calc(100% - 1rem), 0 1rem);
+}
+
+/* Gestanztes Loch mit Verstärkungsring */
+.papier::before {
+  content: "";
+  position: absolute;
+  left: 0.75rem; top: 50%;
+  width: 0.625rem; height: 0.625rem;
+  margin-top: -0.3125rem;
+  border-radius: 50%;
+  background: var(--tanne-tief);
+  box-shadow: 0 0 0 3px rgba(247, 244, 236, 0.5);
+}
+
+.papier :focus-visible { outline-color: var(--tinte); }
+
+.name-feld {
+  width: 100%;
+  min-width: 0;
+  padding: 0.375rem 0.125rem;
+  border: 0;
+  border-bottom: 2px dotted rgba(43, 33, 24, 0.45);
+  border-radius: 0;
+  background: transparent;
+  color: var(--tinte);
+  font: 700 1.25rem/1.2 var(--schrift);
+}
+.name-feld::placeholder { color: rgba(43, 33, 24, 0.5); font-weight: 500; }
+
+.name-fest { font: 700 1.25rem/1.2 var(--schrift); overflow-wrap: anywhere; }
+.name-fest small { display: block; font: 500 0.875rem/1.3 var(--schrift); color: rgba(43, 33, 24, 0.75); margin-top: 0.125rem; }
+
+.ausnahme { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; white-space: nowrap; }
+
+.ausnahme select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 9.5rem;
+  min-height: 2.75rem;
+  padding: 0.4375rem 1.75rem 0.4375rem 0.625rem;
+  border: 1.5px solid rgba(43, 33, 24, 0.4);
+  border-radius: 6px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232B2118' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.5625rem center,
+    rgba(247, 244, 236, 0.4);
+  color: var(--tinte);
+  font: 600 1rem/1.2 var(--schrift);
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.weg {
+  display: grid; place-items: center;
+  width: 2.75rem; height: 2.75rem;
+  border: 0; border-radius: 50%;
+  background: transparent;
+  color: rgba(43, 33, 24, 0.7);
+  font: 400 1.625rem/1 var(--schrift);
+  cursor: pointer;
+}
+.weg:hover { background: rgba(43, 33, 24, 0.12); color: var(--tinte); }
+.weg:disabled { visibility: hidden; }
+
+.auf-papier {
+  display: inline-grid;
+  place-items: center;
+  min-height: 2.75rem;
+  padding: 0.5625rem 0.875rem;
+  text-decoration: none;
+  border: 2px solid var(--tinte);
+  border-radius: 6px;
+  background: var(--tinte);
+  color: var(--kraft);
+  font: 700 0.9375rem/1.2 var(--schrift);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.auf-papier.leise { background: transparent; color: var(--tinte); }
+.auf-papier:hover { background: #000; border-color: #000; color: var(--schnee); }
+
+@media (max-width: 34rem) {
+  .papier { grid-template-columns: minmax(0, 1fr) auto; }
+  .papier .ausnahme { grid-column: 1 / -1; grid-row: 2; }
+  .papier .weg { grid-column: 2; grid-row: 1; }
+  .papier.mit-links { grid-template-columns: minmax(0, 1fr); }
+  .papier.mit-links .knoepfe { justify-content: flex-start; }
+  .ausnahme select { width: auto; flex: 1; max-width: 14rem; }
+}
+
+.knoepfe { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; }
+
+/* ---------- Bedienelemente auf Grün ---------- */
+
+.dazu {
+  margin: 0.875rem 0 0 1.75rem;
+  padding: 0.625rem 1rem;
+  border: 2px dashed rgba(212, 181, 138, 0.7);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kraft);
+  font: 700 1rem/1.2 var(--schrift);
+  cursor: pointer;
+}
+.dazu:hover { border-style: solid; background: rgba(212, 181, 138, 0.12); }
+
+.hinweis { margin-top: 1rem; max-width: 46ch; font-size: 0.9375rem; color: rgba(247, 244, 236, 0.8); }
+
+.feld { display: grid; gap: 0.375rem; margin-top: 2.25rem; }
+.feld label { font-weight: 700; }
+.feld input {
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border: 1.5px solid var(--tanne-hell);
+  border-radius: 6px;
+  background: var(--tanne-tief);
+  color: var(--schnee);
+  font: 500 1.0625rem/1.3 var(--schrift);
+}
+.feld input::placeholder { color: rgba(247, 244, 236, 0.5); }
+
+.code-zeile { display: flex; flex-wrap: wrap; gap: 0.625rem; }
+.code-zeile input { flex: 1 1 9rem; width: auto; min-width: 0; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.code-zeile .dazu { margin: 0; }
+.feld .hinweis { margin-top: 0.25rem; }
+.feld + .feld { margin-top: 1.5rem; }
+
+.code-info { max-width: 44ch; margin-top: 2rem; font-size: 0.9375rem; color: rgba(247, 244, 236, 0.85); }
+.code-info b { color: var(--schnee); letter-spacing: 0.06em; white-space: nowrap; }
+
+.fehler {
+  margin-top: 1.5rem;
+  padding: 0.875rem 1rem;
+  border-left: 6px solid var(--garn);
+  border-radius: 4px;
+  background: var(--schnee);
+  color: var(--tinte);
+  font-weight: 600;
+}
+
+.gross {
+  margin-top: 1.75rem;
+  padding: 0.9375rem 2.25rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--garn);
+  color: #fff;
+  font: 700 1.25rem/1.2 var(--schrift);
+  box-shadow: 0 3px 0 #8E1F1B;
+  cursor: pointer;
+}
+.gross:hover { background: #D63A33; }
+.gross:active { transform: translateY(2px); box-shadow: 0 1px 0 #8E1F1B; }
+
+.zeile { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; margin-top: 1.75rem; }
+.zeile .gross { margin-top: 0; }
+
+.text-knopf {
+  min-height: 2.75rem;
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  color: var(--kraft);
+  font: 700 1rem/1.3 var(--schrift);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 2px;
+  cursor: pointer;
+}
+.text-knopf:hover { color: var(--schnee); }
+
+.kennung {
+  display: inline-block;
+  margin-top: 0.875rem;
+  padding: 0.25rem 0.625rem;
+  border: 1.5px solid rgba(247, 244, 236, 0.45);
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.auftrag { max-width: 40ch; margin-top: 1rem; }
+
+details { margin-top: 3rem; border-top: 1.5px solid var(--tanne-hell); padding-top: 1rem; }
+summary { font-weight: 700; cursor: pointer; }
+details ul { margin: 0.75rem 0 0; padding-left: 1.25rem; max-width: 52ch; color: rgba(247, 244, 236, 0.88); }
+details li + li { margin-top: 0.375rem; }
+
+/* ---------- Der Zettel ---------- */
+
+#seite-zettel { text-align: center; }
+#seite-zettel h1 { font-size: clamp(2.75rem, 13vw, 4.25rem); line-height: 0.95; overflow-wrap: anywhere; }
+#seite-zettel .einleitung { margin-inline: auto; max-width: 28ch; }
+
+/* Der Jutesack: hinterer Teil, davor die Zettel, davor der vordere Teil */
+.sack {
+  position: absolute;
+  left: 50%;
+  width: 15rem; height: 17rem;
+  margin-left: -7.5rem;
+  overflow: visible;
+  pointer-events: none;
+}
+.sack.hinten { z-index: 0; }
+.sack.vorne { z-index: 2; }
+
+@keyframes schuetteln {
+  0%, 100% { transform: none; }
+  15% { transform: translateY(-10px) rotate(-5deg); }
+  30% { transform: translateY(2px) rotate(4deg); }
+  45% { transform: translateY(-8px) rotate(-4deg); }
+  60% { transform: translateY(2px) rotate(5deg); }
+  75% { transform: translateY(-6px) rotate(-3deg); }
+  90% { transform: rotate(2deg); }
+}
+
+.zettel {
+  --h: 10.5rem;
+  position: relative;
+  width: min(100%, 21rem);
+  height: calc(var(--h) * 2);
+  margin: 2rem auto 0;
+  transform-origin: 50% 90%;
+  cursor: pointer;
+}
+.zettel.ruetteln { animation: schuetteln 0.5s ease-in-out; }
+
+.zettel .sack {
+  bottom: -1rem;
+  transition: transform 0.7s cubic-bezier(0.5, 0, 0.8, 0.4), opacity 0.5s ease-in 0.15s;
+}
+.zettel:not(.im-sack) .sack { transform: translateY(5rem); opacity: 0; }
+
+/* Der Zettel steckt klein im Sack und wird beim Ziehen groß. */
+.zettel-zug {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  perspective: 62rem;
+  transition: transform 1.1s cubic-bezier(0.2, 0.9, 0.25, 1.06);
+}
+.zettel.im-sack .zettel-zug { transform: translateY(-1.8rem) rotate(-6deg) scale(0.4); }
+
+.zettel-lage {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--h);
+  transform: translateY(calc(var(--h) / 2));
+  transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.zettel.offen .zettel-lage { transform: none; }
+
+.blatt {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: 1rem;
+  background: var(--faser), var(--schnee);
+  color: var(--tinte);
+}
+
+.innen-oben {
+  align-content: end;
+  padding-bottom: 1.25rem;
+  font-size: 1.1875rem;
+  font-weight: 600;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.klappe {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.zettel.offen .klappe { transform: rotateX(-180deg); }
+
+.klappe .blatt { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+
+.aussen { gap: 0.25rem; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3); }
+.aussen b { font: 700 2.25rem/1 var(--zierschrift); overflow-wrap: anywhere; }
+.aussen span { font-size: 0.9375rem; color: rgba(43, 33, 24, 0.7); }
+
+.innen-unten {
+  transform: rotateX(180deg);
+  align-content: start;
+  padding-top: 0.75rem;
+  background: linear-gradient(to bottom, rgba(43, 33, 24, 0.13), transparent 1.25rem), var(--faser), var(--schnee);
+  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.3);
+}
+.gezogen {
+  max-width: 19rem;
+  font: 700 4.25rem/1 var(--zierschrift);
+  white-space: nowrap;
+}
+/* Der Name erscheint Buchstabe für Buchstabe, wie frisch gestempelt. */
+.gezogen span {
+  display: inline-block;
+  white-space: pre;
+  opacity: 0;
+  transform: translateY(0.18em) scale(1.3);
+  filter: blur(6px);
+}
+.gezogen.messen span { transform: none; }
+.zettel.offen .gezogen span {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: opacity 0.35s ease-out, transform 0.45s cubic-bezier(0.2, 1.5, 0.4, 1), filter 0.35s ease-out;
+  transition-delay: calc(0.65s + var(--i) * 60ms);
+}
+
+/* ---------- Auslosen: Namen in den Sack, schütteln, Zettel heraus ---------- */
+
+.lostopf {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.25rem;
+  background: rgba(14, 39, 29, 0.95);
+  opacity: 0;
+  transition: opacity 0.25s;
+  overflow: hidden;
+  cursor: pointer;
+}
+.lostopf.sichtbar { opacity: 1; }
+.lostopf-buehne { position: relative; width: 18rem; height: 23rem; transform-origin: 50% 90%; }
+.lostopf-buehne.schuetteln { animation: schuetteln 0.8s ease-in-out; }
+.lostopf-buehne .sack { bottom: 0; }
+.lostopf-text { min-height: 1.5em; font-size: 1.1875rem; font-weight: 700; text-align: center; }
+
+.los {
+  position: absolute;
+  left: 0; top: 0;
+  z-index: 1;
+  width: 6.5rem; height: 2.2rem;
+  margin: -1.1rem 0 0 -3.25rem;
+  padding: 0 0.5rem;
+  overflow: hidden;
+  background: var(--faser), var(--schnee);
+  color: var(--tinte);
+  font: 700 0.9375rem/2.2rem var(--schrift);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+}
+.los.gefaltet {
+  width: 2.8rem; height: 2rem;
+  margin: -1rem 0 0 -1.4rem;
+  background: linear-gradient(to bottom, transparent 46%, rgba(43, 33, 24, 0.22) 50%, transparent 54%), var(--faser), var(--schnee);
+}
+
+.nach-dem-oeffnen { margin-top: 1.75rem; display: grid; gap: 0.75rem; justify-items: center; }
+.nachricht { max-width: 34ch; padding: 0.75rem 1rem; border: 1.5px dashed rgba(212, 181, 138, 0.7); border-radius: 6px; overflow-wrap: anywhere; }
+.nachricht b { display: block; color: var(--kraft); font-size: 0.9375rem; }
+
+.fuss { margin-top: 3.5rem; font-size: 0.9375rem; }
+.fuss a { color: var(--kraft); font-weight: 700; text-underline-offset: 0.2em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zettel-lage, .klappe, .zettel-zug, .zettel .sack, .zettel.offen .gezogen span, .lostopf { transition: none; }
+  .einzug .anhaenger, .anhaenger.neu, .zettel.ruetteln, .lostopf-buehne.schuetteln { animation: none; }
+}
+</style>
+</head>
+<body>
+<canvas id="schnee" aria-hidden="true"></canvas>
+
+<!-- Der Jutesack, einmal gezeichnet und mehrfach verwendet -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="jute" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#8A683B"/>
+      <stop offset="0.35" stop-color="#BE9A63"/>
+      <stop offset="0.7" stop-color="#AC8752"/>
+      <stop offset="1" stop-color="#836238"/>
+    </linearGradient>
+    <pattern id="gewebe" width="7" height="7" patternUnits="userSpaceOnUse">
+      <path d="M0 3.5h7M3.5 0v7" stroke="#3C2814" stroke-opacity="0.17"/>
+    </pattern>
+    <path id="sack-form" d="M50 70A100 30 0 0 0 250 70C262 110 288 170 284 235C281 290 262 322 222 328C180 334 120 334 78 328C38 322 19 290 16 235C12 170 38 110 50 70Z"/>
+  </defs>
+  <symbol id="sack-hinten" viewBox="0 0 300 340">
+    <ellipse cx="150" cy="70" rx="100" ry="30" fill="#8A683B"/>
+    <ellipse cx="150" cy="73" rx="90" ry="23" fill="#2A1E12"/>
+  </symbol>
+  <symbol id="sack-hinten-voll" viewBox="0 0 300 340">
+    <ellipse cx="150" cy="70" rx="100" ry="30" fill="#8A683B"/>
+    <ellipse cx="150" cy="73" rx="90" ry="23" fill="#2A1E12"/>
+    <rect x="84" y="26" width="56" height="66" fill="#DDD7C8" transform="rotate(-15 112 59)"/>
+    <rect x="176" y="22" width="50" height="70" fill="#E9E4D7" transform="rotate(12 201 57)"/>
+  </symbol>
+  <symbol id="sack-vorne" viewBox="0 0 300 340">
+    <use href="#sack-form" fill="url(#jute)"/>
+    <use href="#sack-form" fill="url(#gewebe)"/>
+    <path d="M92 118C99 150 90 182 97 210M214 122C207 150 216 176 210 198M150 112C152 134 147 150 150 168" fill="none" stroke="#3C2814" stroke-opacity="0.22" stroke-width="3" stroke-linecap="round"/>
+    <g transform="rotate(8 196 240)">
+      <rect x="168" y="214" width="56" height="50" rx="3" fill="#C5302A"/>
+      <rect x="173" y="219" width="46" height="40" rx="2" fill="none" stroke="#F7F4EC" stroke-width="2.5" stroke-dasharray="6 5" stroke-linecap="round"/>
+    </g>
+    <path d="M50 70A100 30 0 0 0 250 70" fill="none" stroke="#CFAC74" stroke-width="10" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<main>
+
+  <!-- 1. Namen eintragen -->
+  <section id="seite-namen" hidden>
+    <h1>Wichteln</h1>
+    <p class="einleitung">Trag alle Namen ein und lose aus. Danach bekommt jede Person einen eigenen, geheimen Link.</p>
+
+    <ol class="schnur" id="liste-namen" aria-label="Wer macht mit?"></ol>
+    <button type="button" class="dazu" id="knopf-dazu">+ Noch jemand</button>
+
+    <p class="hinweis">„Zieht nicht“ ist die Ausnahme. Bei einem Paar trägt die Seite sie auch bei der zweiten Person ein. Du kannst das ändern.</p>
+
+    <div class="feld">
+      <label for="feld-nachricht">Nachricht an alle (freiwillig)</label>
+      <input id="feld-nachricht" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Budget 20 €, Übergabe am 24. Dezember">
+    </div>
+
+    <div class="feld">
+      <label for="feld-code">Code der Ziehung</label>
+      <div class="code-zeile">
+        <input id="feld-code" type="text" maxlength="24" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false">
+        <button type="button" class="dazu" id="knopf-code">Neuer Code</button>
+      </div>
+      <p class="hinweis">Gleiche Namen, gleiche Ausnahmen und gleicher Code ergeben immer dieselbe Ziehung. Trag einen alten Code ein, um eine Ziehung zurückzuholen. Behalte den Code für dich.</p>
+    </div>
+
+    <p class="fehler" id="fehler" role="alert" hidden></p>
+
+    <div class="zeile">
+      <button type="button" class="gross" id="knopf-auslosen">Auslosen</button>
+      <button type="button" class="text-knopf" id="knopf-letzte" hidden></button>
+    </div>
+  </section>
+
+  <!-- 2. Links verteilen -->
+  <section id="seite-links" hidden>
+    <h2 tabindex="-1" id="titel-links">Ausgelost</h2>
+    <p class="kennung" id="kennung-links"></p>
+    <p class="auftrag">Schick jeder Person ihren Link. Öffne nur deinen eigenen Link, sonst weißt du, wer wen beschenkt.</p>
+
+    <ol class="schnur" id="liste-links" aria-label="Links für alle"></ol>
+
+    <div class="zeile">
+      <button type="button" class="text-knopf" id="knopf-neu">Neu auslosen</button>
+      <button type="button" class="text-knopf" id="knopf-aendern">Namen ändern</button>
+    </div>
+    <p class="unsichtbar" id="meldung" role="status"></p>
+    <p class="code-info">Code dieser Ziehung: <b id="code-links"></b>. Mit denselben Namen, denselben Ausnahmen und diesem Code bekommst du dieselben Links wieder, auch auf einem anderen Gerät. Gib den Code nicht weiter.</p>
+
+    <details>
+      <summary>Wie geheim ist das?</summary>
+      <ul>
+        <li>Die Seite hat keinen Server. Dein Browser lost aus. Die Namen verlassen dein Gerät nur in den Links, die du verschickst.</li>
+        <li>Jeder Link enthält genau ein Ergebnis. Es ist unleserlich verpackt, aber nicht verschlüsselt.</li>
+        <li>Wer einen Link öffnet, sieht das Ergebnis. Schick jeden Link nur an die richtige Person.</li>
+        <li>Alle Zettel einer Ziehung zeigen dieselbe Kennung. So erkennt ihr einen alten Link.</li>
+        <li>Wer die Namen, die Ausnahmen und deinen Code kennt, kann die Ziehung nachrechnen. Darum bleibt der Code bei dir.</li>
+        <li>WhatsApp sieht die Nachricht mit dem Link wie jede andere Nachricht.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- 3. Der eigene Zettel -->
+  <section id="seite-zettel" hidden>
+    <h1 id="gruss"></h1>
+    <p class="einleitung">Dein Zettel liegt im Sack. Achte darauf, dass dir niemand über die Schulter schaut.</p>
+
+    <div class="zettel im-sack" id="zettel">
+      <svg class="sack hinten"><use href="#sack-hinten-voll"/></svg>
+      <div class="zettel-zug">
+        <div class="zettel-lage">
+          <div class="blatt innen-oben">Du beschenkst</div>
+          <div class="klappe">
+            <div class="blatt aussen"><b id="aussen-name"></b><span>Zum Aufklappen antippen</span></div>
+            <div class="blatt innen-unten"><div class="gezogen" id="gezogen" aria-hidden="true"></div></div>
+          </div>
+        </div>
+      </div>
+      <svg class="sack vorne"><use href="#sack-vorne"/></svg>
+    </div>
+
+    <div class="nach-dem-oeffnen">
+      <button type="button" class="gross" id="knopf-klappen">Zettel ziehen</button>
+      <p class="unsichtbar" id="ansage" role="status"></p>
+      <p class="nachricht" id="nachricht" hidden><b>Nachricht an alle</b><span></span></p>
+      <p class="kennung" id="kennung-zettel"></p>
+    </div>
+
+    <p class="fuss"><a href="./" id="link-start">Eigene Runde auslosen</a></p>
+  </section>
+
+  <!-- Kaputter Link -->
+  <section id="seite-kaputt" hidden>
+    <h2>Dieser Link ist unvollständig</h2>
+    <p class="auftrag">Ein Teil des Links fehlt. Bitte die Person, die ausgelost hat, dir den Link noch einmal zu schicken.</p>
+    <p class="fuss"><a href="./" id="link-start-2">Eigene Runde auslosen</a></p>
+  </section>
+
+</main>
+
+<!-- Animation beim Auslosen -->
+<div class="lostopf" id="lostopf" hidden>
+  <div class="lostopf-buehne" id="lostopf-buehne">
+    <svg class="sack hinten"><use href="#sack-hinten"/></svg>
+    <svg class="sack vorne"><use href="#sack-vorne"/></svg>
+  </div>
+  <p class="lostopf-text" id="lostopf-text" role="status"></p>
+</div>
+
+<canvas id="konfetti" aria-hidden="true"></canvas>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const SPEICHER = 'wichteln.v1';
+  const KENNUNG_ZEICHEN = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const MIN_PERSONEN = 3;
+  const START_ZEILEN = 6;
+  const ruhig = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // ---------- Zufall ----------
+
+  // Ganze Zufallszahl von 0 bis n-1, ohne Schieflage.
+  function zufall(n) {
+    const grenze = Math.floor(0x100000000 / n) * n;
+    const puffer = new Uint32Array(1);
+    do { crypto.getRandomValues(puffer); } while (puffer[0] >= grenze);
+    return puffer[0] % n;
+  }
+
+  // Zufall aus einem Text. Gleicher Text ergibt immer dieselbe Zahlenfolge.
+  // So lässt sich eine Ziehung mit ihrem Code wiederholen.
+  function zufallAus(text) {
+    let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+    for (const b of new TextEncoder().encode(text)) {
+      h1 = h2 ^ Math.imul(h1 ^ b, 597399067);
+      h2 = h3 ^ Math.imul(h2 ^ b, 2869860233);
+      h3 = h4 ^ Math.imul(h3 ^ b, 951274213);
+      h4 = h1 ^ Math.imul(h4 ^ b, 2716044179);
+    }
+    h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+    h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+    h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+    h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+    let a = h1 ^ h2 ^ h3 ^ h4, b = h2 ^ a, c = h3 ^ a, d = h4 ^ a;
+    const weiter = () => {
+      const t = (((a + b) | 0) + d) | 0;
+      d = (d + 1) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      c = (c + t) | 0;
+      return t >>> 0;
+    };
+    for (let i = 0; i < 16; i++) weiter();
+    return (n) => {
+      const grenze = Math.floor(0x100000000 / n) * n;
+      let x;
+      do { x = weiter(); } while (x >= grenze);
+      return x % n;
+    };
+  }
+
+  function mischen(liste, zufall) {
+    for (let i = liste.length - 1; i > 0; i--) {
+      const j = zufall(i + 1);
+      [liste[i], liste[j]] = [liste[j], liste[i]];
+    }
+    return liste;
+  }
+
+  const reihe = (n) => Array.from({ length: n }, (_, i) => i);
+
+  // ---------- Ziehung ----------
+
+  // verboten[i] ist die Menge der Personen, die Person i nicht ziehen darf.
+  // Ergebnis: ziel[i] ist die Person, die i beschenkt. null, wenn es keine Lösung gibt.
+  function ziehen(n, verboten, zufall) {
+    const gueltig = (ziel) => ziel.every((r, i) => !verboten[i].has(r));
+
+    // Zuerst: mischen, bis es passt. So ist jede gültige Ziehung gleich wahrscheinlich.
+    for (let versuch = 0; versuch < 3000; versuch++) {
+      const ziel = mischen(reihe(n), zufall);
+      if (gueltig(ziel)) return ziel;
+    }
+
+    // Wenn das nicht reicht: systematisch suchen. Das findet jede Lösung, die es gibt.
+    const ziel = new Array(n).fill(-1);
+    const vergeben = new Array(n).fill(false);
+    const reihenfolge = mischen(reihe(n), zufall);
+    const suche = (k) => {
+      if (k === n) return true;
+      const i = reihenfolge[k];
+      for (const r of mischen(reihe(n), zufall)) {
+        if (vergeben[r] || verboten[i].has(r)) continue;
+        vergeben[r] = true; ziel[i] = r;
+        if (suche(k + 1)) return true;
+        vergeben[r] = false;
+      }
+      return false;
+    };
+    return suche(0) ? ziel : null;
+  }
+
+  // ---------- Link-Inhalt verpacken ----------
+  // Der Inhalt wird unleserlich gemacht, damit niemand das Ergebnis aus Versehen
+  // im Link liest. Das ist keine Verschlüsselung: Wer den Link hat, kann ihn öffnen.
+
+  function strom(schluessel) {
+    let s = (schluessel >>> 0) || 0x9E3779B9;
+    const weiter = () => {
+      s ^= s << 13; s >>>= 0;
+      s ^= s >>> 17;
+      s ^= s << 5; s >>>= 0;
+      return s;
+    };
+    for (let i = 0; i < 8; i++) weiter();
+    return () => (weiter() >>> 11) & 0xFF;
+  }
+
+  function zuText(bytes) {
+    let s = '';
+    for (const b of bytes) s += String.fromCharCode(b);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function zuBytes(text) {
+    const s = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(s, (c) => c.charCodeAt(0));
+  }
+
+  function verpacken(inhalt, zufall) {
+    const daten = new TextEncoder().encode(JSON.stringify(inhalt));
+    const aus = new Uint8Array(4 + daten.length);
+    for (let i = 0; i < 4; i++) aus[i] = zufall(256);
+    const naechstes = strom(new DataView(aus.buffer).getUint32(0));
+    for (let i = 0; i < daten.length; i++) aus[4 + i] = daten[i] ^ naechstes();
+    return zuText(aus);
+  }
+
+  function auspacken(text) {
+    try {
+      const bytes = zuBytes(text);
+      if (bytes.length < 8) return null;
+      const naechstes = strom(new DataView(bytes.buffer).getUint32(0));
+      const daten = bytes.slice(4).map((b) => b ^ naechstes());
+      const inhalt = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(daten));
+      const [version, von, an, kennung, nachricht] = inhalt;
+      if (version !== 1 || typeof von !== 'string' || typeof an !== 'string') return null;
+      return { von, an, kennung: String(kennung || ''), nachricht: String(nachricht || '') };
+    } catch {
+      return null;
+    }
+  }
+
+  // ---------- Zustand ----------
+
+  let zustand = { personen: [], naechsteId: 1, nachricht: '', code: '', ziehung: null };
+
+  // Der Code besteht aus Buchstaben und Ziffern. Anzeige in Vierergruppen: K7QM-2PSY
+  const codeRein = (text) => String(text || '').toUpperCase().replace(/[^A-Z0-9ÄÖÜ]/g, '');
+  const codeSchoen = (code) => code.replace(/(.{4})(?=.)/g, '$1-');
+  const neuerCode = () => Array.from({ length: 8 }, () => KENNUNG_ZEICHEN[zufall(KENNUNG_ZEICHEN.length)]).join('');
+
+  function laden() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(SPEICHER));
+      if (roh && Array.isArray(roh.personen)) zustand = { ...zustand, ...roh };
+    } catch { /* kein Speicher: dann eben ohne */ }
+    while (zustand.personen.length < START_ZEILEN && !zustand.ziehung) neuePerson();
+    while (zustand.personen.length < MIN_PERSONEN) neuePerson();
+    zustand.code = codeRein(zustand.code) || neuerCode();
+  }
+
+  function speichern() {
+    try { localStorage.setItem(SPEICHER, JSON.stringify(zustand)); } catch { /* egal */ }
+  }
+
+  function neuePerson() {
+    const person = { id: zustand.naechsteId++, name: '', nicht: null };
+    zustand.personen.push(person);
+    return person;
+  }
+
+  // ---------- Seite 1: Namen ----------
+
+  function baue(tag, klasse, text) {
+    const e = document.createElement(tag);
+    if (klasse) e.className = klasse;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function zeigeNamen({ einzug = false, neu = null } = {}) {
+    const liste = $('liste-namen');
+    liste.replaceChildren();
+    liste.classList.toggle('einzug', einzug);
+    const loeschbar = zustand.personen.length > MIN_PERSONEN;
+
+    for (const [i, person] of zustand.personen.entries()) {
+      const li = baue('li', 'anhaenger');
+      li.style.setProperty('--i', person === neu ? 0 : i);
+      if (person === neu) li.classList.add('neu');
+      const papier = baue('div', 'papier');
+
+      const feld = baue('input', 'name-feld');
+      feld.type = 'text';
+      feld.maxLength = 30;
+      feld.autocomplete = 'off';
+      feld.placeholder = 'Name';
+      feld.value = person.name;
+      feld.setAttribute('aria-label', 'Name');
+      feld.dataset.id = person.id;
+      feld.addEventListener('input', () => {
+        person.name = feld.value;
+        fuelleAuswahlen();
+        speichern();
+      });
+      feld.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const felder = [...liste.querySelectorAll('.name-feld')];
+        const naechstes = felder[felder.indexOf(feld) + 1];
+        if (naechstes) naechstes.focus(); else $('knopf-dazu').click();
+      });
+
+      const ausnahme = baue('label', 'ausnahme');
+      ausnahme.append(baue('span', '', 'zieht nicht'));
+      const auswahl = baue('select');
+      auswahl.dataset.id = person.id;
+      auswahl.addEventListener('change', () => {
+        person.nicht = auswahl.value ? Number(auswahl.value) : null;
+        // Bei einem Paar gilt die Ausnahme meist in beide Richtungen.
+        const andere = zustand.personen.find((p) => p.id === person.nicht);
+        if (andere && andere.nicht == null) andere.nicht = person.id;
+        fuelleAuswahlen();
+        speichern();
+      });
+      ausnahme.append(auswahl);
+
+      const weg = baue('button', 'weg', '×');
+      weg.type = 'button';
+      weg.disabled = !loeschbar;
+      weg.setAttribute('aria-label', (person.name.trim() || 'Leere Zeile') + ' entfernen');
+      weg.addEventListener('click', () => {
+        zustand.personen = zustand.personen.filter((p) => p !== person);
+        for (const p of zustand.personen) if (p.nicht === person.id) p.nicht = null;
+        speichern();
+        zeigeNamen();
+      });
+
+      papier.append(feld, ausnahme, weg);
+      li.append(papier);
+      liste.append(li);
+    }
+    fuelleAuswahlen();
+    $('feld-nachricht').value = zustand.nachricht;
+    $('feld-code').value = codeSchoen(zustand.code);
+
+    const letzte = $('knopf-letzte');
+    letzte.hidden = !zustand.ziehung;
+    if (zustand.ziehung) letzte.textContent = 'Zurück zur Ziehung ' + zustand.ziehung.kennung;
+  }
+
+  // Die Auswahl "zieht nicht" zeigt immer die aktuellen Namen der anderen.
+  function fuelleAuswahlen() {
+    for (const auswahl of $('liste-namen').querySelectorAll('select')) {
+      const person = zustand.personen.find((p) => p.id === Number(auswahl.dataset.id));
+      const optionen = [new Option('niemand', '')];
+      for (const p of zustand.personen) {
+        if (p === person || !p.name.trim()) continue;
+        optionen.push(new Option(p.name.trim(), p.id));
+      }
+      auswahl.replaceChildren(...optionen);
+      const gueltig = optionen.some((o) => o.value === String(person.nicht));
+      auswahl.value = gueltig ? String(person.nicht) : '';
+    }
+  }
+
+  function zeigeFehler(text) {
+    const fehler = $('fehler');
+    fehler.textContent = text || '';
+    fehler.hidden = !text;
+  }
+
+  let beschaeftigt = false;
+
+  // Gibt true zurück, wenn es eine neue Ziehung gibt.
+  async function auslosen({ bestaetigt = false } = {}) {
+    if (beschaeftigt) return false;
+    zeigeFehler('');
+    const dabei = zustand.personen
+      .map((p) => ({ ...p, name: p.name.trim().replace(/\s+/g, ' ') }))
+      .filter((p) => p.name);
+
+    if (dabei.length < MIN_PERSONEN) {
+      zeigeFehler('Trag mindestens drei Namen ein.');
+      return false;
+    }
+    const gesehen = new Set();
+    for (const p of dabei) {
+      const klein = p.name.toLocaleLowerCase('de');
+      if (gesehen.has(klein)) {
+        zeigeFehler(`„${p.name}“ steht zweimal in der Liste. Gib einem der beiden einen Zusatz, zum Beispiel „${p.name} K.“`);
+        return false;
+      }
+      gesehen.add(klein);
+    }
+
+    const platz = new Map(dabei.map((p, i) => [p.id, i]));
+    const verboten = dabei.map((p, i) => {
+      const menge = new Set([i]);
+      if (platz.has(p.nicht)) menge.add(platz.get(p.nicht));
+      return menge;
+    });
+
+    if (zustand.code.length < 4) {
+      zeigeFehler('Der Code braucht mindestens 4 Zeichen. Mit „Neuer Code“ bekommst du einen.');
+      return false;
+    }
+
+    // Aus Code und Namen entsteht die Zufallsfolge für diese Ziehung.
+    const wuerfel = zufallAus(zustand.code + '\n' + dabei.map((p) => p.name).join('\n'));
+    const ziel = ziehen(dabei.length, verboten, wuerfel);
+    if (!ziel) {
+      zeigeFehler('Mit diesen Ausnahmen geht die Ziehung nicht auf. Entferne eine Ausnahme oder nimm noch jemanden dazu.');
+      return false;
+    }
+
+    // Die Kennung steht auf jedem Zettel. Sie verrät den Code nicht.
+    const kennung = Array.from({ length: 4 }, () => KENNUNG_ZEICHEN[wuerfel(KENNUNG_ZEICHEN.length)]).join('');
+    const nachricht = zustand.nachricht.trim();
+    const links = dabei.map((p, i) => ({
+      name: p.name,
+      code: verpacken([1, p.name, dabei[ziel[i]].name, kennung, nachricht], wuerfel),
+      erledigt: false,
+    }));
+
+    // Dieselbe Ziehung noch einmal: Die Haken "verschickt" bleiben.
+    const alt = zustand.ziehung;
+    const gleich = alt && alt.links.length === links.length && alt.links.every((l, i) => l.code === links[i].code);
+    if (gleich) {
+      zeige('links');
+      return true;
+    }
+    if (alt && !bestaetigt && !confirm('Das ergibt eine andere Ziehung als bisher. Die alten Links gelten dann nicht mehr. Alle brauchen einen neuen Link.')) return false;
+
+    zustand.ziehung = { kennung, code: zustand.code, links };
+    speichern();
+
+    beschaeftigt = true;
+    await lostopf(dabei.map((p) => p.name));
+    beschaeftigt = false;
+
+    zeige('links', { einzug: true });
+    $('titel-links').focus();
+    return true;
+  }
+
+  // Die Animation zeigt nur die Namen der Teilnehmer, nie das Ergebnis.
+  // Ein Klick oder die Escape-Taste überspringt sie.
+  async function lostopf(namen) {
+    if (ruhig) return;
+    const topf = $('lostopf');
+    const buehne = $('lostopf-buehne');
+    const text = $('lostopf-text');
+
+    let ueberspringen;
+    const abbruch = new Promise((r) => { ueberspringen = r; });
+    const warte = (ms) => Promise.race([pause(ms), abbruch]);
+    const taste = (e) => { if (e.key === 'Escape') ueberspringen(); };
+    topf.onclick = ueberspringen;
+    document.addEventListener('keydown', taste);
+
+    const raeumeAuf = () => buehne.querySelectorAll('.los').forEach((e) => e.remove());
+    raeumeAuf();
+    topf.hidden = false;
+    void topf.offsetWidth;
+    topf.classList.add('sichtbar');
+
+    const rem = buehne.getBoundingClientRect().width / 18;
+    const mitte = 9 * rem;        // Mitte des Sacks
+    const loch = 9.5 * rem;       // Höhe der Öffnung
+    const takt = Math.min(120, 720 / namen.length);
+
+    text.textContent = 'Alle Namen kommen in den Sack.';
+    await warte(250);
+    namen.forEach((name, i) => {
+      const los = baue('div', 'los', name);
+      buehne.append(los);
+      const x = (2.5 + Math.random() * 13) * rem;
+      const dreh = -25 + Math.random() * 50;
+      los.animate([
+        { opacity: 1, transform: `translate(${x}px, ${-5 * rem}px) rotate(${dreh}deg)` },
+        { opacity: 1, transform: `translate(${mitte}px, ${loch - 1.5 * rem}px) rotate(${dreh / 3}deg) scale(0.7)`, offset: 0.7 },
+        { opacity: 1, transform: `translate(${mitte}px, ${loch + 6 * rem}px) rotate(0deg) scale(0.5)` },
+      ], { duration: 620, delay: i * takt, easing: 'cubic-bezier(0.45, 0, 0.85, 0.55)', fill: 'forwards' });
+    });
+    await warte((namen.length - 1) * takt + 720);
+
+    text.textContent = 'Gut schütteln.';
+    buehne.classList.add('schuetteln');
+    await warte(850);
+    buehne.classList.remove('schuetteln');
+    raeumeAuf();
+
+    text.textContent = 'Jede Person bekommt einen Zettel.';
+    namen.forEach((_, i) => {
+      const los = baue('div', 'los gefaltet');
+      buehne.append(los);
+      const seite = i % 2 ? 1 : -1;
+      const weit = (6 + Math.random() * 5) * rem * seite;
+      const dreh = seite * (140 + Math.random() * 220);
+      los.animate([
+        { opacity: 1, transform: `translate(${mitte}px, ${loch + 3 * rem}px) scale(0.6)`, easing: 'cubic-bezier(0.1, 0.7, 0.4, 1)' },
+        { opacity: 1, transform: `translate(${mitte + weit * 0.55}px, ${1 * rem}px) rotate(${dreh * 0.6}deg)`, offset: 0.55, easing: 'cubic-bezier(0.5, 0, 0.9, 0.5)' },
+        { opacity: 0, transform: `translate(${mitte + weit * 1.3}px, ${10 * rem}px) rotate(${dreh}deg)` },
+      ], { duration: 900, delay: i * takt, fill: 'forwards' });
+    });
+    await warte((namen.length - 1) * takt + 950);
+
+    topf.classList.remove('sichtbar');
+    await pause(250);
+    topf.hidden = true;
+    raeumeAuf();
+    text.textContent = '';
+    document.removeEventListener('keydown', taste);
+  }
+
+  // ---------- Seite 2: Links ----------
+
+  const adresse = (code) => location.href.split('#')[0] + '#' + code;
+
+  async function kopiere(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const feld = baue('textarea');
+      feld.value = text;
+      feld.style.cssText = 'position:fixed;opacity:0';
+      document.body.append(feld);
+      feld.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch { /* bleibt false */ }
+      feld.remove();
+      return ok;
+    }
+  }
+
+  function zeigeLinks({ einzug = false } = {}) {
+    const { kennung, links } = zustand.ziehung;
+    $('kennung-links').textContent = 'Ziehung ' + kennung;
+    $('code-links').textContent = codeSchoen(zustand.ziehung.code || zustand.code);
+    const liste = $('liste-links');
+    liste.replaceChildren();
+    liste.classList.toggle('einzug', einzug);
+
+    for (const [i, eintrag] of links.entries()) {
+      const li = baue('li', 'anhaenger');
+      li.style.setProperty('--i', i);
+      const papier = baue('div', 'papier mit-links');
+      const name = baue('div', 'name-fest', eintrag.name);
+      const stand = baue('small', '', eintrag.erledigt ? 'Link verschickt' : 'Link noch nicht verschickt');
+      name.append(stand);
+
+      const erledigt = (meldung) => {
+        eintrag.erledigt = true;
+        stand.textContent = 'Link verschickt';
+        $('meldung').textContent = meldung;
+        speichern();
+      };
+
+      const knoepfe = baue('div', 'knoepfe');
+
+      // WhatsApp öffnet sich mit der fertigen Nachricht. Du wählst dort nur noch den Kontakt.
+      const whatsapp = baue('a', 'auf-papier', 'WhatsApp');
+      whatsapp.href = 'https://wa.me/?text=' + encodeURIComponent(
+        `Hallo ${eintrag.name}, hier ist dein Wichtel-Zettel. Öffne ihn allein:\n${adresse(eintrag.code)}`);
+      whatsapp.target = '_blank';
+      whatsapp.rel = 'noopener noreferrer';
+      whatsapp.setAttribute('aria-label', 'Link per WhatsApp an ' + eintrag.name + ' schicken');
+      whatsapp.addEventListener('click', () => erledigt('WhatsApp für ' + eintrag.name + ' geöffnet.'));
+
+      const kopieren = baue('button', 'auf-papier leise', 'Link kopieren');
+      kopieren.type = 'button';
+      kopieren.addEventListener('click', async () => {
+        if (await kopiere(adresse(eintrag.code))) {
+          kopieren.textContent = 'Kopiert';
+          setTimeout(() => { kopieren.textContent = 'Link kopieren'; }, 2000);
+          erledigt('Link für ' + eintrag.name + ' kopiert.');
+        } else {
+          prompt('Kopiere den Link für ' + eintrag.name + ':', adresse(eintrag.code));
+        }
+      });
+      knoepfe.append(whatsapp, kopieren);
+
+      papier.append(name, knoepfe);
+      li.append(papier);
+      liste.append(li);
+    }
+  }
+
+  // ---------- Seite 3: Zettel ----------
+
+  function zeigeZettel(inhalt) {
+    document.title = 'Wichteln – Zettel für ' + inhalt.von;
+    $('gruss').textContent = 'Hallo ' + inhalt.von;
+    $('aussen-name').textContent = 'Für ' + inhalt.von;
+
+    const gezogen = $('gezogen');
+    gezogen.replaceChildren(...Array.from(inhalt.an, (zeichen, i) => {
+      const span = baue('span', '', zeichen);
+      span.style.setProperty('--i', i);
+      return span;
+    }));
+    gezogen.style.fontSize = '';
+    gezogen.setAttribute('aria-hidden', 'true');
+
+    const nachricht = $('nachricht');
+    nachricht.querySelector('span').textContent = inhalt.nachricht;
+    nachricht.hidden = true;
+
+    $('kennung-zettel').textContent = inhalt.kennung ? 'Ziehung ' + inhalt.kennung : '';
+    $('kennung-zettel').hidden = !inhalt.kennung;
+
+    const zettel = $('zettel');
+    const knopf = $('knopf-klappen');
+    zettel.classList.remove('offen', 'ruetteln');
+    zettel.classList.add('im-sack');
+    knopf.textContent = 'Zettel ziehen';
+    $('ansage').textContent = '';
+
+    let stand = 'sack';   // sack -> laeuft -> offen <-> zu
+
+    const klappe = (offen) => {
+      zettel.classList.toggle('offen', offen);
+      knopf.textContent = offen ? 'Zettel zuklappen' : 'Zettel aufklappen';
+      gezogen.setAttribute('aria-hidden', String(!offen));
+      nachricht.hidden = !(offen && inhalt.nachricht);
+      $('ansage').textContent = offen ? 'Du beschenkst ' + inhalt.an + '.' : 'Zettel zugeklappt.';
+      stand = offen ? 'offen' : 'zu';
+    };
+
+    const klick = async () => {
+      if (stand === 'laeuft') return;
+      if (stand !== 'sack') return klappe(stand !== 'offen');
+
+      // Zettel aus dem Sack ziehen, dann aufklappen.
+      stand = 'laeuft';
+      if (!ruhig) {
+        zettel.classList.add('ruetteln');
+        await pause(480);
+        zettel.classList.remove('ruetteln');
+      }
+      zettel.classList.remove('im-sack');
+      if (!ruhig) await pause(1150);
+      klappe(true);
+      if (!ruhig) {
+        await pause(700);
+        const r = zettel.getBoundingClientRect();
+        konfetti(r.left + r.width / 2, r.top + r.height / 2);
+      }
+    };
+    knopf.onclick = klick;
+    zettel.onclick = klick;
+
+    // Lange Namen verkleinern, bis sie auf den Zettel passen.
+    requestAnimationFrame(() => {
+      gezogen.classList.add('messen');
+      let groesse = parseFloat(getComputedStyle(gezogen).fontSize);
+      while (gezogen.scrollWidth > gezogen.clientWidth && groesse > 18) {
+        groesse -= 2;
+        gezogen.style.fontSize = groesse + 'px';
+      }
+      gezogen.classList.remove('messen');
+    });
+  }
+
+  // ---------- Schnee und Papierschnipsel ----------
+
+  function leinwand(id) {
+    const c = $(id);
+    const g = c.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth, h = window.innerHeight;
+    c.width = w * dpr; c.height = h * dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { g, w, h };
+  }
+
+  function schnee() {
+    if (ruhig) return;
+    let g, w, h, flocken = [], zuletzt = 0, breite = 0;
+    const flocke = (oben) => ({
+      x: Math.random() * w,
+      y: oben ? -6 : Math.random() * h,
+      r: 0.8 + Math.random() * 2.2,
+      tempo: 14 + Math.random() * 26,
+      phase: Math.random() * 6.283,
+      deckung: 0.2 + Math.random() * 0.45,
+    });
+    const messen = () => {
+      ({ g, w, h } = leinwand('schnee'));
+      if (w !== breite) {
+        breite = w;
+        flocken = Array.from({ length: Math.round(Math.min(70, (w * h) / 16000)) }, () => flocke(false));
+      }
+    };
+    const bild = (t) => {
+      const dt = Math.min(0.05, (t - zuletzt) / 1000);
+      zuletzt = t;
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = '#F7F4EC';
+      for (const f of flocken) {
+        f.y += f.tempo * dt;
+        f.phase += dt * 0.8;
+        f.x += Math.sin(f.phase) * 8 * dt;
+        if (f.y > h + 6) Object.assign(f, flocke(true));
+        g.globalAlpha = f.deckung;
+        g.beginPath();
+        g.arc(f.x, f.y, f.r, 0, 6.283);
+        g.fill();
+      }
+      if (!document.hidden) requestAnimationFrame(bild);
+    };
+    messen();
+    window.addEventListener('resize', messen);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) requestAnimationFrame(bild); });
+    requestAnimationFrame(bild);
+  }
+
+  function konfetti(x, y) {
+    if (ruhig) return;
+    const { g, w, h } = leinwand('konfetti');
+    const farben = ['#C5302A', '#F7F4EC', '#D4B58A', '#8FC1A4', '#E06A5F'];
+    const teile = Array.from({ length: 120 }, () => {
+      const winkel = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
+      const tempo = 260 + Math.random() * 620;
+      return {
+        x, y,
+        vx: Math.cos(winkel) * tempo,
+        vy: Math.sin(winkel) * tempo,
+        b: 5 + Math.random() * 7,
+        l: 4 + Math.random() * 9,
+        dreh: Math.random() * 6.283,
+        vdreh: (Math.random() - 0.5) * 14,
+        kipp: Math.random() * 6.283,
+        farbe: farben[Math.floor(Math.random() * farben.length)],
+      };
+    });
+    const dauer = 3000;
+    let anfang = 0, zuletzt = 0;
+    const bild = (t) => {
+      if (!anfang) { anfang = t; zuletzt = t; }
+      const dt = Math.min(0.05, (t - zuletzt) / 1000);
+      zuletzt = t;
+      const alter = t - anfang;
+      g.clearRect(0, 0, w, h);
+      g.globalAlpha = Math.min(1, (dauer - alter) / 600);
+      for (const p of teile) {
+        p.vy += 800 * dt;
+        p.vx *= 1 - 1.6 * dt;
+        p.vy *= 1 - 1.2 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.dreh += p.vdreh * dt;
+        p.kipp += 9 * dt;
+        g.save();
+        g.translate(p.x, p.y);
+        g.rotate(p.dreh);
+        g.scale(1, Math.cos(p.kipp));
+        g.fillStyle = p.farbe;
+        g.fillRect(-p.b / 2, -p.l / 2, p.b, p.l);
+        g.restore();
+      }
+      if (alter < dauer) requestAnimationFrame(bild); else g.clearRect(0, 0, w, h);
+    };
+    requestAnimationFrame(bild);
+  }
+
+  // ---------- Welche Seite? ----------
+
+  function zeige(seite, { einzug = false } = {}) {
+    for (const s of ['namen', 'links', 'zettel', 'kaputt']) $('seite-' + s).hidden = s !== seite;
+    if (seite === 'namen') zeigeNamen({ einzug });
+    if (seite === 'links') zeigeLinks({ einzug });
+    window.scrollTo(0, 0);
+  }
+
+  let ersterAufruf = true;
+
+  function start() {
+    const code = location.hash.slice(1);
+    if (code) {
+      const inhalt = auspacken(code);
+      if (inhalt) { zeigeZettel(inhalt); zeige('zettel'); } else { zeige('kaputt'); }
+      return;
+    }
+    document.title = 'Wichteln';
+    zeige(zustand.ziehung ? 'links' : 'namen', { einzug: ersterAufruf });
+    ersterAufruf = false;
+  }
+
+  $('knopf-dazu').addEventListener('click', () => {
+    const person = neuePerson();
+    speichern();
+    zeigeNamen({ neu: person });
+    $('liste-namen').querySelector(`.name-feld[data-id="${person.id}"]`).focus();
+  });
+
+  $('feld-nachricht').addEventListener('input', (e) => {
+    zustand.nachricht = e.target.value;
+    speichern();
+  });
+
+  $('feld-code').addEventListener('input', (e) => {
+    zustand.code = codeRein(e.target.value);
+    speichern();
+  });
+  $('feld-code').addEventListener('blur', (e) => { e.target.value = codeSchoen(zustand.code); });
+
+  $('knopf-code').addEventListener('click', () => {
+    zustand.code = neuerCode();
+    $('feld-code').value = codeSchoen(zustand.code);
+    speichern();
+  });
+
+  $('knopf-auslosen').addEventListener('click', () => auslosen());
+
+  $('knopf-letzte').addEventListener('click', () => zeige('links'));
+
+  $('knopf-neu').addEventListener('click', async () => {
+    if (!confirm('Neu auslosen? Die alten Links gelten dann nicht mehr. Alle brauchen einen neuen Link.')) return;
+    zustand.code = neuerCode();
+    if (!(await auslosen({ bestaetigt: true })) && !$('fehler').hidden) zeige('namen');
+  });
+
+  $('knopf-aendern').addEventListener('click', () => zeige('namen'));
+
+  for (const id of ['link-start', 'link-start-2']) {
+    $(id).href = location.href.split('#')[0];
+  }
+
+  window.addEventListener('hashchange', start);
+  laden();
+  schnee();
+  start();
+})();
+</script>
+</body>
+</html>
