@@ -155,6 +155,17 @@ footer{font-size:.84rem;color:var(--muted);border-top:1px solid var(--rule);padd
   .chain .opt{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+
+.toggles{display:flex;flex-wrap:wrap;gap:.5rem}
+.dur{display:flex;flex-direction:column;gap:.6rem}
+.drow{display:grid;grid-template-columns:8.5rem 1fr auto;gap:.6rem;align-items:center;font-size:.9rem}
+.dbar{display:block;height:16px;background:var(--tint);border-radius:4px;overflow:hidden}
+.dbar i{display:block;height:100%;min-width:4px;border-radius:4px}
+.dbar .b1{background:var(--prime)} .dbar .b2{background:var(--zero)}
+.drow b{font:500 .86rem var(--font-mono)}
+.world.pa{border-top:4px solid var(--prime)} .world.pa .tag{color:var(--prime)}
+.world.pb{border-top:4px solid var(--zero)} .world.pb .tag{color:var(--zero)}
+@media (max-width:460px){.drow{grid-template-columns:5.6rem 1fr auto}}
 </style>
 </head>
 <body>
@@ -162,236 +173,340 @@ footer{font-size:.84rem;color:var(--muted);border-top:1px solid var(--rule);padd
 
 <header>
   <div class="top">
-    <span class="eyebrow">Explainer &middot; updated 21 November 2026</span>
-    <div class="theme" role="group" aria-label="Colour mode">
-      <button type="button" id="tLight" aria-pressed="false">Bright</button>
-      <button type="button" id="tDark" aria-pressed="false">Dark</button>
+    <span class="eyebrow" data-i18n="ey">Explainer &middot; updated 21 November 2026</span>
+    <div class="toggles">
+      <div class="theme" role="group" aria-label="Language / Sprache">
+        <button type="button" id="lEn" aria-pressed="false" lang="en">English</button>
+        <button type="button" id="lDe" aria-pressed="false" lang="de">Deutsch</button>
+      </div>
+      <div class="theme" role="group" aria-label="Colour mode" data-i18n-aria="aMode">
+        <button type="button" id="tLight" aria-pressed="false" data-i18n="bLight">Bright</button>
+        <button type="button" id="tDark" aria-pressed="false" data-i18n="bDark">Dark</button>
+      </div>
     </div>
   </div>
-  <h1>A claimed proof of the Riemann Hypothesis</h1>
-  <p class="lead">For 167 years, nobody could solve the most famous riddle in mathematics. On 20 November 2026 the mathematician Levent Alpöge said that he solved it together with Claude, an AI program. This page explains the riddle, the idea, and how sure we can be. You need no mathematics from school to read it.</p>
+  <h1 data-i18n="h1">A claimed proof of the Riemann Hypothesis</h1>
+  <p class="lead" data-i18n="lead">For 167 years, nobody could solve the most famous riddle in mathematics. On 20 November 2026 the mathematician Levent Alpöge said that he solved it together with Claude, an AI program. This page explains the riddle, the idea, and how sure we can be. You need no mathematics from school to read it.</p>
   <div class="status">
-    <b>Status: first checks passed, one check open</b>
-    <span>Other mathematicians ran the proof through a checking program on their own computers. It passed. One last automatic comparison was still open on the morning of 21 November. No person understands the full proof yet.</span>
+    <b data-i18n="st_b">Status: all completed checks passed, one is still running</b>
+    <span data-i18n="st_t">Other mathematicians ran the proof through several independent checking programs. Each completed check passed. One long final check was still running on 21 November. No person understands the full proof yet. On the same day, a second proof appeared that was made by people only. It has reported problems (section 06).</span>
   </div>
   <div class="short">
-    <div><h3>The riddle</h3>Prime numbers appear without a visible pattern. The Riemann Hypothesis says that there is a strict order behind them.</div>
-    <div><h3>The claim</h3>A proof that this order is real. A person set the direction. An AI did much of the hard work.</div>
-    <div><h3>The surprise</h3>The proof is not a text for people. It is a very large computer file that a program checks step by step.</div>
+    <div><h3 data-i18n="c1h">The riddle</h3><span data-i18n="c1t">Prime numbers appear without a visible pattern. The Riemann Hypothesis says that there is a strict order behind them.</span></div>
+    <div><h3 data-i18n="c2h">The claim</h3><span data-i18n="c2t">A proof that this order is real. A person set the direction. An AI did much of the hard work.</span></div>
+    <div><h3 data-i18n="c3h">The surprise</h3><span data-i18n="c3t">The proof is not a text for people. It is a very large computer file that programs check step by step.</span></div>
   </div>
 </header>
 
 <section>
   <span class="num">01</span>
-  <h2>The riddle: how are the prime numbers spread?</h2>
-  <p>You can put 12 sweets into equal groups: 3 groups of 4, or 2 groups of 6. With 13 sweets this is not possible. Numbers such as 13 are prime numbers: 2, 3, 5, 7, 11, 13, 17. All other whole numbers are products of primes. This is why people call primes the building blocks of numbers.</p>
-  <p>Primes become less frequent when numbers get larger. Below 100, one number in four is a prime. Below one million, it is only one number in thirteen. But nobody can tell you by a simple rule where the next prime is.</p>
-  <p>There is a formula that predicts how many primes exist below a number X. The chart compares this prediction with the true count.</p>
+  <h2 data-i18n="s1h">The riddle: how are the prime numbers spread?</h2>
+  <p data-i18n="s1p1">You can put 12 sweets into equal groups: 3 groups of 4, or 2 groups of 6. With 13 sweets this is not possible. Numbers such as 13 are prime numbers: 2, 3, 5, 7, 11, 13, 17. All other whole numbers are products of primes. This is why people call primes the building blocks of numbers.</p>
+  <p data-i18n="s1p2">Primes become less frequent when numbers get larger. Below 100, one number in four is a prime. Below one million, it is only one number in thirteen. But nobody can tell you by a simple rule where the next prime is.</p>
+  <p data-i18n="s1p3">There is a formula that predicts how many primes exist below a number X. The chart compares this prediction with the true count.</p>
 
   <figure>
-    <div class="fig-title">True count and prediction</div>
+    <div class="fig-title" data-i18n="f1t">True count and prediction</div>
     <div class="ctl">
-      <label for="xs">Count the primes up to X <output id="xo">100</output></label>
+      <label for="xs"><span data-i18n="f1l">Count the primes up to X</span> <output id="xo">X = 100</output></label>
       <input type="range" id="xs" min="2" max="6" step="0.01" value="2">
     </div>
-    <div class="legend"><span><i class="sw"></i>true count of primes</span><span><i class="sw est"></i>prediction of the formula</span></div>
-    <svg class="chart" id="cA" role="img" aria-label="Staircase of the true prime count with the smooth prediction drawn over it"></svg>
+    <div class="legend"><span><i class="sw"></i><span data-i18n="lg1a">true count of primes</span></span><span><i class="sw est"></i><span data-i18n="lg1b">prediction of the formula</span></span></div>
+    <svg class="chart" id="cA" role="img" aria-label="Staircase of the true prime count with the smooth prediction drawn over it" data-i18n-aria="aA"></svg>
     <div class="stats">
-      <div><small>Primes up to X</small><b id="rPi">25</b></div>
-      <div><small>Prediction</small><b id="rLi">30.1</b></div>
-      <div><small>Miss</small><b id="rMiss">&minus;5.1</b></div>
-      <div><small>Square root of X</small><b id="rSq">10</b></div>
+      <div><small data-i18n="stA">Primes up to X</small><b id="rPi">25</b></div>
+      <div><small data-i18n="stB">Prediction</small><b id="rLi">30.1</b></div>
+      <div><small data-i18n="stC">Miss</small><b id="rMiss">&minus;5.1</b></div>
+      <div><small data-i18n="stD">Square root of X</small><b id="rSq">10</b></div>
     </div>
-    <div class="fig-title">Only the miss: true count minus prediction</div>
-    <div class="legend"><span><i class="sw ink"></i>miss</span><span><i class="sw band"></i>permitted zone</span></div>
-    <svg class="chart" id="cB" role="img" aria-label="The miss of the prediction stays inside a zone whose height is the square root of x"></svg>
-    <figcaption>Move the slider to the right. In the top chart, the two lines become almost one line. The bottom chart shows the small difference. It stays inside the green zone.</figcaption>
+    <div class="fig-title" data-i18n="f1t2">Only the miss: true count minus prediction</div>
+    <div class="legend"><span><i class="sw ink"></i><span data-i18n="lg2a">miss</span></span><span><i class="sw band"></i><span data-i18n="lg2b">permitted zone</span></span></div>
+    <svg class="chart" id="cB" role="img" aria-label="The miss of the prediction stays inside a zone whose height is the square root of x" data-i18n-aria="aB"></svg>
+    <figcaption data-i18n="f1c">Move the slider to the right. In the top chart, the two lines become almost one line. The bottom chart shows the small difference. It stays inside the green zone.</figcaption>
   </figure>
 
-  <p><strong>The Riemann Hypothesis says: the miss stays inside this zone forever</strong>, also for numbers with a thousand digits. The height of the zone is about the square root of X. For X = 1,000,000 the square root is 1,000, because 1,000 &times; 1,000 = 1,000,000.</p>
-  <p class="aside">A comparison: toss a coin one million times. You expect 500,000 heads. The true result is usually wrong by some hundreds, not by tens of thousands. Pure chance makes small errors of exactly this size. The hypothesis says that primes behave like these coin tosses. They look random, but no hidden force pushes them away from the prediction.</p>
+  <p data-i18n="s1p4"><strong>The Riemann Hypothesis says: the miss stays inside this zone forever</strong>, also for numbers with a thousand digits. The height of the zone is about the square root of X. For X = 1,000,000 the square root is 1,000, because 1,000 &times; 1,000 = 1,000,000.</p>
+  <p class="aside" data-i18n="s1p5">A comparison: toss a coin one million times. You expect 500,000 heads. The true result is usually wrong by some hundreds, not by tens of thousands. Pure chance makes small errors of exactly this size. The hypothesis says that primes behave like these coin tosses. They look random, but no hidden force pushes them away from the prediction.</p>
 </section>
 
 <section>
   <span class="num">02</span>
-  <h2>The hidden music of the primes</h2>
-  <p>In 1859 the German mathematician Bernhard Riemann found out where the miss comes from. He used a formula with the name zeta function. You can think of it as a hidden sheet of music for the primes. The sheet contains special points, the zeros. Each zero is one tone.</p>
-  <p>The chart shows what the tones do. One tone alone is a simple wave. Add many tones, and the waves build a staircase. The staircase goes up exactly where the primes are.</p>
+  <h2 data-i18n="s2h">The hidden music of the primes</h2>
+  <p data-i18n="s2p1">In 1859 the German mathematician Bernhard Riemann found out where the miss comes from. He used a formula with the name zeta function. You can think of it as a hidden sheet of music for the primes. The sheet contains special points, the zeros. Each zero is one tone.</p>
+  <p data-i18n="s2p2">The chart shows what the tones do. One tone alone is a simple wave. Add many tones, and the waves build a staircase. The staircase goes up exactly where the primes are.</p>
 
   <figure>
-    <div class="fig-title">The tones build the staircase of the primes</div>
+    <div class="fig-title" data-i18n="f2t">The tones build the staircase of the primes</div>
     <div class="ctl">
-      <label for="ns">Tones in use <output id="no">12</output></label>
+      <label for="ns"><span data-i18n="f2l">Tones in use</span> <output id="no">12 tones</output></label>
       <input type="range" id="ns" min="0" max="120" step="1" value="12">
     </div>
     <button type="button" id="play">Add the tones one at a time</button>
-    <div class="legend"><span><i class="sw"></i>staircase of the primes</span><span><i class="sw zero"></i>sum of the tones</span></div>
-    <svg class="chart" id="cW" role="img" aria-label="A sum of waves approaches the staircase that steps up at each prime number"></svg>
-    <figcaption>With no tones, the red line is straight. With more tones, steps appear at 2, 3, 5, 7, 11 and each other prime. Large primes make higher steps. There are also small steps at 4, 8, 9 and other powers of primes.</figcaption>
+    <div class="legend"><span><i class="sw"></i><span data-i18n="lg3a">staircase of the primes</span></span><span><i class="sw zero"></i><span data-i18n="lg3b">sum of the tones</span></span></div>
+    <svg class="chart" id="cW" role="img" aria-label="A sum of waves approaches the staircase that steps up at each prime number" data-i18n-aria="aW"></svg>
+    <figcaption data-i18n="f2c">With no tones, the red line is straight. With more tones, steps appear at 2, 3, 5, 7, 11 and each other prime. Large primes make higher steps. There are also small steps at 4, 8, 9 and other powers of primes.</figcaption>
   </figure>
 
-  <p>Now the important question: where are these zeros? You can draw them on a map.</p>
+  <p data-i18n="s2p3">Now the important question: where are these zeros? You can draw them on a map.</p>
 
   <figure>
-    <div class="fig-title">The first ten zeros on the map</div>
+    <div class="fig-title" data-i18n="f3t">The first ten zeros on the map</div>
     <div class="split">
-      <svg viewBox="0 0 300 400" role="img" aria-label="A vertical strip with ten zeros, all on the centre line">
+      <svg viewBox="0 0 300 400" role="img" aria-label="A vertical strip with ten zeros, all on the centre line" data-i18n-aria="aS">
         <rect x="85" y="20" width="130" height="350" class="f-band"/>
         <line x1="85" y1="20" x2="85" y2="370" class="l-base"/><line x1="215" y1="20" x2="215" y2="370" class="l-base"/>
         <line x1="150" y1="14" x2="150" y2="370" class="l-zero"/>
         <line x1="40" y1="370" x2="270" y2="370" class="l-base"/>
-        <g class="lbl" text-anchor="middle"><text x="85" y="386">0</text><text x="150" y="386">&frac12;</text><text x="215" y="386">1</text><text x="150" y="399">position from left to right</text></g>
+        <g class="lbl" text-anchor="middle"><text x="85" y="386">0</text><text x="150" y="386">&frac12;</text><text x="215" y="386">1</text><text x="150" y="399" data-i18n="sv1">position from left to right</text></g>
         <g class="lbl" text-anchor="end"><text x="34" y="374">0</text><text x="34" y="306.7">10</text><text x="34" y="239.4">20</text><text x="34" y="172.1">30</text><text x="34" y="104.8">40</text><text x="34" y="37.5">50</text></g>
         <g class="ax"><line x1="38" x2="44" y1="302.7" y2="302.7"/><line x1="38" x2="44" y1="235.4" y2="235.4"/><line x1="38" x2="44" y1="168.1" y2="168.1"/><line x1="38" x2="44" y1="100.8" y2="100.8"/><line x1="38" x2="44" y1="33.5" y2="33.5"/></g>
         <g class="d-zero"><circle cx="150" cy="274.9" r="4.5"/><circle cx="150" cy="228.5" r="4.5"/><circle cx="150" cy="201.7" r="4.5"/><circle cx="150" cy="165.2" r="4.5"/><circle cx="150" cy="148.3" r="4.5"/><circle cx="150" cy="117" r="4.5"/><circle cx="150" cy="94.6" r="4.5"/><circle cx="150" cy="78.4" r="4.5"/><circle cx="150" cy="46.9" r="4.5"/><circle cx="150" cy="35" r="4.5"/></g>
-        <g class="t-zero"><text x="224" y="278.9">14.13</text><text x="224" y="232.5">21.02</text><text x="224" y="205.7">25.01</text><text x="224" y="169.2">30.42</text><text x="224" y="152.3">32.94</text><text x="224" y="121">37.59</text><text x="224" y="98.6">40.92</text><text x="224" y="82.4">43.33</text><text x="224" y="52.9">48.01</text><text x="224" y="38">49.77</text></g>
+        <g class="t-zero" id="zl"><text x="224" y="278.9" data-v="14.13">14.13</text><text x="224" y="232.5" data-v="21.02">21.02</text><text x="224" y="205.7" data-v="25.01">25.01</text><text x="224" y="169.2" data-v="30.42">30.42</text><text x="224" y="152.3" data-v="32.94">32.94</text><text x="224" y="121" data-v="37.59">37.59</text><text x="224" y="98.6" data-v="40.92">40.92</text><text x="224" y="82.4" data-v="43.33">43.33</text><text x="224" y="52.9" data-v="48.01">48.01</text><text x="224" y="38" data-v="49.77">49.77</text></g>
         <g><circle cx="189" cy="188" r="5" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 2"/><line x1="184" y1="183" x2="194" y2="193" stroke="var(--muted)" stroke-width="1.5"/><line x1="194" y1="183" x2="184" y2="193" stroke="var(--muted)" stroke-width="1.5"/></g>
-        <text x="150" y="10" class="t-zero" text-anchor="middle">centre line</text>
+        <text x="150" y="10" class="t-zero" text-anchor="middle" data-i18n="sv2">centre line</text>
       </svg>
       <div class="txt">
-        <p>Each red dot is one zero. The number next to it is its height on the map. The height sets the pitch of the tone.</p>
-        <p>All ten dots are exactly on the red centre line. Riemann guessed: <strong>every zero is on this line</strong>, and there are infinitely many of them. This guess is the Riemann Hypothesis.</p>
-        <p>The grey cross shows what must never occur: a zero next to the line.</p>
-        <p class="small">Computers found the first 10 trillion zeros. All are on the line. But this is not a proof. Zero number 10 trillion and one can still be different.</p>
+        <p data-i18n="tx1">Each red dot is one zero. The number next to it is its height on the map. The height sets the pitch of the tone.</p>
+        <p data-i18n="tx2">All ten dots are exactly on the red centre line. Riemann guessed: <strong>every zero is on this line</strong>, and there are infinitely many of them. This guess is the Riemann Hypothesis.</p>
+        <p data-i18n="tx3">The grey cross shows what must never occur: a zero next to the line.</p>
+        <p class="small" data-i18n="tx4">Computers found the first 10 trillion zeros. All are on the line. But this is not a proof. Zero number 10 trillion and one can still be different.</p>
       </div>
     </div>
   </figure>
 
-  <p>Why is the line so important? The position from left to right sets how loud a tone is. On the centre line, all tones stay quiet enough, and the miss from section 01 stays in the green zone. One zero to the right of the line is one tone that is too loud. Then the primes are less regular than everybody thinks.</p>
+  <p data-i18n="s2p4">Why is the line so important? The position from left to right sets how loud a tone is. On the centre line, all tones stay quiet enough, and the miss from section 01 stays in the green zone. One zero to the right of the line is one tone that is too loud. Then the primes are less regular than everybody thinks.</p>
 </section>
 
 <section>
   <span class="num">03</span>
-  <h2>Why it took 167 years, and what the new idea is</h2>
-  <p>Mathematicians know a second, more simple world of numbers. It works like a model railway of the real number world: smaller, but with the same rules. This model world has its own primes and its own Riemann Hypothesis.</p>
+  <h2 data-i18n="s3h">Why it took 167 years, and what the new idea is</h2>
+  <p data-i18n="s3p1">Mathematicians know a second, more simple world of numbers. It works like a model railway of the real number world: smaller, but with the same rules. This model world has its own primes and its own Riemann Hypothesis.</p>
   <div class="worlds">
     <div class="world done">
-      <span class="tag">Solved</span>
-      <h3>The model world</h3>
-      <p>Andr&eacute; Weil solved the riddle here in the 1940s. In 1969 Sergei Stepanov found a much shorter solution.</p>
+      <span class="tag" data-i18n="w1tag">Solved</span>
+      <h3 data-i18n="w1h">The model world</h3>
+      <p data-i18n="w1p">Andr&eacute; Weil solved the riddle here in the 1940s. In 1969 Sergei Stepanov found a much shorter solution.</p>
     </div>
     <div class="world open">
-      <span class="tag">Open since 1859</span>
-      <h3>The usual numbers 1, 2, 3, &hellip;</h3>
-      <p>The plan for decades: copy the solution from the model world. It did not work, because one tool does not exist here.</p>
+      <span class="tag" data-i18n="w2tag">Open since 1859</span>
+      <h3 data-i18n="w2h">The usual numbers 1, 2, 3, &hellip;</h3>
+      <p data-i18n="w2p">The plan for decades: copy the solution from the model world. It did not work, because one tool does not exist here.</p>
     </div>
   </div>
 
-  <h3>The tool that was missing</h3>
-  <p>The tool is a method to count one point more than one time. The pictures show the idea. A line can go through a point. It can also only touch the point, or stay flat on it. Mathematicians then count the point one, two or three times.</p>
+  <h3 data-i18n="s3h2">The tool that was missing</h3>
+  <p data-i18n="s3p2">The tool is a method to count one point more than one time. The pictures show the idea. A line can go through a point. It can also only touch the point, or stay flat on it. Mathematicians then count the point one, two or three times.</p>
 
   <figure>
     <div class="minis">
-      <div><svg viewBox="0 0 120 80" id="m1" role="img" aria-label="A line that goes through the point"></svg><b>counts 1&times;</b>goes through</div>
-      <div><svg viewBox="0 0 120 80" id="m2" role="img" aria-label="A curve that touches the point"></svg><b>counts 2&times;</b>touches</div>
-      <div><svg viewBox="0 0 120 80" id="m3" role="img" aria-label="A curve that stays flat on the point"></svg><b>counts 3&times;</b>stays flat</div>
+      <div><svg viewBox="0 0 120 80" id="m1" role="img" aria-label="A line that goes through the point" data-i18n-aria="aM1"></svg><b data-i18n="mi1b">counts 1&times;</b><span data-i18n="mi1t">goes through</span></div>
+      <div><svg viewBox="0 0 120 80" id="m2" role="img" aria-label="A curve that touches the point" data-i18n-aria="aM2"></svg><b data-i18n="mi2b">counts 2&times;</b><span data-i18n="mi2t">touches</span></div>
+      <div><svg viewBox="0 0 120 80" id="m3" role="img" aria-label="A curve that stays flat on the point" data-i18n-aria="aM3"></svg><b data-i18n="mi3b">counts 3&times;</b><span data-i18n="mi3t">stays flat</span></div>
     </div>
-    <div class="fig-title">Why this helps: Stepanov&rsquo;s trick</div>
-    <p style="font-size:.95rem">Stepanov wanted to show that some special points are rare. He had a fixed budget, here 24 slots. If each point counts more than one time, each point uses more slots. Then fewer points can exist.</p>
+    <div class="fig-title" data-i18n="f4t">Why this helps: Stepanov&rsquo;s trick</div>
+    <p style="font-size:.95rem" data-i18n="f4p">Stepanov wanted to show that some special points are rare. He had a fixed budget, here 24 slots. If each point counts more than one time, each point uses more slots. Then fewer points can exist.</p>
     <div class="ctl">
-      <label for="ms">How many times each point counts <output id="mo">3 times</output></label>
+      <label for="ms"><span data-i18n="f4l">How many times each point counts</span> <output id="mo">3 times</output></label>
       <input type="range" id="ms" min="1" max="8" step="1" value="3">
     </div>
     <div class="slots" id="slots" aria-hidden="true"></div>
     <p class="result" id="mres">At most <b>8</b> points fit.</p>
-    <figcaption>The more times each point counts, the smaller the number of possible points. A strict limit of this type solved the riddle in the model world.</figcaption>
+    <figcaption data-i18n="f4c">The more times each point counts, the smaller the number of possible points. A strict limit of this type solved the riddle in the model world.</figcaption>
   </figure>
 
-  <h3>The new idea: a long chain</h3>
-  <p>In the model world, the multiple count is easy to get. For the usual numbers, nobody knew how to get it. The note says that a tool from a very different area of mathematics can do the job. Its name is theta lift. Each use of the tool adds one more count. So you use it again and again, as links in a chain.</p>
+  <h3 data-i18n="s3h3">The new idea: a long chain</h3>
+  <p data-i18n="s3p3">In the model world, the multiple count is easy to get. For the usual numbers, nobody knew how to get it. The note says that a tool from a very different area of mathematics can do the job. Its name is theta lift. Each use of the tool adds one more count. So you use it again and again, as links in a chain.</p>
 
   <figure>
-    <div class="chain" role="img" aria-label="A chain of many links, each link adds one count">
-      <span class="box">Start</span><span class="arr">+1</span>
-      <span class="box">Link 1</span><span class="arr">+1</span>
-      <span class="box opt">Link 2</span><span class="arr opt">+1</span>
+    <div class="chain" role="img" aria-label="A chain of many links, each link adds one count" data-i18n-aria="aC">
+      <span class="box" data-i18n="ch0">Start</span><span class="arr">+1</span>
+      <span class="box" data-i18n="ch1">Link 1</span><span class="arr">+1</span>
+      <span class="box opt" data-i18n="ch2">Link 2</span><span class="arr opt">+1</span>
       <span class="box">&hellip;</span><span class="arr">+1</span>
-      <span class="box">Link 1,000</span>
+      <span class="box" data-i18n="chN">Link 1,000</span>
     </div>
     <div class="brace"></div>
-    <div class="brace-l">primes up to 1,000,000: about 1,000 links</div>
-    <figcaption>The length of the chain is the square root of X. This is the same number as the height of the green zone in section 01.</figcaption>
+    <div class="brace-l" data-i18n="brl">primes up to 1,000,000: about 1,000 links</div>
+    <figcaption data-i18n="f5c">The length of the chain is the square root of X. This is the same number as the height of the green zone in section 01.</figcaption>
   </figure>
 
-  <p>How long must the chain be? Claude proposed the square root of X. The author writes that this one line will astonish other mathematicians. His own comment in the note: &ldquo;And yet, what else could it be?&rdquo;</p>
-  <p class="aside">A limit of this page: the note does not explain the proof. This section gives the idea in the words of the note. The author also writes that he is not an expert in this part of mathematics. Here the AI knew more than he did.</p>
+  <p data-i18n="s3p4">How long must the chain be? Claude proposed the square root of X. The author writes that this one line will astonish other mathematicians. His own comment in the note: &ldquo;And yet, what else could it be?&rdquo;</p>
+  <p class="aside" data-i18n="s3p5">A limit of this page: the note does not explain the proof. This section gives the idea in the words of the note. The author also writes that he is not an expert in this part of mathematics. Here the AI knew more than he did.</p>
 </section>
 
 <section>
   <span class="num">04</span>
-  <h2>Six weeks, one person, one AI</h2>
-  <p>The note lists 20 steps with dates. The work started on 6 October and ended on 16 November 2026.</p>
+  <h2 data-i18n="s4h">Six weeks, one person, one AI</h2>
+  <p data-i18n="s4p1">The note lists 20 steps with dates. The work started on 6 October and ended on 16 November 2026.</p>
   <figure>
-    <div class="fig-title">The 20 steps by date</div>
-    <svg class="chart" id="cT" role="img" aria-label="Dot chart: eleven steps from 6 to 20 October, then eight steps on 15 November and the final step on 16 November"></svg>
-    <figcaption>One dot is one step. Eleven steps are in the first two weeks. Then almost four weeks have no dated step. Eight steps have the date 15 November, a Sunday. One day later the work was complete.</figcaption>
+    <div class="fig-title" data-i18n="f6t">The 20 steps by date</div>
+    <svg class="chart" id="cT" role="img" aria-label="Dot chart: eleven steps from 6 to 20 October, then eight steps on 15 November and the final step on 16 November" data-i18n-aria="aT"></svg>
+    <figcaption data-i18n="f6c">One dot is one step. Eleven steps are in the first two weeks. Then almost four weeks have no dated step. Eight steps have the date 15 November, a Sunday. One day later the work was complete.</figcaption>
   </figure>
   <div class="who">
-    <div><strong>Levent Alpöge</strong> is a mathematician at Anthropic, the company that makes Claude. He writes that he prepared for this riddle since his student days. He selected the direction and the ideas to combine.</div>
-    <div><strong>Claude</strong> did much of the technical work, mainly at the end. The author writes that the AI was far ahead of him in that phase and that it made important proposals.</div>
-    <div><strong>Together</strong> they wrote the proof in a form that a computer can check. The author says openly that he does not yet understand all parts of it.</div>
+    <div data-i18n="who1"><strong>Levent Alpöge</strong> is a mathematician at Anthropic, the company that makes Claude. He writes that he prepared for this riddle since his student days. He selected the direction and the ideas to combine.</div>
+    <div data-i18n="who2"><strong>Claude</strong> did much of the technical work, mainly at the end. The author writes that the AI was far ahead of him in that phase and that it made important proposals.</div>
+    <div data-i18n="who3"><strong>Together</strong> they wrote the proof in a form that a computer can check. The author says openly that he does not yet understand all parts of it.</div>
   </div>
 </section>
 
 <section>
   <span class="num">05</span>
-  <h2>Can you trust a proof that no person has read?</h2>
-  <p>The proof is a computer file with about 175,000 parts. A checking program with the name Lean examines each step. Think of a very strict auditor. The auditor does not understand the business. But the auditor recalculates each line and accepts nothing without a reason.</p>
-  <p>Such a check can still go wrong in two ways. The file can prove a different, easier claim than the real riddle. Or it can contain a hidden shortcut: a step that it assumes but does not prove. So other people must examine these points.</p>
+  <h2 data-i18n="s5h">Can you trust a proof that no person has read?</h2>
+  <p data-i18n="s5p1">The proof is a computer file with 175,187 parts. A checking program with the name Lean examines each step. Think of a very strict auditor. The auditor does not understand the business. But the auditor recalculates each line and accepts nothing without a reason.</p>
+  <p data-i18n="s5p2">Such a check can still go wrong in two ways. The file can prove a different, easier claim than the real riddle. Or it can contain a hidden shortcut: a step that it assumes but does not prove. So other people must examine these points. Andrew Sutherland of the university MIT keeps a public list of all checks.</p>
   <ul class="checks">
-    <li><span class="pill done">Passed</span><span>The check works on other computers.<span class="d">Andrew Sutherland of the university MIT and other researchers ran it independently. Scientific American reports no problems.</span></span></li>
-    <li><span class="pill done">Passed</span><span>No hidden shortcuts.<span class="d">Sutherland says that the proof uses only the three basic assumptions that all of mathematics uses. He puts the chance of a trick at &ldquo;approximately zero&rdquo;.</span></span></li>
-    <li><span class="pill prog">Open</span><span>The file proves the real riddle.<span class="d">It looks correct. A last automatic comparison was still open on the morning of 21 November.</span></span></li>
-    <li><span class="pill no">Not yet</span><span>People understand the proof.<span class="d">Nobody can explain today why it works. The author expects that shorter and clearer versions will follow.</span></span></li>
-    <li><span class="pill no">Not yet</span><span>A text that people can read.<span class="d">A printed version would have more than 250,000 pages. The author decided not to publish that.</span></span></li>
-    <li><span class="pill no">Not yet</span><span>The prize of 1 million dollars.<span class="d">The rules of the Clay institute require a publication and then a waiting time of two years or more.</span></span></li>
+    <li><span class="pill done" data-i18n="plOk">Passed</span><span><span data-i18n="k1t">The check works on other computers.</span><span class="d" data-i18n="k1d">Sutherland ran all 175,187 parts on his own computers. The result: zero errors.</span></span></li>
+    <li><span class="pill done" data-i18n="plOk">Passed</span><span><span data-i18n="k2t">No hidden shortcuts.</span><span class="d" data-i18n="k2d">The proof uses only the three basic assumptions that all of mathematics uses. Sutherland puts the chance of a trick at &ldquo;approximately zero&rdquo;.</span></span></li>
+    <li><span class="pill done" data-i18n="plOk">Passed</span><span><span data-i18n="k3t">Other auditors come to the same result.</span><span class="d" data-i18n="k3d">Four separate checking programs accepted the proof.</span></span></li>
+    <li><span class="pill prog" data-i18n="plRun">Running</span><span><span data-i18n="k4t">The large final check.</span><span class="d" data-i18n="k4d">It has three parts. Two are complete and passed: the file proves the real riddle, and it has no shortcuts. The third part is a slow recalculation. It was still running at the last report on 21 November, 09:30 UTC.</span></span></li>
+    <li><span class="pill no" data-i18n="plNo">Not yet</span><span><span data-i18n="k5t">People understand the proof.</span><span class="d" data-i18n="k5d">Nobody can explain today why it works. The well-known mathematician Terence Tao expects that this will take time.</span></span></li>
+    <li><span class="pill no" data-i18n="plNo">Not yet</span><span><span data-i18n="k6t">A text that people can read.</span><span class="d" data-i18n="k6d">A printed version would have more than 250,000 pages. The author decided not to publish that.</span></span></li>
+    <li><span class="pill no" data-i18n="plNo">Not yet</span><span><span data-i18n="k7t">The prize of 1 million dollars.</span><span class="d" data-i18n="k7d">The rules of the Clay institute require a publication and then a waiting time of two years or more.</span></span></li>
   </ul>
-  <p><strong>The short answer:</strong> the proof is very probably correct. Scientific American uses the words &ldquo;almost certainly true&rdquo; in its headline. But checked is not the same as understood. The next task for mathematicians is to find out why the proof works.</p>
+  <p data-i18n="s5p3"><strong>The short answer:</strong> the proof is very probably correct. No check has failed. But checked is not the same as understood. The next task for mathematicians is to find out why the proof works.</p>
+  <p class="small" data-i18n="s5p4">Sutherland also names limits of his own test. One example: his computers did not run the check in a sealed environment. This comparison is still open.</p>
 </section>
 
 <section>
   <span class="num">06</span>
-  <h2>What this means for you</h2>
+  <h2 data-i18n="s6h">A second proof, made by people only</h2>
+  <p data-i18n="s6p1">Some hours after the first news, a second proof became public. Ravi Vakil, the president of the American Mathematical Society, published a draft by the mathematician Alessandro Masullo. The paper has the name &ldquo;The Music of the Primes&rdquo;. Masullo writes that he worked on it for almost 12 years, without AI. He also writes that the draft is not complete, and that he was advised to publish it now.</p>
+
+  <figure>
+    <div class="fig-title" data-i18n="f7t">Time of work on each proof</div>
+    <div class="dur">
+      <div class="drow"><span class="dn" data-i18n="d1n">Masullo</span><span class="dbar"><i class="b2" style="width:100%"></i></span><b data-i18n="d1v">12 years</b></div>
+      <div class="drow"><span class="dn" data-i18n="d2n">Alpöge and Claude</span><span class="dbar"><i class="b1" style="width:1%"></i></span><b data-i18n="d2v">6 weeks</b></div>
+    </div>
+    <figcaption data-i18n="f7c">The bars have the correct proportion. Six weeks are about one hundredth of twelve years.</figcaption>
+  </figure>
+
+  <div class="worlds">
+    <div class="world pa">
+      <span class="tag" data-i18n="va_tag">Proof 1</span>
+      <h3 data-i18n="va_h">Alpöge and Claude</h3>
+      <dl>
+        <dt data-i18n="r_by">Made by</dt><dd data-i18n="va1">one person and one AI</dd>
+        <dt data-i18n="r_form">Form</dt><dd data-i18n="va2">computer file with 175,187 parts</dd>
+        <dt data-i18n="r_chk">Checked by</dt><dd data-i18n="va3">programs</dd>
+        <dt data-i18n="r_weak">Weak point</dt><dd data-i18n="va4">nobody understands it</dd>
+        <dt data-i18n="r_state">State</dt><dd data-i18n="va5">all completed checks passed</dd>
+      </dl>
+    </div>
+    <div class="world pb">
+      <span class="tag" data-i18n="vb_tag">Proof 2</span>
+      <h3 data-i18n="vb_h">Masullo</h3>
+      <dl>
+        <dt data-i18n="r_by">Made by</dt><dd data-i18n="vb1">one person, with advice from his teacher</dd>
+        <dt data-i18n="r_form">Form</dt><dd data-i18n="vb2">paper with 940 pages</dd>
+        <dt data-i18n="r_chk">Checked by</dt><dd data-i18n="vb3">people</dd>
+        <dt data-i18n="r_weak">Weak point</dt><dd data-i18n="vb4">nobody confirmed it</dd>
+        <dt data-i18n="r_state">State</dt><dd data-i18n="vb5">problems reported, large revision</dd>
+      </dl>
+    </div>
+  </div>
+
+  <h3 data-i18n="s6h2">A different idea</h3>
+  <p data-i18n="s6p2">Masullo does not use the chain from section 03. He calculates one quantity in two ways: one time with the primes, and one time with the tones from section 02. He does this in a special setting. In this setting, only tones near the centre line can sound. He can make this zone as narrow as he wants. The two results must be equal. So there is no room for a tone that is away from the line. Masullo also writes that his method works for the usual numbers, but not in the model world. The first proof goes the opposite way: its idea comes from the model world.</p>
+
+  <h3 data-i18n="s6h3">The state of the second proof</h3>
   <ul class="plain">
-    <li><strong>Your bank card stays safe.</strong> Encryption on the internet uses prime numbers. But the proof gives no method to break it. It only confirms what experts already assumed.</li>
-    <li><strong>Nothing changes in daily life tomorrow.</strong> This is basic knowledge about numbers. Its effect is inside mathematics: many hundreds of results started with the words &ldquo;if the Riemann Hypothesis is true&rdquo;. These results now become facts.</li>
-    <li><strong>The method of work is the real news.</strong> An AI did a large part of the hardest work on the hardest known riddle. And a machine confirmed the result before a person understood it. That is new.</li>
-    <li><strong>Mathematicians have mixed feelings.</strong> The author writes that he lost a guiding light of his life. He also writes that he sees the start of something much larger for all of science.</li>
+    <li data-i18n="l61">Brian Conrad of Stanford, the former teacher of Masullo, examined the paper for months. He confirms this, but he does not say that the proof is correct. He says that the paper is in a large revision.</li>
+    <li data-i18n="l62">Readers reported problems to Vakil some hours after the publication. Nobody knows yet how serious the problems are, or if a repair is possible.</li>
+    <li data-i18n="l63">One public note says that a step near the end of the argument fails. Experts have not examined this note yet.</li>
   </ul>
+  <p data-i18n="s6p3"><strong>Can both proofs be correct?</strong> Yes. Two different routes can go to the same result. And a problem in the second proof says nothing about the riddle itself. It only means that this route is not confirmed. If both are correct, the paper of Masullo is the version that people can read and learn from.</p>
 </section>
 
 <section>
   <span class="num">07</span>
-  <h2>Short glossary</h2>
-  <dl class="gloss">
-    <div><dt>Prime number</dt><dd>A whole number larger than 1 that you cannot write as a product of two smaller numbers.</dd></div>
-    <div><dt>Zeta function</dt><dd>The formula of Riemann that connects all primes. In this page: the sheet of music.</dd></div>
-    <div><dt>Zero</dt><dd>A point where the zeta function has the value 0. In this page: one tone.</dd></div>
-    <div><dt>Lean</dt><dd>A program that checks a mathematical proof step by step. In this page: the auditor.</dd></div>
-    <div><dt>Generalized Riemann Hypothesis</dt><dd>A larger version of the riddle for a full family of similar formulas. The note says that the proof solves this version too.</dd></div>
-  </dl>
-  <h3>Sources</h3>
-  <ul class="sources">
-    <li><a href="https://alpo.ge/remark.pdf">The note by Levent Alpöge (alpo.ge/remark.pdf)</a></li>
-    <li><a href="https://www.scientificamerican.com/article/the-ai-riemann-hypothesis-proof-is-almost-certainly-true-independent-mathematicians-attest/">Scientific American: independent mathematicians on the checks</a></li>
-    <li><a href="https://www.scientificamerican.com/article/anthropic-mathematician-claims-to-prove-riemann-hypothesis-most-famous-problem-in-all-of-math/">Scientific American: first news report on the claim</a></li>
-    <li><a href="https://www.nacionale.com/en/articles/when-will-we-know-riemann-hypothesis-proof-verified-alpoge-claude-lean-what-happens-next">Nacionale: the steps of the verification and the Clay rules</a></li>
-    <li><a href="https://kingy.ai/blog/levent-alpoge-claude-riemann-hypothesis-proof/">Kingy AI: examination of the published files</a></li>
+  <h2 data-i18n="s7h">What this means for you</h2>
+  <ul class="plain">
+    <li data-i18n="m1"><strong>Your bank card stays safe.</strong> Encryption on the internet uses prime numbers. But the proof gives no method to break it. It only confirms what experts already assumed.</li>
+    <li data-i18n="m2"><strong>Nothing changes in daily life tomorrow.</strong> This is basic knowledge about numbers. Its effect is inside mathematics: many hundreds of results started with the words &ldquo;if the Riemann Hypothesis is true&rdquo;. These results now become facts.</li>
+    <li data-i18n="m3"><strong>The method of work is the real news.</strong> An AI did a large part of the hardest work on the hardest known riddle. And machines confirmed the result before a person understood it. That is new.</li>
+    <li data-i18n="m4"><strong>Mathematicians have mixed feelings.</strong> Alpöge writes that he lost a guiding light of his life, and that he sees the start of something much larger for all of science. Masullo writes to his colleagues that human mathematicians are still here.</li>
   </ul>
 </section>
 
-<footer>The charts calculate their data in your browser. Section 03 simplifies very advanced mathematics. Status of the checks: morning of 21 November 2026.</footer>
+<section>
+  <span class="num">08</span>
+  <h2 data-i18n="s8h">Short glossary</h2>
+  <dl class="gloss">
+    <div><dt data-i18n="g1t">Prime number</dt><dd data-i18n="g1d">A whole number larger than 1 that you cannot write as a product of two smaller numbers.</dd></div>
+    <div><dt data-i18n="g2t">Zeta function</dt><dd data-i18n="g2d">The formula of Riemann that connects all primes. In this page: the sheet of music.</dd></div>
+    <div><dt data-i18n="g3t">Zero</dt><dd data-i18n="g3d">A point where the zeta function has the value 0. In this page: one tone.</dd></div>
+    <div><dt data-i18n="g4t">Lean</dt><dd data-i18n="g4d">A program that checks a mathematical proof step by step. In this page: the auditor.</dd></div>
+    <div><dt data-i18n="g5t">Generalized Riemann Hypothesis</dt><dd data-i18n="g5d">A larger version of the riddle for a full family of similar formulas. The two proofs claim to solve this version too.</dd></div>
+  </dl>
+  <h3 data-i18n="srch">Sources</h3>
+  <ul class="sources">
+    <li><a href="https://alpo.ge/remark.pdf" data-i18n="src1">The note by Levent Alpöge (alpo.ge/remark.pdf)</a></li>
+    <li><a href="https://math.mit.edu/~drew/grh/" data-i18n="src2">Andrew Sutherland, MIT: public list of the checks</a></li>
+    <li><a href="https://www.scientificamerican.com/article/the-ai-riemann-hypothesis-proof-is-almost-certainly-true-independent-mathematicians-attest/" data-i18n="src3">Scientific American: independent mathematicians on the checks</a></li>
+    <li><a href="https://math216.wordpress.com/2026/11/20/hurried-announcement-alessandro-masullo-grh/" data-i18n="src4">Ravi Vakil: announcement of the paper by Alessandro Masullo</a></li>
+    <li><a href="https://www.nacionale.com/en/articles/what-is-generalized-riemann-hypothesis-grh-explained-alpoge-claude-proof" data-i18n="src5">Nacionale: the two proofs and the reported problems</a></li>
+    <li><a href="https://www.nacionale.com/en/articles/when-will-we-know-riemann-hypothesis-proof-verified-alpoge-claude-lean-what-happens-next" data-i18n="src6">Nacionale: the steps of the verification and the Clay rules</a></li>
+    <li><a href="https://philarchive.org/archive/NIEIOM" data-i18n="src7">Public note about a possible error in the second proof (not reviewed)</a></li>
+  </ul>
+</section>
+
+<footer data-i18n="foot">The charts calculate their data in your browser. Sections 03 and 06 simplify very advanced mathematics. Status of the checks: afternoon of 21 November 2026.</footer>
 </main>
 
 <script>
 (function(){
 'use strict';
 var NS='http://www.w3.org/2000/svg';
+var root=document.documentElement;
 function mk(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
 function $(id){return document.getElementById(id);}
-function fmt(n){return Math.round(n).toLocaleString('en-US');}
-function sgn(v,d){var s=Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});return (v<0?'−':'')+s;}
-function short(v){var a=Math.abs(v),s;if(a>=1e6)s=(a/1e6)+'M';else if(a>=1e3)s=(a/1e3)+'k';else s=''+a;return (v<0?'−':'')+s;}
+
+/* ---------- language ---------- */
+var DE={"ey":"Erklärstück &middot; Stand: 21. November 2026","bLight":"Hell","bDark":"Dunkel","aMode":"Farbmodus","h1":"Ein möglicher Beweis der Riemannschen Vermutung","lead":"167 Jahre lang konnte niemand das berühmteste Rätsel der Mathematik lösen. Am 20. November 2026 erklärte der Mathematiker Levent Alpöge, er habe es gemeinsam mit Claude gelöst, einem KI-Programm. Diese Seite erklärt das Rätsel, die Idee und wie sicher das Ergebnis ist. Schulmathematik ist dafür nicht nötig.","st_b":"Stand: Alle fertigen Prüfungen bestanden, eine läuft noch","st_t":"Andere Mathematiker haben den Beweis mit mehreren unabhängigen Prüfprogrammen kontrolliert. Jede fertige Prüfung war erfolgreich. Eine lange Schlussprüfung lief am 21. November noch. Kein Mensch versteht den ganzen Beweis bisher. Am selben Tag erschien ein zweiter Beweis, den nur Menschen gemacht haben. Bei ihm wurden Probleme gemeldet (Abschnitt 06).","c1h":"Das Rätsel","c1t":"Primzahlen tauchen ohne erkennbares Muster auf. Die Riemannsche Vermutung sagt: Dahinter steckt eine strenge Ordnung.","c2h":"Die Behauptung","c2t":"Ein Beweis, dass es diese Ordnung wirklich gibt. Ein Mensch gab die Richtung vor. Eine KI machte viel von der schweren Arbeit.","c3h":"Die Überraschung","c3t":"Der Beweis ist kein Text für Menschen. Er ist eine sehr große Computerdatei, die Programme Schritt für Schritt prüfen.","s1h":"Das Rätsel: Wie sind die Primzahlen verteilt?","s1p1":"12 Zuckerl kann man in gleiche Gruppen teilen: 3 Gruppen zu 4 oder 2 Gruppen zu 6. Mit 13 Zuckerln geht das nicht. Zahlen wie 13 heißen Primzahlen: 2, 3, 5, 7, 11, 13, 17. Alle anderen ganzen Zahlen sind Produkte von Primzahlen. Darum nennt man Primzahlen die Bausteine der Zahlen.","s1p2":"Je größer die Zahlen werden, desto seltener sind Primzahlen. Unter 100 ist jede vierte Zahl eine Primzahl. Unter einer Million ist es nur mehr jede dreizehnte. Aber niemand kann mit einer einfachen Regel sagen, wo die nächste Primzahl liegt.","s1p3":"Es gibt eine Formel, die vorhersagt, wie viele Primzahlen es unter einer Zahl X gibt. Das Diagramm vergleicht diese Vorhersage mit der echten Anzahl.","f1t":"Echte Anzahl und Vorhersage","f1l":"Primzahlen zählen bis X","lg1a":"echte Anzahl der Primzahlen","lg1b":"Vorhersage der Formel","aA":"Treppe der echten Primzahl-Anzahl, darüber die glatte Vorhersage","stA":"Primzahlen bis X","stB":"Vorhersage","stC":"Abweichung","stD":"Wurzel aus X","f1t2":"Nur die Abweichung: echte Anzahl minus Vorhersage","lg2a":"Abweichung","lg2b":"erlaubter Bereich","aB":"Die Abweichung der Vorhersage bleibt in einem Bereich, der so hoch ist wie die Wurzel aus x","f1c":"Schieben Sie den Regler nach rechts. Im oberen Diagramm werden die zwei Linien fast zu einer Linie. Das untere Diagramm zeigt den kleinen Unterschied. Er bleibt im grünen Bereich.","s1p4":"<strong>Die Riemannsche Vermutung sagt: Die Abweichung bleibt für immer in diesem Bereich</strong>, auch bei Zahlen mit tausend Stellen. Der Bereich ist ungefähr so hoch wie die Wurzel aus X. Für X = 1.000.000 ist die Wurzel 1.000, denn 1.000 &times; 1.000 = 1.000.000.","s1p5":"Ein Vergleich: Werfen Sie eine Münze eine Million Mal. Sie erwarten 500.000-mal Kopf. Das echte Ergebnis liegt meist um einige Hundert daneben, nicht um Zehntausende. Reiner Zufall macht genau so kleine Fehler. Die Vermutung sagt: Primzahlen verhalten sich wie diese Münzwürfe. Sie sehen zufällig aus, aber keine versteckte Kraft schiebt sie von der Vorhersage weg.","s2h":"Die verborgene Musik der Primzahlen","s2p1":"1859 fand der deutsche Mathematiker Bernhard Riemann heraus, woher die Abweichung kommt. Er verwendete eine Formel mit dem Namen Zeta-Funktion. Man kann sie sich als verborgenes Notenblatt der Primzahlen vorstellen. Auf dem Blatt gibt es besondere Punkte, die Nullstellen. Jede Nullstelle ist ein Ton.","s2p2":"Das Diagramm zeigt, was die Töne machen. Ein Ton allein ist eine einfache Welle. Nimmt man viele Töne zusammen, bauen die Wellen eine Treppe. Die Treppe steigt genau dort, wo die Primzahlen sind.","f2t":"Die Töne bauen die Treppe der Primzahlen","f2l":"Verwendete Töne","lg3a":"Treppe der Primzahlen","lg3b":"Summe der Töne","aW":"Eine Summe von Wellen nähert sich der Treppe, die bei jeder Primzahl eine Stufe macht","f2c":"Ohne Töne ist die rote Linie gerade. Mit mehr Tönen entstehen Stufen bei 2, 3, 5, 7, 11 und jeder weiteren Primzahl. Große Primzahlen machen höhere Stufen. Kleine Stufen gibt es auch bei 4, 8, 9 und anderen Potenzen von Primzahlen.","s2p3":"Jetzt die wichtige Frage: Wo liegen diese Nullstellen? Man kann sie auf einer Karte einzeichnen.","f3t":"Die ersten zehn Nullstellen auf der Karte","aS":"Ein senkrechter Streifen mit zehn Nullstellen, alle auf der Mittellinie","sv1":"Position von links nach rechts","sv2":"Mittellinie","tx1":"Jeder rote Punkt ist eine Nullstelle. Die Zahl daneben ist ihre Höhe auf der Karte. Die Höhe bestimmt, wie hoch der Ton ist.","tx2":"Alle zehn Punkte liegen genau auf der roten Mittellinie. Riemann vermutete: <strong>Jede Nullstelle liegt auf dieser Linie</strong>, und es gibt unendlich viele davon. Das ist die Riemannsche Vermutung.","tx3":"Das graue Kreuz zeigt, was nie vorkommen darf: eine Nullstelle neben der Linie.","tx4":"Computer haben die ersten 10 Billionen Nullstellen gefunden. Alle liegen auf der Linie. Aber das ist kein Beweis. Die nächste Nullstelle kann trotzdem anders sein.","s2p4":"Warum ist die Linie so wichtig? Die Position von links nach rechts bestimmt, wie laut ein Ton ist. Auf der Mittellinie bleiben alle Töne leise genug, und die Abweichung aus Abschnitt 01 bleibt im grünen Bereich. Eine Nullstelle rechts von der Linie ist ein Ton, der zu laut ist. Dann sind die Primzahlen weniger regelmäßig, als alle glauben.","s3h":"Warum es 167 Jahre gedauert hat und was die neue Idee ist","s3p1":"Mathematiker kennen eine zweite, einfachere Zahlenwelt. Sie ist wie eine Modelleisenbahn der echten Zahlenwelt: kleiner, aber mit den gleichen Regeln. Diese Modellwelt hat eigene Primzahlen und eine eigene Riemannsche Vermutung.","w1tag":"Gelöst","w1h":"Die Modellwelt","w1p":"Andr&eacute; Weil löste das Rätsel hier in den 1940er-Jahren. 1969 fand Sergei Stepanow eine viel kürzere Lösung.","w2tag":"Offen seit 1859","w2h":"Die gewöhnlichen Zahlen 1, 2, 3, &hellip;","w2p":"Der Plan seit Jahrzehnten: die Lösung aus der Modellwelt übertragen. Das gelang nicht, weil es ein Werkzeug hier nicht gibt.","s3h2":"Das Werkzeug, das fehlte","s3p2":"Das Werkzeug ist eine Methode, einen Punkt mehr als einmal zu zählen. Die Bilder zeigen die Idee. Eine Linie kann durch einen Punkt gehen. Sie kann den Punkt auch nur berühren oder flach auf ihm liegen. Mathematiker zählen den Punkt dann einmal, zweimal oder dreimal.","aM1":"Eine Linie, die durch den Punkt geht","aM2":"Eine Kurve, die den Punkt berührt","aM3":"Eine Kurve, die flach auf dem Punkt liegt","mi1b":"zählt 1&times;","mi1t":"geht durch","mi2b":"zählt 2&times;","mi2t":"berührt","mi3b":"zählt 3&times;","mi3t":"liegt flach","f4t":"Warum das hilft: der Trick von Stepanow","f4p":"Stepanow wollte zeigen, dass bestimmte Punkte selten sind. Er hatte ein festes Budget, hier 24 Plätze. Wenn jeder Punkt mehrfach zählt, braucht jeder Punkt mehr Plätze. Dann kann es nur weniger Punkte geben.","f4l":"Wie oft jeder Punkt zählt","f4c":"Je öfter jeder Punkt zählt, desto kleiner ist die mögliche Anzahl der Punkte. Eine strenge Grenze dieser Art hat das Rätsel in der Modellwelt gelöst.","s3h3":"Die neue Idee: eine lange Kette","s3p3":"In der Modellwelt ist das mehrfache Zählen leicht zu bekommen. Bei den gewöhnlichen Zahlen wusste niemand, wie das geht. Die Notiz sagt: Ein Werkzeug aus einem ganz anderen Gebiet der Mathematik kann das leisten. Es heißt Theta-Lift. Jede Anwendung des Werkzeugs bringt eine Zählung mehr. Also wendet man es immer wieder an, wie Glieder einer Kette.","aC":"Eine Kette aus vielen Gliedern, jedes Glied bringt eine Zählung mehr","ch0":"Start","ch1":"Glied 1","ch2":"Glied 2","chN":"Glied 1.000","brl":"Primzahlen bis 1.000.000: etwa 1.000 Glieder","f5c":"Die Länge der Kette ist die Wurzel aus X. Das ist die gleiche Zahl wie die Höhe des grünen Bereichs in Abschnitt 01.","s3p4":"Wie lang muss die Kette sein? Claude schlug die Wurzel aus X vor. Der Autor schreibt, dass diese eine Zeile andere Mathematiker sehr überraschen wird. Sein eigener Kommentar in der Notiz, übersetzt: &bdquo;Und doch: Was sollte es sonst sein?&ldquo;","s3p5":"Eine Grenze dieser Seite: Die Notiz erklärt den Beweis nicht. Dieser Abschnitt gibt die Idee so wieder, wie die Notiz sie beschreibt. Der Autor schreibt auch, dass er in diesem Teil der Mathematik kein Experte ist. Hier wusste die KI mehr als er.","s4h":"Sechs Wochen, ein Mensch, eine KI","s4p1":"Die Notiz nennt 20 Schritte mit Datum. Die Arbeit begann am 6. Oktober und endete am 16. November 2026.","f6t":"Die 20 Schritte nach Datum","aT":"Punktdiagramm: elf Schritte vom 6. bis 20. Oktober, dann acht Schritte am 15. November und der letzte Schritt am 16. November","f6c":"Ein Punkt ist ein Schritt. Elf Schritte liegen in den ersten zwei Wochen. Dann gibt es fast vier Wochen lang keinen Schritt mit Datum. Acht Schritte tragen das Datum 15. November, ein Sonntag. Einen Tag später war die Arbeit fertig.","who1":"<strong>Levent Alpöge</strong> ist Mathematiker bei Anthropic, der Firma, die Claude herstellt. Er schreibt, dass er sich seit seiner Studienzeit auf dieses Rätsel vorbereitet hat. Er wählte die Richtung und die Ideen, die zusammenkommen sollten.","who2":"<strong>Claude</strong> machte viel von der technischen Arbeit, vor allem am Ende. Der Autor schreibt, dass die KI ihm in dieser Phase weit voraus war und wichtige Vorschläge machte.","who3":"<strong>Gemeinsam</strong> schrieben sie den Beweis in einer Form, die ein Computer prüfen kann. Der Autor sagt offen, dass er noch nicht alle Teile versteht.","s5h":"Kann man einem Beweis trauen, den kein Mensch gelesen hat?","s5p1":"Der Beweis ist eine Computerdatei mit 175.187 Teilen. Ein Prüfprogramm mit dem Namen Lean kontrolliert jeden Schritt. Man kann an einen sehr strengen Buchprüfer denken. Der Buchprüfer versteht das Geschäft nicht. Aber er rechnet jede Zeile nach und akzeptiert nichts ohne Begründung.","s5p2":"So eine Prüfung kann trotzdem auf zwei Arten schiefgehen. Die Datei kann eine andere, leichtere Behauptung beweisen als das echte Rätsel. Oder sie enthält eine versteckte Abkürzung: einen Schritt, den sie annimmt, aber nicht beweist. Darum müssen andere Leute diese Punkte kontrollieren. Andrew Sutherland von der Universität MIT führt eine öffentliche Liste aller Prüfungen.","plOk":"Bestanden","plRun":"Läuft","plNo":"Noch nicht","k1t":"Die Prüfung klappt auf anderen Computern.","k1d":"Sutherland ließ alle 175.187 Teile auf eigenen Computern laufen. Das Ergebnis: null Fehler.","k2t":"Keine versteckten Abkürzungen.","k2d":"Der Beweis verwendet nur die drei Grundannahmen, die die ganze Mathematik verwendet. Sutherland nennt die Chance auf einen Trick &bdquo;ungefähr null&ldquo;.","k3t":"Andere Buchprüfer kommen zum gleichen Ergebnis.","k3d":"Vier getrennte Prüfprogramme haben den Beweis akzeptiert.","k4t":"Die große Schlussprüfung.","k4d":"Sie hat drei Teile. Zwei sind fertig und bestanden: Die Datei beweist das echte Rätsel, und sie hat keine Abkürzungen. Der dritte Teil ist ein langsames Nachrechnen. Er lief beim letzten Bericht am 21. November um 10:30 Uhr (MEZ) noch.","k5t":"Menschen verstehen den Beweis.","k5d":"Niemand kann heute erklären, warum er funktioniert. Der bekannte Mathematiker Terence Tao erwartet, dass das Zeit braucht.","k6t":"Ein Text, den Menschen lesen können.","k6d":"Eine gedruckte Fassung hätte mehr als 250.000 Seiten. Der Autor hat entschieden, sie nicht zu veröffentlichen.","k7t":"Der Preis von 1 Million Dollar.","k7d":"Die Regeln des Clay-Instituts verlangen eine Veröffentlichung und danach eine Wartezeit von zwei Jahren oder mehr.","s5p3":"<strong>Die kurze Antwort:</strong> Der Beweis ist sehr wahrscheinlich richtig. Keine Prüfung ist gescheitert. Aber geprüft ist nicht das Gleiche wie verstanden. Die nächste Aufgabe der Mathematiker ist herauszufinden, warum der Beweis funktioniert.","s5p4":"Sutherland nennt auch Grenzen seines eigenen Tests. Ein Beispiel: Seine Computer haben die Prüfung nicht in einer abgeschotteten Umgebung ausgeführt. Dieser Vergleich ist noch offen.","s6h":"Ein zweiter Beweis, nur von Menschen gemacht","s6p1":"Einige Stunden nach der ersten Nachricht wurde ein zweiter Beweis öffentlich. Ravi Vakil, der Präsident der American Mathematical Society, veröffentlichte einen Entwurf des Mathematikers Alessandro Masullo. Die Arbeit heißt &bdquo;The Music of the Primes&ldquo; (Die Musik der Primzahlen). Masullo schreibt, dass er fast 12 Jahre daran gearbeitet hat, ohne KI. Er schreibt auch, dass der Entwurf nicht fertig ist und dass man ihm geraten hat, ihn jetzt zu veröffentlichen.","f7t":"Arbeitszeit für jeden Beweis","d1n":"Masullo","d1v":"12 Jahre","d2n":"Alpöge und Claude","d2v":"6 Wochen","f7c":"Die Balken haben das richtige Verhältnis. Sechs Wochen sind etwa ein Hundertstel von zwölf Jahren.","va_tag":"Beweis 1","va_h":"Alpöge und Claude","vb_tag":"Beweis 2","vb_h":"Masullo","r_by":"Gemacht von","r_form":"Form","r_chk":"Geprüft von","r_weak":"Schwachpunkt","r_state":"Stand","va1":"einem Menschen und einer KI","va2":"Computerdatei mit 175.187 Teilen","va3":"Programmen","va4":"niemand versteht ihn","va5":"alle fertigen Prüfungen bestanden","vb1":"einem Menschen, mit Rat seines Lehrers","vb2":"Arbeit mit 940 Seiten","vb3":"Menschen","vb4":"niemand hat ihn bestätigt","vb5":"Probleme gemeldet, große Überarbeitung","s6h2":"Eine andere Idee","s6p2":"Masullo verwendet nicht die Kette aus Abschnitt 03. Er berechnet eine Größe auf zwei Arten: einmal mit den Primzahlen und einmal mit den Tönen aus Abschnitt 02. Das macht er in einer besonderen Umgebung. In dieser Umgebung können nur Töne nahe der Mittellinie klingen. Er kann diesen Bereich so schmal machen, wie er will. Die zwei Ergebnisse müssen gleich sein. Also bleibt kein Platz für einen Ton abseits der Linie. Masullo schreibt auch, dass seine Methode bei den gewöhnlichen Zahlen funktioniert, aber nicht in der Modellwelt. Der erste Beweis geht den umgekehrten Weg: Seine Idee kommt aus der Modellwelt.","s6h3":"Der Stand beim zweiten Beweis","l61":"Brian Conrad von der Universität Stanford, der frühere Lehrer von Masullo, hat die Arbeit monatelang geprüft. Er bestätigt das, sagt aber nicht, dass der Beweis richtig ist. Er sagt, dass die Arbeit gerade stark überarbeitet wird.","l62":"Leser meldeten Vakil schon einige Stunden nach der Veröffentlichung Probleme. Niemand weiß bisher, wie schwer die Probleme sind und ob man sie reparieren kann.","l63":"Eine öffentliche Notiz sagt, dass ein Schritt kurz vor dem Ende der Argumentation nicht stimmt. Fachleute haben diese Notiz noch nicht geprüft.","s6p3":"<strong>Können beide Beweise richtig sein?</strong> Ja. Zwei verschiedene Wege können zum gleichen Ergebnis führen. Und ein Problem im zweiten Beweis sagt nichts über das Rätsel selbst. Es bedeutet nur, dass dieser Weg nicht bestätigt ist. Wenn beide richtig sind, ist die Arbeit von Masullo die Fassung, die Menschen lesen und aus der sie lernen können.","s7h":"Was das für Sie bedeutet","m1":"<strong>Ihre Bankomatkarte bleibt sicher.</strong> Verschlüsselung im Internet verwendet Primzahlen. Aber der Beweis liefert keine Methode, sie zu knacken. Er bestätigt nur, was Fachleute schon angenommen haben.","m2":"<strong>Im Alltag ändert sich morgen nichts.</strong> Es geht um Grundwissen über Zahlen. Die Wirkung liegt in der Mathematik: Viele Hundert Ergebnisse begannen mit den Worten &bdquo;wenn die Riemannsche Vermutung stimmt&ldquo;. Diese Ergebnisse werden jetzt zu Tatsachen.","m3":"<strong>Die Arbeitsweise ist die eigentliche Nachricht.</strong> Eine KI hat einen großen Teil der schwersten Arbeit am schwersten bekannten Rätsel gemacht. Und Maschinen haben das Ergebnis bestätigt, bevor ein Mensch es verstanden hat. Das ist neu.","m4":"<strong>Mathematiker haben gemischte Gefühle.</strong> Alpöge schreibt, dass er einen Leitstern seines Lebens verloren hat und dass er den Anfang von etwas viel Größerem für die ganze Wissenschaft sieht. Masullo schreibt seinen Kollegen, dass die menschlichen Mathematiker noch da sind.","s8h":"Kleines Glossar","g1t":"Primzahl","g1d":"Eine ganze Zahl größer als 1, die man nicht als Produkt von zwei kleineren Zahlen schreiben kann.","g2t":"Zeta-Funktion","g2d":"Die Formel von Riemann, die alle Primzahlen verbindet. Auf dieser Seite: das Notenblatt.","g3t":"Nullstelle","g3d":"Ein Punkt, an dem die Zeta-Funktion den Wert 0 hat. Auf dieser Seite: ein Ton.","g4t":"Lean","g4d":"Ein Programm, das einen mathematischen Beweis Schritt für Schritt prüft. Auf dieser Seite: der Buchprüfer.","g5t":"Verallgemeinerte Riemannsche Vermutung","g5d":"Eine größere Fassung des Rätsels für eine ganze Familie ähnlicher Formeln. Beide Beweise behaupten, auch diese Fassung zu lösen.","srch":"Quellen","src1":"Die Notiz von Levent Alpöge (alpo.ge/remark.pdf, englisch)","src2":"Andrew Sutherland, MIT: öffentliche Liste der Prüfungen (englisch)","src3":"Scientific American: unabhängige Mathematiker über die Prüfungen (englisch)","src4":"Ravi Vakil: Ankündigung der Arbeit von Alessandro Masullo (englisch)","src5":"Nacionale: die zwei Beweise und die gemeldeten Probleme (englisch)","src6":"Nacionale: die Schritte der Überprüfung und die Clay-Regeln (englisch)","src7":"Öffentliche Notiz über einen möglichen Fehler im zweiten Beweis (nicht geprüft, englisch)","foot":"Die Diagramme berechnen ihre Daten in Ihrem Browser. Die Abschnitte 03 und 06 vereinfachen sehr anspruchsvolle Mathematik. Stand der Prüfungen: Nachmittag des 21. November 2026."};
+var EN={},EN_ARIA={};
+var UI={
+  en:{loc:'en-US',title:'Riemann Hypothesis Claim Explained',play:'Add the tones one at a time',stop:'Stop',
+      tone:function(n){return n+(n===1?' tone':' tones');},
+      times:function(m){return m+(m===1?' time':' times');},
+      res:function(m,k,r){return '24 slots, '+m+' for each point: at most <b>'+k+'</b> '+(k===1?'point fits':'points fit')+(r?', and '+r+' '+(r===1?'slot stays':'slots stay')+' empty.':'.');},
+      t0:'6 Oct',t1:'20 Oct',t2:'15–16 Nov',t3:'8 steps on one day'},
+  de:{loc:'de-AT',title:'Riemannsche Vermutung: der mögliche Beweis erklärt',play:'Töne einzeln hinzufügen',stop:'Stopp',
+      tone:function(n){return n+(n===1?' Ton':' Töne');},
+      times:function(m){return m+'-mal';},
+      res:function(m,k,r){return '24 Plätze, '+m+' pro Punkt: höchstens <b>'+k+'</b> '+(k===1?'Punkt hat':'Punkte haben')+' Platz'+(r?', '+r+' '+(r===1?'Platz bleibt':'Plätze bleiben')+' leer.':'.');},
+      t0:'6. Okt.',t1:'20. Okt.',t2:'15.–16. Nov.',t3:'8 Schritte an einem Tag'}
+};
+var lang='en';
+function U(){return UI[lang];}
+var i18nEls=[].slice.call(document.querySelectorAll('[data-i18n]'));
+var ariaEls=[].slice.call(document.querySelectorAll('[data-i18n-aria]'));
+i18nEls.forEach(function(e){var k=e.getAttribute('data-i18n');if(!(k in EN))EN[k]=e.innerHTML;});
+ariaEls.forEach(function(e){EN_ARIA[e.getAttribute('data-i18n-aria')]=e.getAttribute('aria-label');});
+function pickLang(){
+  var h=(location.hash||'').replace('#','');
+  if(h==='de'||h==='en')return h;
+  try{var s=localStorage.getItem('rh-lang');if(s==='de'||s==='en')return s;}catch(e){}
+  return /^de\b/i.test(navigator.language||'')?'de':'en';
+}
+function applyLang(l,save){
+  lang=l==='de'?'de':'en';
+  root.setAttribute('lang',lang);
+  document.title=U().title;
+  i18nEls.forEach(function(e){var k=e.getAttribute('data-i18n'),v=lang==='de'?DE[k]:EN[k];if(v!=null)e.innerHTML=v;});
+  ariaEls.forEach(function(e){var k=e.getAttribute('data-i18n-aria'),v=lang==='de'?DE[k]:EN_ARIA[k];if(v)e.setAttribute('aria-label',v);});
+  [].forEach.call(document.querySelectorAll('#zl text'),function(t){t.textContent=(+t.getAttribute('data-v')).toLocaleString(U().loc,{minimumFractionDigits:2,maximumFractionDigits:2});});
+  $('lEn').setAttribute('aria-pressed',lang==='en');$('lDe').setAttribute('aria-pressed',lang==='de');
+  if(!timer)play.textContent=U().play;
+  if(save){try{localStorage.setItem('rh-lang',lang);}catch(e){}}
+  drawSlots();all();
+}
+
+/* ---------- helpers ---------- */
+function fmt(n){return Math.round(n).toLocaleString(U().loc);}
+function sgn(v,d){var s=Math.abs(v).toLocaleString(U().loc,{maximumFractionDigits:d,minimumFractionDigits:d});return (v<0?'−':'')+s;}
+function short(v){var a=Math.abs(v),s;if(a>=1e6)s=(a/1e6).toLocaleString(U().loc)+'M';else if(a>=1e3)s=(a/1e3).toLocaleString(U().loc)+'k';else s=a.toLocaleString(U().loc);return (v<0?'−':'')+s;}
 function ticks(lo,hi,n){var raw=(hi-lo)/n,p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p,step=(m<1.5?1:m<3.5?2:m<7.5?5:10)*p,out=[];for(var v=Math.ceil(lo/step-1e-9)*step;v<=hi+step*1e-6;v+=step)out.push(+v.toPrecision(10));return out;}
 function plot(svg,o){
   var w=Math.max(260,svg.getBoundingClientRect().width||640),h=o.h;
@@ -406,12 +521,11 @@ function plot(svg,o){
   return {sx:sx,sy:sy,w:w,h:h,m:m};
 }
 
-/* primes */
+/* ---------- primes ---------- */
 var N=1000000,isP=new Uint8Array(N+1),PI=new Uint32Array(N+1);
 (function(){var i,j,c=0;for(i=2;i<=N;i++)isP[i]=1;for(i=2;i*i<=N;i++)if(isP[i])for(j=i*i;j<=N;j+=i)isP[j]=0;for(i=0;i<=N;i++){c+=isP[i];PI[i]=c;}})();
 function li(x){var L=Math.log(x),s=0.5772156649015329+Math.log(L),t=1;for(var k=1;k<90;k++){t*=L/k;s+=t/k;}return s;}
 
-/* chart A + B */
 var xs=$('xs');
 function drawPrimes(){
   var X=Math.min(N,Math.max(100,Math.round(Math.pow(10,+xs.value)))),i,x,d,n;
@@ -437,13 +551,13 @@ function drawPrimes(){
   $('rPi').textContent=fmt(PI[X]);$('rLi').textContent=sgn(liX,1);$('rMiss').textContent=sgn(PI[X]-liX,1);$('rSq').textContent=sgn(Math.sqrt(X),1);
 }
 
-/* chart W */
+/* ---------- waves ---------- */
 var Z=[14.134725,21.022040,25.010858,30.424876,32.935062,37.586178,40.918719,43.327073,48.005151,49.773832,52.970321,56.446248,59.347044,60.831779,65.112544,67.079811,69.546402,72.067158,75.704691,77.144840,79.337375,82.910381,84.735493,87.425275,88.809111,92.491899,94.651344,95.870634,98.831194,101.317851,103.725538,105.446623,107.168611,111.029536,111.874659,114.320221,116.226680,118.790783,121.370125,122.946829,124.256819,127.516684,129.578704,131.087689,133.497737,134.756510,138.116042,139.736209,141.123707,143.111846,146.000982,147.422765,150.053520,150.925258,153.024694,156.112909,157.597592,158.849988,161.188964,163.030710,165.537069,167.184440,169.094515,169.911976,173.411537,174.754192,176.441434,178.377408,179.916484,182.207078,184.874468,185.598784,187.228923,189.416159,192.026656,193.079727,195.265397,196.876482,198.015310,201.264752,202.493595,204.189672,205.394697,207.906259,209.576510,211.690863,213.347919,214.547045,216.169539,219.067596,220.714919,221.430706,224.007000,224.983325,227.421444,229.337413,231.250189,231.987235,233.693404,236.524230,237.769820,239.555478,241.049158,242.823272,244.070898,247.136990,248.101990,249.573690,251.014948,253.069987,255.306256,256.380714,258.610439,259.874407,260.805085,263.573894,265.557852,266.614974,267.921915,269.970449];
 var ns=$('ns'),W0=2,W1=50;
 function psiN(x,n){var L=Math.log(x),r=Math.sqrt(x),s=x-Math.log(2*Math.PI)-0.5*Math.log(1-1/(x*x));for(var k=0;k<n;k++){var g=Z[k];s-=2*r*(0.5*Math.cos(g*L)+g*Math.sin(g*L))/(0.25+g*g);}return s;}
 function drawWaves(){
   var n=+ns.value,svg=$('cW'),p=plot(svg,{h:260,x0:0,x1:W1,y0:0,y1:50}),d,x,psi=0,i,pk,q;
-  $('no').textContent=n+(n===1?' tone':' tones');
+  $('no').textContent=U().tone(n);
   d='M'+p.sx(W0).toFixed(1)+' '+p.sy(0).toFixed(1);
   for(x=2;x<=W1;x++){var lam=0;for(q=2;q<=x;q++){if(isP[q]){pk=q;while(pk<x)pk*=q;if(pk===x){lam=Math.log(q);break;}}}
     if(lam>0){psi+=lam;d+='H'+p.sx(x).toFixed(1)+'V'+p.sy(psi).toFixed(1);}}
@@ -453,16 +567,16 @@ function drawWaves(){
   mk('path',{d:d,'class':'l-zero'},svg);
 }
 var timer=null,play=$('play');
-function stop(){clearInterval(timer);timer=null;play.textContent='Add the tones one at a time';}
+function stop(){clearInterval(timer);timer=null;play.textContent=U().play;}
 play.addEventListener('click',function(){
   if(timer){stop();return;}
   if(+ns.value>=120)ns.value=0;
-  play.textContent='Stop';
+  play.textContent=U().stop;
   timer=setInterval(function(){ns.value=+ns.value+1;drawWaves();if(+ns.value>=120)stop();},70);
 });
 ns.addEventListener('input',function(){if(timer)stop();drawWaves();});
 
-/* multiplicity minis */
+/* ---------- counting pictures ---------- */
 [[1,'m1'],[2,'m2'],[3,'m3']].forEach(function(a){
   var s=$(a[1]),d='',i,t,y;mk('line',{x1:8,x2:112,y1:44,y2:44,'class':'l-base'},s);
   for(i=0;i<=60;i++){t=-1+2*i/60;y=Math.pow(t,a[0]);d+=(i?'L':'M')+(60+t*46).toFixed(1)+' '+(44-y*(a[0]===2?34:30)).toFixed(1);}
@@ -470,30 +584,30 @@ ns.addEventListener('input',function(){if(timer)stop();drawWaves();});
 });
 var ms=$('ms');
 function drawSlots(){
-  var m=+ms.value,D=24,k=Math.floor(D/m),box=$('slots'),i,e;box.textContent='';
-  var grp=null;for(i=0;i<D;i++){if(i%m===0||i===k*m){grp=document.createElement('span');grp.className=i<k*m?(Math.floor(i/m)%2?'b':'a'):'x';box.appendChild(grp);}grp.appendChild(document.createElement('i'));}
-  $('mo').textContent=m+(m===1?' time':' times');
-  $('mres').innerHTML='24 slots, '+m+' for each point: at most <b>'+k+'</b> '+(k===1?'point fits':'points fit')+(D-k*m?', and '+(D-k*m)+' '+(D-k*m===1?'slot stays':'slots stay')+' empty.':'.');
+  var m=+ms.value,D=24,k=Math.floor(D/m),box=$('slots'),i,grp=null;box.textContent='';
+  for(i=0;i<D;i++){if(i%m===0||i===k*m){grp=document.createElement('span');grp.className=i<k*m?(Math.floor(i/m)%2?'b':'a'):'x';box.appendChild(grp);}grp.appendChild(document.createElement('i'));}
+  $('mo').textContent=U().times(m);
+  $('mres').innerHTML=U().res(m,k,D-k*m);
 }
 ms.addEventListener('input',drawSlots);
 
-/* timeline */
+/* ---------- timeline ---------- */
 function drawTime(){
-  var svg=$('cT'),w=Math.max(260,svg.getBoundingClientRect().width||640),h=132,l=14,r=14,base=98,i,j;
+  var svg=$('cT'),w=Math.max(260,svg.getBoundingClientRect().width||640),h=132,l=14,r=14,base=98,j;
   svg.setAttribute('viewBox','0 0 '+w+' '+h);svg.setAttribute('height',h);
   while(svg.firstChild)svg.removeChild(svg.firstChild);
   function sx(d){return l+d/41*(w-l-r);}
   mk('line',{x1:sx(0)-6,x2:sx(41)+6,y1:base,y2:base,'class':'l-base'},svg);
   var g=mk('g',{'class':'ax'},svg);
   [0,7,14,21,28,35].forEach(function(d){mk('line',{x1:sx(d),x2:sx(d),y1:base,y2:base+5},g);});
-  [[0,'6 Oct','start'],[14,'20 Oct','middle'],[40.5,'15–16 Nov','end']].forEach(function(t){mk('text',{x:t[2]==='end'?sx(41)+6:(t[2]==='start'?sx(0)-6:sx(t[0])),y:base+20,'text-anchor':t[2]},g).textContent=t[1];});
+  [[0,U().t0,'start'],[14,U().t1,'middle'],[41,U().t2,'end']].forEach(function(t){mk('text',{x:t[2]==='end'?sx(41)+6:(t[2]==='start'?sx(0)-6:sx(t[0])),y:base+20,'text-anchor':t[2]},g).textContent=t[1];});
   var data=[[0,4],[2,1],[3,1],[8,2],[13,2],[14,1],[40,8],[41,1]],rad=Math.min(4.5,(w-l-r)/41*0.62);
   data.forEach(function(d){for(j=0;j<d[1];j++)mk('circle',{cx:sx(d[0]),cy:base-8-j*10.5,r:rad,'class':d[0]>=40?'d-zero':'d-prime'},svg);});
-  mk('text',{x:sx(40)-10,y:base-8-7*10.5+4,'text-anchor':'end','class':'t-zero'},svg).textContent='8 steps on one day';
+  mk('text',{x:sx(40)-10,y:base-8-7*10.5+4,'text-anchor':'end','class':'t-zero'},svg).textContent=U().t3;
 }
 
-/* colour mode */
-var root=document.documentElement,tL=$('tLight'),tD=$('tDark');
+/* ---------- colour mode ---------- */
+var tL=$('tLight'),tD=$('tDark');
 function curTheme(){var a=root.getAttribute('data-theme');if(a==='dark'||a==='light')return a;return window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
 function showTheme(){var t=curTheme();tL.setAttribute('aria-pressed',t==='light');tD.setAttribute('aria-pressed',t==='dark');}
 function setTheme(t){root.setAttribute('data-theme',t);try{localStorage.setItem('rh-theme',t);}catch(e){}showTheme();}
@@ -503,11 +617,15 @@ if(window.MutationObserver)new MutationObserver(showTheme).observe(root,{attribu
 if(window.matchMedia){var mq=window.matchMedia('(prefers-color-scheme: dark)');if(mq.addEventListener)mq.addEventListener('change',showTheme);}
 showTheme();
 
+/* ---------- start ---------- */
 function all(){drawPrimes();drawWaves();drawTime();}
 xs.addEventListener('input',drawPrimes);
-drawSlots();all();
+$('lEn').addEventListener('click',function(){applyLang('en',true);});
+$('lDe').addEventListener('click',function(){applyLang('de',true);});
+window.addEventListener('hashchange',function(){var h=(location.hash||'').replace('#','');if(h==='de'||h==='en')applyLang(h,false);});
+applyLang(pickLang(),false);
 var raf=0,lastW=0;
-window.addEventListener('resize',function(){cancelAnimationFrame(raf);raf=requestAnimationFrame(function(){var w=document.documentElement.clientWidth;if(w!==lastW){lastW=w;all();}});});
+window.addEventListener('resize',function(){cancelAnimationFrame(raf);raf=requestAnimationFrame(function(){var w=root.clientWidth;if(w!==lastW){lastW=w;all();}});});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(all);
 })();
 </script>
